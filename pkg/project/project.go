@@ -1,4 +1,4 @@
-package main
+package project
 
 import "os/exec"
 import "math/rand"
@@ -11,17 +11,21 @@ import "strings"
 const ProjectsDir = "hide-projects"
 
 type LaunchDevContainerRequest struct {
-	githubUrl string
+	GithubUrl string `json:"githubUrl"`
 }
 
 type ExecCmdRequest struct {
-	devContainer DevContainer
-	cmd          string
+	DevContainer DevContainer `json:"devContainer"`
+	Cmd          string       `json:"cmd"`
 }
 
 type DevContainer struct {
-	id   string
-	path string
+	Id   string `json:"id"`
+	Path string `json:"path"`
+}
+
+type CmdOutput struct {
+	Output string `json:"output"`
 }
 
 type DevContainerManager interface {
@@ -38,7 +42,7 @@ func (pm DevContainerCli) Create(request LaunchDevContainerRequest) (DevContaine
 		return DevContainer{}, fmt.Errorf("Failed to create project directory: %w", err)
 	}
 
-	if err = cloneGitRepo(request.githubUrl, projectPath); err != nil {
+	if err = cloneGitRepo(request.GithubUrl, projectPath); err != nil {
 		return DevContainer{}, fmt.Errorf("Failed to clone git repo: %w", err)
 	}
 
@@ -51,19 +55,19 @@ func (pm DevContainerCli) Create(request LaunchDevContainerRequest) (DevContaine
 	return devContainer, nil
 }
 
-func (pm DevContainerCli) Exec(request ExecCmdRequest) (string, error) {
-	allArgs := append([]string{"exec", "--workspace-folder", request.devContainer.path}, strings.Split(request.cmd, " ")...)
+func (pm DevContainerCli) Exec(request ExecCmdRequest) (CmdOutput, error) {
+	allArgs := append([]string{"exec", "--workspace-folder", request.DevContainer.Path}, strings.Split(request.Cmd, " ")...)
 	cmd := exec.Command("devcontainer", allArgs...)
 	cmdOut, err := cmd.Output()
 
 	if err != nil {
-		return "", fmt.Errorf("Failed to exec command %s in devcontainer %s: %w", request.devContainer.id, request.cmd, err)
+		return CmdOutput{}, fmt.Errorf("Failed to exec command %s in devcontainer %s: %w", request.DevContainer.Id, request.Cmd, err)
 	}
 
 	fmt.Println(">", cmd.String())
 	fmt.Println(string(cmdOut))
 
-	return string(cmdOut), nil
+	return CmdOutput{Output: string(cmdOut)}, nil
 }
 
 func createProjectDir() (string, error) {
@@ -134,5 +138,5 @@ func launchDevContainer(projectPath string) (DevContainer, error) {
 	}
 
 	containerId := dat["containerId"].(string)
-	return DevContainer{id: containerId, path: projectPath}, nil
+	return DevContainer{Id: containerId, Path: projectPath}, nil
 }
