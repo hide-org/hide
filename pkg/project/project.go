@@ -56,6 +56,7 @@ func (pm DevContainerCli) Create(request LaunchDevContainerRequest) (DevContaine
 }
 
 func (pm DevContainerCli) Exec(request ExecCmdRequest) (CmdOutput, error) {
+	// TODO: use container id instead of path
 	allArgs := append([]string{"exec", "--workspace-folder", request.DevContainer.Path}, strings.Split(request.Cmd, " ")...)
 	cmd := exec.Command("devcontainer", allArgs...)
 	cmdOut, err := cmd.Output()
@@ -126,8 +127,6 @@ func launchDevContainer(projectPath string) (DevContainer, error) {
 	fmt.Println(string(cmdOut))
 
 	jsonOutput := string(cmdOut)
-	// lines := strings.Split(jsonOutput, "\n")
-	// lastLine := lines[len(lines)-1]
 
 	var dat map[string]interface{}
 
