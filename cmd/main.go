@@ -9,6 +9,7 @@ import (
 
 func main() {
 	http.HandleFunc("/project", handlers.CreateProject)
+	http.HandleFunc("/exec", handlers.ExecCmd)
 
 	port := ":8080"
 	err := http.ListenAndServe(port, nil)
