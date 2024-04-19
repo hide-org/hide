@@ -5,70 +5,77 @@ import "math/rand"
 import "time"
 import "os"
 import "fmt"
-import "encoding/json"
-import "strings"
+import "github.com/artmoskvin/hide/pkg/devcontainer"
 
 const ProjectsDir = "hide-projects"
 
-type LaunchDevContainerRequest struct {
-	GithubUrl string `json:"githubUrl"`
+type CreateProjectRequest struct {
+	RepoUrl string `json:"repoUrl"`
 }
 
 type ExecCmdRequest struct {
-	DevContainer DevContainer `json:"devContainer"`
-	Cmd          string       `json:"cmd"`
+	Cmd string `json:"cmd"`
 }
 
-type DevContainer struct {
+type Project struct {
+	// Project id is a container id for now. It can change in the future.
 	Id   string `json:"id"`
 	Path string `json:"path"`
 }
 
-type CmdOutput struct {
-	Output string `json:"output"`
+type CmdResult struct {
+	StdOut   string `json:"stdOut"`
+	StdErr   string `json:"stdErr"`
+	ExitCode int    `json:"exitCode"`
 }
 
-type DevContainerManager interface {
-	Launch() DevContainer
-	Exec()
+type Manager interface {
+	CreateProject(request CreateProjectRequest) (Project, error)
+	ExecCmd(projectId string, request ExecCmdRequest) (CmdResult, error)
 }
 
-type DevContainerCli struct{}
+type SimpleManager struct {
+	DevContainerManager devcontainer.Manager
+	InMemoryProjects    map[string]Project
+}
 
-func (pm DevContainerCli) Create(request LaunchDevContainerRequest) (DevContainer, error) {
+func (pm SimpleManager) CreateProject(request CreateProjectRequest) (Project, error) {
 	projectPath, err := createProjectDir()
 
 	if err != nil {
-		return DevContainer{}, fmt.Errorf("Failed to create project directory: %w", err)
+		return Project{}, fmt.Errorf("Failed to create project directory: %w", err)
 	}
 
-	if err = cloneGitRepo(request.GithubUrl, projectPath); err != nil {
-		return DevContainer{}, fmt.Errorf("Failed to clone git repo: %w", err)
+	if err = cloneGitRepo(request.RepoUrl, projectPath); err != nil {
+		return Project{}, fmt.Errorf("Failed to clone git repo: %w", err)
 	}
 
-	devContainer, err := launchDevContainer(projectPath)
+	devContainer, err := pm.DevContainerManager.StartContainer(projectPath)
 
 	if err != nil {
-		return devContainer, fmt.Errorf("Failed to launch devcontainer: %w", err)
+		return Project{}, fmt.Errorf("Failed to launch devcontainer: %w", err)
 	}
 
-	return devContainer, nil
+	project := Project{Id: devContainer.Id, Path: projectPath}
+	pm.InMemoryProjects[devContainer.Id] = project
+
+	return project, nil
 }
 
-func (pm DevContainerCli) Exec(request ExecCmdRequest) (CmdOutput, error) {
-	// TODO: use container id instead of path
-	allArgs := append([]string{"exec", "--workspace-folder", request.DevContainer.Path}, strings.Split(request.Cmd, " ")...)
-	cmd := exec.Command("devcontainer", allArgs...)
-	cmdOut, err := cmd.Output()
+func (pm SimpleManager) ExecCmd(projectId string, request ExecCmdRequest) (CmdResult, error) {
+	project, ok := pm.InMemoryProjects[projectId]
 
-	if err != nil {
-		return CmdOutput{}, fmt.Errorf("Failed to exec command %s in devcontainer %s: %w", request.DevContainer.Id, request.Cmd, err)
+	if !ok {
+		return CmdResult{}, fmt.Errorf("Project with id %s not found", projectId)
 	}
 
-	fmt.Println(">", cmd.String())
-	fmt.Println(string(cmdOut))
+	execResult, err := pm.DevContainerManager.Exec(project.Id, project.Path, request.Cmd)
 
-	return CmdOutput{Output: string(cmdOut)}, nil
+	if err != nil {
+		return CmdResult{}, fmt.Errorf("Failed to execute command: %w", err)
+	}
+
+	return CmdResult{StdOut: execResult.StdOut, StdErr: execResult.StdErr, ExitCode: execResult.ExitCode}, nil
 }
 
 func createProjectDir() (string, error) {
@@ -109,33 +116,8 @@ func cloneGitRepo(githubUrl string, projectPath string) error {
 		return fmt.Errorf("Failed to clone git repo: %w", err)
 	}
 
-	fmt.Println(">", cmd.String())
+	fmt.Println("> ", cmd.String())
 	fmt.Println(string(cmdOut))
 
 	return nil
-}
-
-func launchDevContainer(projectPath string) (DevContainer, error) {
-	cmd := exec.Command("devcontainer", "up", "--log-format", "json", "--workspace-folder", projectPath)
-	cmdOut, err := cmd.Output()
-
-	if err != nil {
-		return DevContainer{}, fmt.Errorf("Failed to launch devcontainer: %w", err)
-	}
-
-	fmt.Println(">", cmd.String())
-	fmt.Println(string(cmdOut))
-
-	jsonOutput := string(cmdOut)
-
-	var dat map[string]interface{}
-
-	fmt.Println("Trying to parse json: ", jsonOutput)
-
-	if err := json.Unmarshal([]byte(jsonOutput), &dat); err != nil {
-		return DevContainer{}, fmt.Errorf("Failed to parse devcontainer output: %w", err)
-	}
-
-	containerId := dat["containerId"].(string)
-	return DevContainer{Id: containerId, Path: projectPath}, nil
 }
