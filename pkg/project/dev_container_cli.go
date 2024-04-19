@@ -1,14 +1,12 @@
 package project
 
-import "os/exec"
-import "math/rand"
-import "time"
-import "os"
-import "fmt"
-import "encoding/json"
-import "strings"
-
-const ProjectsDir = "hide-projects"
+import (
+	"encoding/json"
+	"fmt"
+	"os"
+	"os/exec"
+	"strings"
+)
 
 type LaunchDevContainerRequest struct {
 	GithubUrl string `json:"githubUrl"`
@@ -35,14 +33,8 @@ type DevContainerManager interface {
 
 type DevContainerCli struct{}
 
-func (pm DevContainerCli) Create(request LaunchDevContainerRequest) (DevContainer, error) {
-	projectPath, err := createProjectDir()
-
-	if err != nil {
-		return DevContainer{}, fmt.Errorf("Failed to create project directory: %w", err)
-	}
-
-	if err = cloneGitRepo(request.GithubUrl, projectPath); err != nil {
+func (pm DevContainerCli) Create(request LaunchDevContainerRequest, projectPath string) (DevContainer, error) {
+	if err := cloneGitRepo(request.GithubUrl, projectPath); err != nil {
 		return DevContainer{}, fmt.Errorf("Failed to clone git repo: %w", err)
 	}
 
@@ -89,16 +81,6 @@ func createProjectDir() (string, error) {
 	fmt.Println("Created project directory: ", projectPath)
 
 	return projectPath, nil
-}
-
-func randomString(length int) string {
-	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-	var seededRand *rand.Rand = rand.New(rand.NewSource(time.Now().UnixNano()))
-	b := make([]byte, length)
-	for i := range b {
-		b[i] = charset[seededRand.Intn(len(charset))]
-	}
-	return string(b)
 }
 
 func cloneGitRepo(githubUrl string, projectPath string) error {

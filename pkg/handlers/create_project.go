@@ -22,10 +22,19 @@ func CreateProject(w http.ResponseWriter, r *http.Request) {
 
 	// TODO: is there a way to avoid creating a new instance of DevContainerCli every time?
 	devContainerCli := project.DevContainerCli{}
+	projectManager := project.NewProjectManager()
 
-	devContainer, err := devContainerCli.Create(request)
+	projectPath, err := projectManager.CreateProjectDir()
 
 	if err != nil {
+		http.Error(w, "Failed to create project directory", http.StatusInternalServerError)
+		return
+	}
+
+	devContainer, err := devContainerCli.Create(request, projectPath)
+
+	if err != nil {
+		projectManager.RemoveProjectDir()
 		http.Error(w, "Failed to create project", http.StatusInternalServerError)
 		return
 	}
