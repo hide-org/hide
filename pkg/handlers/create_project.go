@@ -20,8 +20,7 @@ func CreateProject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// TODO: is there a way to avoid creating a new instance of DevContainerCli every time?
-	devContainerCli := project.DevContainerCli{}
+	devContainerCli := project.NewDevContainerCli()
 	projectManager := project.NewProjectManager()
 
 	projectPath, err := projectManager.CreateProjectDir()

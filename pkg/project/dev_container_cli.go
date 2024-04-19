@@ -3,7 +3,6 @@ package project
 import (
 	"encoding/json"
 	"fmt"
-	"os"
 	"os/exec"
 	"strings"
 )
@@ -33,7 +32,11 @@ type DevContainerManager interface {
 
 type DevContainerCli struct{}
 
-func (pm DevContainerCli) Create(request LaunchDevContainerRequest, projectPath string) (DevContainer, error) {
+func NewDevContainerCli() *DevContainerCli {
+	return &DevContainerCli{}
+}
+
+func (cl DevContainerCli) Create(request LaunchDevContainerRequest, projectPath string) (DevContainer, error) {
 	if err := cloneGitRepo(request.GithubUrl, projectPath); err != nil {
 		return DevContainer{}, fmt.Errorf("Failed to clone git repo: %w", err)
 	}
@@ -47,7 +50,7 @@ func (pm DevContainerCli) Create(request LaunchDevContainerRequest, projectPath 
 	return devContainer, nil
 }
 
-func (pm DevContainerCli) Exec(request ExecCmdRequest) (CmdOutput, error) {
+func (cl DevContainerCli) Exec(request ExecCmdRequest) (CmdOutput, error) {
 	// TODO: use container id instead of path
 	allArgs := append([]string{"exec", "--workspace-folder", request.DevContainer.Path}, strings.Split(request.Cmd, " ")...)
 	cmd := exec.Command("devcontainer", allArgs...)
@@ -61,26 +64,6 @@ func (pm DevContainerCli) Exec(request ExecCmdRequest) (CmdOutput, error) {
 	fmt.Println(string(cmdOut))
 
 	return CmdOutput{Output: string(cmdOut)}, nil
-}
-
-func createProjectDir() (string, error) {
-	home, err := os.UserHomeDir()
-
-	if err != nil {
-		return "", fmt.Errorf("Failed to get user home directory: %w", err)
-	}
-
-	projectParentDir := fmt.Sprintf("%s/%s", home, ProjectsDir)
-	dirName := randomString(10)
-	projectPath := fmt.Sprintf("%s/%s", projectParentDir, dirName)
-
-	if err := os.MkdirAll(projectPath, 0755); err != nil {
-		return "", fmt.Errorf("Failed to create project directory: %w", err)
-	}
-
-	fmt.Println("Created project directory: ", projectPath)
-
-	return projectPath, nil
 }
 
 func cloneGitRepo(githubUrl string, projectPath string) error {
