@@ -7,7 +7,6 @@ import "os"
 import "fmt"
 import "github.com/artmoskvin/hide/pkg/devcontainer"
 
-const ProjectsDir = "hide-projects"
 
 type CreateProjectRequest struct {
 	RepoUrl string `json:"repoUrl"`
@@ -34,36 +33,43 @@ type Manager interface {
 	ExecCmd(projectId string, request ExecCmdRequest) (CmdResult, error)
 }
 
-type SimpleManager struct {
+type ManagerImpl struct {
 	DevContainerManager devcontainer.Manager
-	InMemoryProjects    map[string]Project
+	ProjectStore        map[string]Project
+	ProjectsRoot        string
 }
 
-func (pm SimpleManager) CreateProject(request CreateProjectRequest) (Project, error) {
-	projectPath, err := createProjectDir()
+func NewProjectManager(devContainerManager devcontainer.Manager, projectStore map[string]Project, projectsRoot string) Manager {
+	return ManagerImpl{DevContainerManager: devContainerManager, ProjectStore: projectStore, ProjectsRoot: projectsRoot}
+}
+
+func (pm ManagerImpl) CreateProject(request CreateProjectRequest) (Project, error) {
+	projectPath, err := pm.createProjectDir()
 
 	if err != nil {
 		return Project{}, fmt.Errorf("Failed to create project directory: %w", err)
 	}
 
 	if err = cloneGitRepo(request.RepoUrl, projectPath); err != nil {
+		removeProjectDir(projectPath)
 		return Project{}, fmt.Errorf("Failed to clone git repo: %w", err)
 	}
 
 	devContainer, err := pm.DevContainerManager.StartContainer(projectPath)
 
 	if err != nil {
+		removeProjectDir(projectPath)
 		return Project{}, fmt.Errorf("Failed to launch devcontainer: %w", err)
 	}
 
 	project := Project{Id: devContainer.Id, Path: projectPath}
-	pm.InMemoryProjects[devContainer.Id] = project
+	pm.ProjectStore[devContainer.Id] = project
 
 	return project, nil
 }
 
-func (pm SimpleManager) ExecCmd(projectId string, request ExecCmdRequest) (CmdResult, error) {
-	project, ok := pm.InMemoryProjects[projectId]
+func (pm ManagerImpl) ExecCmd(projectId string, request ExecCmdRequest) (CmdResult, error) {
+	project, ok := pm.ProjectStore[projectId]
 
 	if !ok {
 		return CmdResult{}, fmt.Errorf("Project with id %s not found", projectId)
@@ -78,16 +84,9 @@ func (pm SimpleManager) ExecCmd(projectId string, request ExecCmdRequest) (CmdRe
 	return CmdResult{StdOut: execResult.StdOut, StdErr: execResult.StdErr, ExitCode: execResult.ExitCode}, nil
 }
 
-func createProjectDir() (string, error) {
-	home, err := os.UserHomeDir()
-
-	if err != nil {
-		return "", fmt.Errorf("Failed to get user home directory: %w", err)
-	}
-
-	projectParentDir := fmt.Sprintf("%s/%s", home, ProjectsDir)
+func (pm ManagerImpl) createProjectDir() (string, error) {
 	dirName := randomString(10)
-	projectPath := fmt.Sprintf("%s/%s", projectParentDir, dirName)
+	projectPath := fmt.Sprintf("%s/%s", pm.ProjectsRoot, dirName)
 
 	if err := os.MkdirAll(projectPath, 0755); err != nil {
 		return "", fmt.Errorf("Failed to create project directory: %w", err)
@@ -96,6 +95,17 @@ func createProjectDir() (string, error) {
 	fmt.Println("Created project directory: ", projectPath)
 
 	return projectPath, nil
+}
+
+func removeProjectDir(projectPath string) {
+	if err := os.RemoveAll(projectPath); err != nil {
+		fmt.Printf("Failed to remove project directory %s: %s", projectPath, err)
+		return
+	}
+
+	fmt.Println("Removed project directory: ", projectPath)
+
+	return
 }
 
 func randomString(length int) string {

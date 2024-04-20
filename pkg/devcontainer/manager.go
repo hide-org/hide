@@ -24,6 +24,10 @@ type Manager interface {
 
 type CliManager struct{}
 
+func NewDevContainerManager() Manager {
+	return CliManager{}
+}
+
 func (m CliManager) StartContainer(projectPath string) (Container, error) {
 	cmd := exec.Command("devcontainer", "up", "--log-format", "json", "--workspace-folder", projectPath)
 	cmdOut, err := cmd.Output()
@@ -37,15 +41,15 @@ func (m CliManager) StartContainer(projectPath string) (Container, error) {
 
 	jsonOutput := string(cmdOut)
 
-	var dat map[string]interface{}
+	var response map[string]interface{}
 
 	fmt.Println("Trying to parse json: ", jsonOutput)
 
-	if err := json.Unmarshal([]byte(jsonOutput), &dat); err != nil {
+	if err := json.Unmarshal([]byte(jsonOutput), &response); err != nil {
 		return Container{}, fmt.Errorf("Failed to parse devcontainer output: %w", err)
 	}
 
-	containerId := dat["containerId"].(string)
+	containerId := response["containerId"].(string)
 	return Container{Id: containerId}, nil
 }
 

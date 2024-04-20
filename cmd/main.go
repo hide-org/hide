@@ -3,15 +3,29 @@ package main
 import (
 	"fmt"
 	"net/http"
+	"os"
+	"path/filepath"
 
 	"github.com/artmoskvin/hide/pkg/devcontainer"
 	"github.com/artmoskvin/hide/pkg/handlers"
 	"github.com/artmoskvin/hide/pkg/project"
 )
 
+const ProjectsDir = "hide-projects"
+
 func main() {
 	mux := http.NewServeMux()
-	projectManager := project.SimpleManager{DevContainerManager: devcontainer.CliManager{}, InMemoryProjects: make(map[string]project.Project)}
+	devContainerManager := devcontainer.NewDevContainerManager()
+	projectStore := make(map[string]project.Project)
+	home, err := os.UserHomeDir()
+
+	if err != nil {
+		panic(err)
+	}
+
+	projectsDir := filepath.Join(home, ProjectsDir)
+
+	projectManager := project.NewProjectManager(devContainerManager, projectStore, projectsDir)
 	createProjectHandler := handlers.CreateProjectHandler{Manager: projectManager}
 	execCmdHandler := handlers.ExecCmdHandler{Manager: projectManager}
 
@@ -19,11 +33,9 @@ func main() {
 	mux.Handle("POST /projects/{id}/exec", execCmdHandler)
 
 	port := ":8080"
-	err := http.ListenAndServe(port, mux)
 
-	if err != nil {
-		fmt.Println("Error starting server: ", err)
+	if err := http.ListenAndServe(port, mux); err != nil {
+		fmt.Println("Error starting server")
+		panic(err)
 	}
-
-	fmt.Println("Server started on port", port)
 }
