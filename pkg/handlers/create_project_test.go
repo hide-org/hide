@@ -3,6 +3,7 @@ package handlers_test
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -12,38 +13,24 @@ import (
 	"github.com/artmoskvin/hide/pkg/project/mocks"
 )
 
-// TODO: how to mock DevContainerCli?
-//
-//	func TestCreateProjectHandler(t *testing.T) {
-//		req, err := http.NewRequest("POST", "/project", nil)
-//		if err != nil {
-//			t.Fatal(err)
-//		}
-//
-//		rr := httptest.NewRecorder()
-//		handler := http.HandlerFunc(handlers.CreateProject)
-//
-//		handler.ServeHTTP(rr, req)
-//
-//		if rr.Code != http.StatusCreated {
-//			t.Errorf("CreateProject() status = %v, want %v", rr.Code, http.StatusCreated)
-//		}
-//	}
-func TestCreateProjectHandler_ServeHTTP_Success(t *testing.T) {
+const repoUrl = "https://github.com/example/repo.git"
+
+func TestCreateProjectHandler_Success(t *testing.T) {
+	// Expected project
+	expectedProject := project.Project{Id: "123", Path: "/test/path"}
+
 	// Setup
 	mockManager := &mocks.MockProjectManager{
 		CreateProjectFunc: func(req project.CreateProjectRequest) (project.Project, error) {
-			return project.Project{Id: "123", Path: "/test/path"}, nil
+			return expectedProject, nil
 		},
 	}
 
 	handler := handlers.CreateProjectHandler{Manager: mockManager}
-	server := httptest.NewServer(handler)
-	defer server.Close()
 
-	requestBody := project.CreateProjectRequest{RepoUrl: "https://github.com/example/repo.git"}
+	requestBody := project.CreateProjectRequest{RepoUrl: repoUrl}
 	body, _ := json.Marshal(requestBody)
-	request, _ := http.NewRequest("POST", server.URL, bytes.NewBuffer(body))
+	request, _ := http.NewRequest("POST", "/projects", bytes.NewBuffer(body))
 	response := httptest.NewRecorder()
 
 	// Execute
@@ -59,24 +46,49 @@ func TestCreateProjectHandler_ServeHTTP_Success(t *testing.T) {
 		t.Fatalf("Failed to decode response: %v", err)
 	}
 
-	if respProject.Id != "123" || respProject.Path != "/test/path" {
+	if respProject != expectedProject {
 		t.Errorf("Unexpected project returned: %+v", respProject)
 	}
 }
 
-// func TestCreateProjectHandler_MethodNotAllowed(t *testing.T) {
-// 	req, err := http.NewRequest("GET", "/project", nil)
-// 	if err != nil {
-// 		t.Fatal(err)
-// 	}
-//
-// 	rr := httptest.NewRecorder()
-// 	createProjectHandler := handlers.CreateProjectHandler{Manager: projectManager}
-// 	handler := http.Handler(createProjectHandler)
-//
-// 	handler.ServeHTTP(rr, req)
-//
-// 	if rr.Code != http.StatusMethodNotAllowed {
-// 		t.Errorf("CreateProject() status = %v, want %v", rr.Code, http.StatusMethodNotAllowed)
-// 	}
-// }
+func TestCreateProjectHandler_Failure(t *testing.T) {
+	// Setup
+	mockManager := &mocks.MockProjectManager{
+		CreateProjectFunc: func(req project.CreateProjectRequest) (project.Project, error) {
+			return project.Project{}, errors.New("Test error")
+		},
+	}
+
+	handler := handlers.CreateProjectHandler{Manager: mockManager}
+
+	requestBody := project.CreateProjectRequest{RepoUrl: repoUrl}
+	body, _ := json.Marshal(requestBody)
+	request, _ := http.NewRequest("POST", "/projects", bytes.NewBuffer(body))
+	response := httptest.NewRecorder()
+
+	// Execute
+	handler.ServeHTTP(response, request)
+
+	// Verify
+	if response.Code != http.StatusInternalServerError {
+		t.Errorf("Expected status %d, got %d", http.StatusInternalServerError, response.Code)
+	}
+}
+
+func TestCreateProjectHandler_BadRequest(t *testing.T) {
+	// Setup
+	mockManager := &mocks.MockProjectManager{}
+
+	handler := handlers.CreateProjectHandler{Manager: mockManager}
+
+	request, _ := http.NewRequest("POST", "/projects", bytes.NewBuffer([]byte("invalid json")))
+	response := httptest.NewRecorder()
+
+	// Execute
+	handler.ServeHTTP(response, request)
+
+	// Verify
+	if response.Code != http.StatusBadRequest {
+		t.Errorf("Expected status %d, got %d", http.StatusBadRequest, response.Code)
+	}
+}
