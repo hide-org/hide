@@ -3,20 +3,39 @@ package main
 import (
 	"fmt"
 	"net/http"
+	"os"
+	"path/filepath"
 
+	"github.com/artmoskvin/hide/pkg/devcontainer"
 	"github.com/artmoskvin/hide/pkg/handlers"
+	"github.com/artmoskvin/hide/pkg/project"
 )
 
-func main() {
-	http.HandleFunc("/project", handlers.CreateProject)
-	http.HandleFunc("/exec", handlers.ExecCmd)
+const ProjectsDir = "hide-projects"
 
-	port := ":8080"
-	err := http.ListenAndServe(port, nil)
+func main() {
+	mux := http.NewServeMux()
+	devContainerManager := devcontainer.NewDevContainerManager()
+	projectStore := make(map[string]project.Project)
+	home, err := os.UserHomeDir()
 
 	if err != nil {
-		fmt.Println("Error starting server: ", err)
+		panic(err)
 	}
 
-	fmt.Println("Server started on port", port)
+	projectsDir := filepath.Join(home, ProjectsDir)
+
+	projectManager := project.NewProjectManager(devContainerManager, projectStore, projectsDir)
+	createProjectHandler := handlers.CreateProjectHandler{Manager: projectManager}
+	execCmdHandler := handlers.ExecCmdHandler{Manager: projectManager}
+
+	mux.Handle("POST /projects", createProjectHandler)
+	mux.Handle("POST /projects/{id}/exec", execCmdHandler)
+
+	port := ":8080"
+
+	if err := http.ListenAndServe(port, mux); err != nil {
+		fmt.Println("Error starting server")
+		panic(err)
+	}
 }
