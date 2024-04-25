@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 
 	"github.com/artmoskvin/hide/pkg/devcontainer"
+	"github.com/artmoskvin/hide/pkg/filemanager"
 	"github.com/artmoskvin/hide/pkg/handlers"
 	"github.com/artmoskvin/hide/pkg/project"
 )
@@ -26,11 +27,20 @@ func main() {
 	projectsDir := filepath.Join(home, ProjectsDir)
 
 	projectManager := project.NewProjectManager(devContainerManager, projectStore, projectsDir)
+	fileManager := filemanager.NewFileManager()
 	createProjectHandler := handlers.CreateProjectHandler{Manager: projectManager}
 	execCmdHandler := handlers.ExecCmdHandler{Manager: projectManager}
+	createFileHandler := handlers.CreateFileHandler{Manager: projectManager, FileManager: fileManager}
+	readFileHandler := handlers.ReadFileHandler{Manager: projectManager, FileManager: fileManager}
+	updateFileHandler := handlers.UpdateFileHandler{Manager: projectManager, FileManager: fileManager}
+	deleteFileHandler := handlers.DeleteFileHandler{Manager: projectManager, FileManager: fileManager}
 
 	mux.Handle("POST /projects", createProjectHandler)
 	mux.Handle("POST /projects/{id}/exec", execCmdHandler)
+	mux.Handle("POST /projects/{id}/files", createFileHandler)
+	mux.Handle("GET /projects/{id}/files/{path...}", readFileHandler)
+	mux.Handle("PUT /projects/{id}/files/{path...}", updateFileHandler)
+	mux.Handle("DELETE /projects/{id}/files/{path...}", deleteFileHandler)
 
 	port := ":8080"
 

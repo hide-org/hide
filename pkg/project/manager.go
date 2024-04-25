@@ -7,7 +7,6 @@ import "os"
 import "fmt"
 import "github.com/artmoskvin/hide/pkg/devcontainer"
 
-
 type CreateProjectRequest struct {
 	RepoUrl string `json:"repoUrl"`
 }
@@ -30,6 +29,7 @@ type CmdResult struct {
 
 type Manager interface {
 	CreateProject(request CreateProjectRequest) (Project, error)
+	GetProject(projectId string) (Project, error)
 	ExecCmd(projectId string, request ExecCmdRequest) (CmdResult, error)
 }
 
@@ -64,6 +64,16 @@ func (pm ManagerImpl) CreateProject(request CreateProjectRequest) (Project, erro
 
 	project := Project{Id: devContainer.Id, Path: projectPath}
 	pm.ProjectStore[devContainer.Id] = project
+
+	return project, nil
+}
+
+func (pm ManagerImpl) GetProject(projectId string) (Project, error) {
+	project, ok := pm.ProjectStore[projectId]
+
+	if !ok {
+		return Project{}, fmt.Errorf("Project with id %s not found", projectId)
+	}
 
 	return project, nil
 }
