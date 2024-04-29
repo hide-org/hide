@@ -13,20 +13,22 @@ import (
 	"github.com/artmoskvin/hide/pkg/project/mocks"
 )
 
-func TestExecCmdHandler_Success(t *testing.T) {
+func TestCreateTaskHandler_Success(t *testing.T) {
 	// Expected result
 	expectedResult := project.CmdResult{StdOut: "Test output", StdErr: "Test error", ExitCode: 0}
 
 	// Setup
 	mockManager := &mocks.MockProjectManager{
-		ExecCmdFunc: func(projectId string, req project.ExecCmdRequest) (project.CmdResult, error) {
+		CreateTaskFunc: func(projectId string, req project.TaskRequest) (project.CmdResult, error) {
 			return expectedResult, nil
 		},
 	}
 
-	handler := handlers.ExecCmdHandler{Manager: mockManager}
+	handler := handlers.CreateTaskHandler{Manager: mockManager}
 
-	requestBody := project.ExecCmdRequest{Cmd: "test command"}
+	requestBody := project.TaskRequest{Command: new(string)}
+	*requestBody.Command = "test command"
+
 	body, _ := json.Marshal(requestBody)
 	request, _ := http.NewRequest("POST", "/projects/123/exec", bytes.NewBuffer(body))
 	response := httptest.NewRecorder()
@@ -49,17 +51,19 @@ func TestExecCmdHandler_Success(t *testing.T) {
 	}
 }
 
-func TestExecCmdHandler_Failure(t *testing.T) {
+func TestCreateTaskHandler_Failure(t *testing.T) {
 	// Setup
 	mockManager := &mocks.MockProjectManager{
-		ExecCmdFunc: func(projectId string, req project.ExecCmdRequest) (project.CmdResult, error) {
+		CreateTaskFunc: func(projectId string, req project.TaskRequest) (project.CmdResult, error) {
 			return project.CmdResult{}, errors.New("Test error")
 		},
 	}
 
-	handler := handlers.ExecCmdHandler{Manager: mockManager}
+	handler := handlers.CreateTaskHandler{Manager: mockManager}
 
-	requestBody := project.ExecCmdRequest{Cmd: "test command"}
+	requestBody := project.TaskRequest{Command: new(string)}
+	*requestBody.Command = "test command"
+
 	body, _ := json.Marshal(requestBody)
 	request, _ := http.NewRequest("POST", "/projects/123/exec", bytes.NewBuffer(body))
 	response := httptest.NewRecorder()
@@ -73,11 +77,11 @@ func TestExecCmdHandler_Failure(t *testing.T) {
 	}
 }
 
-func TestExecCmdHandler_BadRequest(t *testing.T) {
+func TestCreateTaskHandler_BadRequest(t *testing.T) {
 	// Setup
 	mockManager := &mocks.MockProjectManager{}
 
-	handler := handlers.ExecCmdHandler{Manager: mockManager}
+	handler := handlers.CreateTaskHandler{Manager: mockManager}
 
 	request, _ := http.NewRequest("POST", "/projects/123/exec", bytes.NewBuffer([]byte("invalid json")))
 	response := httptest.NewRecorder()

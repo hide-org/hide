@@ -29,14 +29,14 @@ func main() {
 	projectManager := project.NewProjectManager(devContainerManager, projectStore, projectsDir)
 	fileManager := filemanager.NewFileManager()
 	createProjectHandler := handlers.CreateProjectHandler{Manager: projectManager}
-	execCmdHandler := handlers.ExecCmdHandler{Manager: projectManager}
+	createTaskHandler := handlers.CreateTaskHandler{Manager: projectManager}
 	createFileHandler := handlers.CreateFileHandler{Manager: projectManager, FileManager: fileManager}
 	readFileHandler := handlers.ReadFileHandler{Manager: projectManager, FileManager: fileManager}
 	updateFileHandler := handlers.UpdateFileHandler{Manager: projectManager, FileManager: fileManager}
 	deleteFileHandler := handlers.DeleteFileHandler{Manager: projectManager, FileManager: fileManager}
 
 	mux.Handle("POST /projects", createProjectHandler)
-	mux.Handle("POST /projects/{id}/exec", execCmdHandler)
+	mux.Handle("POST /projects/{id}/tasks", createTaskHandler)
 	mux.Handle("POST /projects/{id}/files", createFileHandler)
 	mux.Handle("GET /projects/{id}/files/{path...}", readFileHandler)
 	mux.Handle("PUT /projects/{id}/files/{path...}", updateFileHandler)

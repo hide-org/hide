@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"testing"
 
 	"github.com/artmoskvin/hide/pkg/handlers"
@@ -46,7 +47,7 @@ func TestCreateProjectHandler_Success(t *testing.T) {
 		t.Fatalf("Failed to decode response: %v", err)
 	}
 
-	if respProject != expectedProject {
+	if !reflect.DeepEqual(respProject, expectedProject) {
 		t.Errorf("Unexpected project returned: %+v", respProject)
 	}
 }

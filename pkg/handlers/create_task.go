@@ -8,20 +8,20 @@ import (
 	"github.com/artmoskvin/hide/pkg/project"
 )
 
-type ExecCmdHandler struct {
+type CreateTaskHandler struct {
 	Manager project.Manager
 }
 
-func (h ExecCmdHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (h CreateTaskHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	projectId := r.PathValue("id")
-	var request project.ExecCmdRequest
+	var request project.TaskRequest
 
 	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
 		http.Error(w, "Failed parsing request body", http.StatusBadRequest)
 		return
 	}
 
-	execOut, err := h.Manager.ExecCmd(projectId, request)
+	execOut, err := h.Manager.CreateTask(projectId, request)
 
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Failed to execute command: %s", err), http.StatusInternalServerError)

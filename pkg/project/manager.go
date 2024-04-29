@@ -1,24 +1,50 @@
 package project
 
-import "os/exec"
-import "math/rand"
-import "time"
-import "os"
-import "fmt"
-import "github.com/artmoskvin/hide/pkg/devcontainer"
+import (
+	"errors"
+	"fmt"
+	"math/rand"
+	"os"
+	"os/exec"
+	"path"
+	"time"
+
+	"github.com/artmoskvin/hide/pkg/devcontainer"
+)
 
 type CreateProjectRequest struct {
 	RepoUrl string `json:"repoUrl"`
 }
 
-type ExecCmdRequest struct {
-	Cmd string `json:"cmd"`
+type TaskRequest struct {
+	Command *string `json:"command,omitempty"`
+	Alias   *string `json:"alias,omitempty"`
+}
+
+type Task struct {
+	Alias   string `json:"alias"`
+	Command string `json:"command"`
+}
+
+type DevContainerConfig struct {
+	Tasks []Task `json:"tasks"`
 }
 
 type Project struct {
-	// Project id is a container id for now. It can change in the future.
 	Id   string `json:"id"`
 	Path string `json:"path"`
+	// TODO: container id is ephemeral, it should not be here and should not be exposed to the client
+	ContainerId string `json:"containerId"`
+	Tasks       []Task `json:"tasks"`
+}
+
+func (project *Project) findTaskByAlias(alias string) (Task, error) {
+	for _, task := range project.Tasks {
+		if task.Alias == alias {
+			return task, nil
+		}
+	}
+	return Task{}, errors.New("task not found")
 }
 
 type CmdResult struct {
@@ -30,7 +56,7 @@ type CmdResult struct {
 type Manager interface {
 	CreateProject(request CreateProjectRequest) (Project, error)
 	GetProject(projectId string) (Project, error)
-	ExecCmd(projectId string, request ExecCmdRequest) (CmdResult, error)
+	CreateTask(projectId string, request TaskRequest) (CmdResult, error)
 }
 
 type ManagerImpl struct {
@@ -44,16 +70,20 @@ func NewProjectManager(devContainerManager devcontainer.Manager, projectStore ma
 }
 
 func (pm ManagerImpl) CreateProject(request CreateProjectRequest) (Project, error) {
-	projectPath, err := pm.createProjectDir()
+	projectId := randomString(10)
+	projectPath := path.Join(pm.ProjectsRoot, projectId)
 
-	if err != nil {
+	if err := pm.createProjectDir(projectPath); err != nil {
 		return Project{}, fmt.Errorf("Failed to create project directory: %w", err)
 	}
 
-	if err = cloneGitRepo(request.RepoUrl, projectPath); err != nil {
+	if err := cloneGitRepo(request.RepoUrl, projectPath); err != nil {
 		removeProjectDir(projectPath)
 		return Project{}, fmt.Errorf("Failed to clone git repo: %w", err)
 	}
+
+	// TODO: who should be responsible for parsing devcontainer.json?
+	devContainerConfig := pm.devContainerConfigFromProject(projectPath)
 
 	devContainer, err := pm.DevContainerManager.StartContainer(projectPath)
 
@@ -62,7 +92,8 @@ func (pm ManagerImpl) CreateProject(request CreateProjectRequest) (Project, erro
 		return Project{}, fmt.Errorf("Failed to launch devcontainer: %w", err)
 	}
 
-	project := Project{Id: devContainer.Id, Path: projectPath}
+	// TODO: save devcontainer commands to the project, maybe the whole config?
+	project := Project{Id: projectId, Path: projectPath, ContainerId: devContainer.Id, Tasks: devContainerConfig.Tasks}
 	pm.ProjectStore[devContainer.Id] = project
 
 	return project, nil
@@ -78,14 +109,32 @@ func (pm ManagerImpl) GetProject(projectId string) (Project, error) {
 	return project, nil
 }
 
-func (pm ManagerImpl) ExecCmd(projectId string, request ExecCmdRequest) (CmdResult, error) {
+func (pm ManagerImpl) CreateTask(projectId string, request TaskRequest) (CmdResult, error) {
 	project, ok := pm.ProjectStore[projectId]
 
 	if !ok {
 		return CmdResult{}, fmt.Errorf("Project with id %s not found", projectId)
 	}
 
-	execResult, err := pm.DevContainerManager.Exec(project.Id, project.Path, request.Cmd)
+	var command string
+
+	if request.Alias != nil {
+		task, err := project.findTaskByAlias(*request.Alias)
+
+		if err != nil {
+			return CmdResult{}, fmt.Errorf("Task with alias %s not found", *request.Alias)
+		}
+
+		command = task.Command
+	}
+
+	if request.Command != nil {
+		command = *request.Command
+	}
+
+	// TODO: can both command and alias be empty?
+
+	execResult, err := pm.DevContainerManager.Exec(project.Id, project.Path, command)
 
 	if err != nil {
 		return CmdResult{}, fmt.Errorf("Failed to execute command: %w", err)
@@ -94,17 +143,19 @@ func (pm ManagerImpl) ExecCmd(projectId string, request ExecCmdRequest) (CmdResu
 	return CmdResult{StdOut: execResult.StdOut, StdErr: execResult.StdErr, ExitCode: execResult.ExitCode}, nil
 }
 
-func (pm ManagerImpl) createProjectDir() (string, error) {
-	dirName := randomString(10)
-	projectPath := fmt.Sprintf("%s/%s", pm.ProjectsRoot, dirName)
-
-	if err := os.MkdirAll(projectPath, 0755); err != nil {
-		return "", fmt.Errorf("Failed to create project directory: %w", err)
+func (pm ManagerImpl) createProjectDir(path string) error {
+	if err := os.MkdirAll(path, 0755); err != nil {
+		return fmt.Errorf("Failed to create project directory: %w", err)
 	}
 
-	fmt.Println("Created project directory: ", projectPath)
+	fmt.Println("Created project directory: ", path)
 
-	return projectPath, nil
+	return nil
+}
+
+func (pm ManagerImpl) devContainerConfigFromProject(projectPath string) DevContainerConfig {
+	// TODO: find devcontainer.json in the project and parse it into a Config struct
+	return DevContainerConfig{Tasks: []Task{}}
 }
 
 func removeProjectDir(projectPath string) {
