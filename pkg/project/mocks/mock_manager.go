@@ -6,7 +6,7 @@ import "github.com/artmoskvin/hide/pkg/project"
 type MockProjectManager struct {
 	CreateProjectFunc func(request project.CreateProjectRequest) (project.Project, error)
 	GetProjectFunc    func(projectId string) (project.Project, error)
-	CreateTaskFunc    func(projectId string, request project.TaskRequest) (project.CmdResult, error)
+	CreateTaskFunc    func(projectId string, request project.TaskRequest) (project.TaskResult, error)
 }
 
 func (m *MockProjectManager) CreateProject(request project.CreateProjectRequest) (project.Project, error) {
@@ -17,6 +17,6 @@ func (m *MockProjectManager) GetProject(projectId string) (project.Project, erro
 	return m.GetProjectFunc(projectId)
 }
 
-func (m *MockProjectManager) CreateTask(projectId string, request project.TaskRequest) (project.CmdResult, error) {
+func (m *MockProjectManager) CreateTask(projectId string, request project.TaskRequest) (project.TaskResult, error) {
 	return m.CreateTaskFunc(projectId, request)
 }

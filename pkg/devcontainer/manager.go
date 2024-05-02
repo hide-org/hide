@@ -19,10 +19,14 @@ type ExecResult struct {
 
 type Manager interface {
 	StartContainer(projectPath string) (Container, error)
+	FindContainerByProject(projectId string) (Container, error)
+	StopContainer(containerId string) error
 	Exec(containerId string, projectPath string, command string) (ExecResult, error)
 }
 
-type CliManager struct{}
+type CliManager struct {
+	Store Store
+}
 
 func NewDevContainerManager() Manager {
 	return CliManager{}
@@ -50,7 +54,40 @@ func (m CliManager) StartContainer(projectPath string) (Container, error) {
 	}
 
 	containerId := response["containerId"].(string)
-	return Container{Id: containerId}, nil
+	container := Container{Id: containerId}
+	m.Store.CreateContainer(&container)
+	return container, nil
+}
+
+func (m CliManager) FindContainerByProject(projectId string) (Container, error) {
+	containers, err := m.Store.GetContainerByProject(projectId)
+	if err != nil {
+		return Container{}, fmt.Errorf("Failed to find container for project %s: %w", projectId, err)
+	}
+
+	if len(containers) == 0 {
+		return Container{}, fmt.Errorf("No container found for project %s", projectId)
+	}
+
+	if len(containers) > 1 {
+		return Container{}, fmt.Errorf("Multiple containers found for project %s", projectId)
+	}
+
+	return *containers[0], nil
+}
+
+func (m CliManager) StopContainer(containerId string) error {
+	cmd := exec.Command("docker", "stop", containerId)
+
+	if _, err := cmd.Output(); err != nil {
+		return fmt.Errorf("Failed to stop container %s: %w", containerId, err)
+	}
+
+	if err := m.Store.DeleteContainer(containerId); err != nil {
+		return fmt.Errorf("Failed to delete container %s: %w", containerId, err)
+	}
+
+	return nil
 }
 
 func (m CliManager) Exec(containerId string, projectPath string, command string) (ExecResult, error) {

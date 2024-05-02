@@ -15,11 +15,11 @@ import (
 
 func TestCreateTaskHandler_Success(t *testing.T) {
 	// Expected result
-	expectedResult := project.CmdResult{StdOut: "Test output", StdErr: "Test error", ExitCode: 0}
+	expectedResult := project.TaskResult{StdOut: "Test output", StdErr: "Test error", ExitCode: 0}
 
 	// Setup
 	mockManager := &mocks.MockProjectManager{
-		CreateTaskFunc: func(projectId string, req project.TaskRequest) (project.CmdResult, error) {
+		CreateTaskFunc: func(projectId string, req project.TaskRequest) (project.TaskResult, error) {
 			return expectedResult, nil
 		},
 	}
@@ -41,7 +41,7 @@ func TestCreateTaskHandler_Success(t *testing.T) {
 		t.Errorf("Expected status %d, got %d", http.StatusOK, response.Code)
 	}
 
-	var respResult project.CmdResult
+	var respResult project.TaskResult
 	if err := json.NewDecoder(response.Body).Decode(&respResult); err != nil {
 		t.Fatalf("Failed to decode response: %v", err)
 	}
@@ -54,8 +54,8 @@ func TestCreateTaskHandler_Success(t *testing.T) {
 func TestCreateTaskHandler_Failure(t *testing.T) {
 	// Setup
 	mockManager := &mocks.MockProjectManager{
-		CreateTaskFunc: func(projectId string, req project.TaskRequest) (project.CmdResult, error) {
-			return project.CmdResult{}, errors.New("Test error")
+		CreateTaskFunc: func(projectId string, req project.TaskRequest) (project.TaskResult, error) {
+			return project.TaskResult{}, errors.New("Test error")
 		},
 	}
 
