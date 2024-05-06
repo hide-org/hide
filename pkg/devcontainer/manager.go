@@ -8,7 +8,8 @@ import (
 )
 
 type Container struct {
-	Id string
+	Id        string
+	ProjectID string
 }
 
 type ExecResult struct {
@@ -29,7 +30,7 @@ type CliManager struct {
 }
 
 func NewDevContainerManager() Manager {
-	return CliManager{}
+	return CliManager{Store: NewInMemoryStore(make(map[string]*Container))}
 }
 
 func (m CliManager) StartContainer(projectPath string) (Container, error) {

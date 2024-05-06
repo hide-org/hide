@@ -17,7 +17,7 @@ const ProjectsDir = "hide-projects"
 func main() {
 	mux := http.NewServeMux()
 	devContainerManager := devcontainer.NewDevContainerManager()
-	projectStore := project.NewInMemoryStore()
+	projectStore := project.NewInMemoryStore(make(map[string]*project.Project))
 	home, err := os.UserHomeDir()
 
 	if err != nil {

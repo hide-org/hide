@@ -14,8 +14,8 @@ type InMemoryStore struct {
 	projects map[string]*Project
 }
 
-func NewInMemoryStore() *InMemoryStore {
-	return &InMemoryStore{projects: make(map[string]*Project)}
+func NewInMemoryStore(store map[string]*Project) *InMemoryStore {
+	return &InMemoryStore{projects: store}
 }
 
 func (s *InMemoryStore) GetProject(id string) (*Project, error) {

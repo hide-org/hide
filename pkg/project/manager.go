@@ -31,7 +31,7 @@ type Project struct {
 	Config DevContainerConfig `json:"config"`
 }
 
-func (project *Project) findTaskByAlias(alias string) (Task, error) {
+func (project *Project) FindTaskByAlias(alias string) (Task, error) {
 	for _, task := range project.Config.Tasks {
 		if task.Alias == alias {
 			return task, nil
@@ -76,7 +76,6 @@ func (pm ManagerImpl) CreateProject(request CreateProjectRequest) (Project, erro
 		return Project{}, fmt.Errorf("Failed to clone git repo: %w", err)
 	}
 
-	// TODO: who should be responsible for parsing devcontainer.json?
 	devContainerConfig := pm.devContainerConfigFromProject(projectPath)
 
 	if _, err := pm.DevContainerManager.StartContainer(projectPath); err != nil {
@@ -111,7 +110,7 @@ func (pm ManagerImpl) ResolveTaskAlias(projectId string, alias string) (Task, er
 		return Task{}, fmt.Errorf("Project with id %s not found", projectId)
 	}
 
-	task, err := project.findTaskByAlias(alias)
+	task, err := project.FindTaskByAlias(alias)
 
 	if err != nil {
 		return Task{}, fmt.Errorf("Task with alias %s not found", alias)
