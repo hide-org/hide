@@ -14,7 +14,7 @@ type TaskRequest struct {
 	Alias   *string `json:"alias,omitempty"`
 }
 
-func (t *TaskRequest) validate() error {
+func (t *TaskRequest) Validate() error {
 	if t.Command == nil && t.Alias == nil {
 		return errors.New("either command or alias must be provided")
 	}
@@ -39,7 +39,7 @@ func (h CreateTaskHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := request.validate(); err != nil {
+	if err := request.Validate(); err != nil {
 		http.Error(w, fmt.Sprintf("Invalid request: %s", err), http.StatusBadRequest)
 		return
 	}
