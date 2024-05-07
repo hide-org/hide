@@ -10,7 +10,7 @@ func TestCliManager_StartContainer(t *testing.T) {
 }
 
 func TestCliManager_FindContainerByProject(t *testing.T) {
-	container := devcontainer.Container{Id: "test-container", ProjectID: "test-project"}
+	container := devcontainer.Container{Id: "test-container", ProjectId: "test-project"}
 	cliManager := devcontainer.CliManager{Store: devcontainer.NewInMemoryStore(map[string]*devcontainer.Container{"test-container": &container})}
 	foundContainer, err := cliManager.FindContainerByProject("test-project")
 

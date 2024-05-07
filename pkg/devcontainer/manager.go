@@ -9,7 +9,7 @@ import (
 
 type Container struct {
 	Id        string
-	ProjectID string
+	ProjectId string
 }
 
 type ExecResult struct {

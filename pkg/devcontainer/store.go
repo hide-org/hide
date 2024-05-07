@@ -32,7 +32,7 @@ func (s *InMemoryStore) GetContainerByProject(projectID string) ([]*Container, e
 	var containers []*Container
 
 	for _, container := range s.containers {
-		if container.ProjectID == projectID {
+		if container.ProjectId == projectID {
 			containers = append(containers, container)
 		}
 	}
