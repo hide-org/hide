@@ -1,14 +1,19 @@
 package devcontainer
 
-import "slices"
-import "maps"
+import (
+	"encoding/json"
+	"fmt"
+	"maps"
+	"slices"
+	"strconv"
+)
 
 type Config struct {
-	DockerImageProps   //DockerImageProps   `json:",inline"`
-	DockerComposeProps //DockerComposeProps `json:",inline"`
-	LifecycleProps     //LifecycleProps     `json:",inline"`
-	HostRequirements   //HostRequirements   `json:",inline"`
-	GeneralProperties  //GeneralProperties  `json:",inline"`
+	DockerImageProps
+	DockerComposeProps
+	LifecycleProps
+	HostRequirements
+	GeneralProperties
 }
 
 func (c *Config) Equals(other *Config) bool {
@@ -16,8 +21,86 @@ func (c *Config) Equals(other *Config) bool {
 		c.DockerComposeProps.Equals(&other.DockerComposeProps) &&
 		c.LifecycleProps.Equals(&other.LifecycleProps) &&
 		c.HostRequirements.Equals(&other.HostRequirements) &&
-		// true
 		c.GeneralProperties.Equals(&other.GeneralProperties)
+}
+
+type DockerImageProps struct {
+	// Required when using an image.
+	Image string `json:"image,omitempty"`
+
+	Dockerfile string `json:"dockerfile,omitempty"`
+
+	Context string `json:"context,omitempty"`
+
+	Build BuildProps `json:"build,omitempty"`
+
+	// This property accepts a port or array of ports that should be published locally when the container is running.
+	AppPort AppPort `json:"appPort,omitempty"`
+
+	WorkspaceMount string `json:"workspaceMount,omitempty"`
+
+	RunArgs []string `json:"runArgs,omitempty"`
+}
+
+func (d *DockerImageProps) Equals(other *DockerImageProps) bool {
+	return d.Image == other.Image &&
+		d.Build.Equals(&other.Build) &&
+		slices.Equal(d.AppPort, other.AppPort) &&
+		d.WorkspaceMount == other.WorkspaceMount &&
+		slices.Equal(d.RunArgs, other.RunArgs)
+}
+
+type AppPort []int
+
+func (a *AppPort) UnmarshalJSON(data []byte) error {
+	var jsonObj interface{}
+	err := json.Unmarshal(data, &jsonObj)
+
+	if err != nil {
+		return fmt.Errorf("Failed to unmarshal AppPort: %w", err)
+	}
+
+	switch obj := jsonObj.(type) {
+	case string:
+		port, err := strconv.Atoi(obj)
+
+		if err != nil {
+			return fmt.Errorf("Failed to convert AppPort to int: %w", err)
+		}
+
+		*a = []int{port}
+		return nil
+	case int:
+		*a = []int{obj}
+		return nil
+	case float64:
+		*a = []int{int(obj)}
+		return nil
+	case []interface{}:
+		ports := make([]int, 0, len(obj))
+		for _, v := range obj {
+			switch value := v.(type) {
+			case string:
+				port, err := strconv.Atoi(value)
+
+				if err != nil {
+					return fmt.Errorf("Failed to convert AppPort to int: %w", err)
+				}
+
+				ports = append(ports, port)
+			case int:
+				ports = append(ports, value)
+			case float64:
+				ports = append(ports, int(value))
+			default:
+				return fmt.Errorf("Unsupported type for AppPort: %T", value)
+			}
+		}
+		*a = ports
+		return nil
+	}
+
+	return fmt.Errorf("Unsupported type for AppPort: %T", jsonObj)
 }
 
 type BuildProps struct {
@@ -33,7 +116,7 @@ type BuildProps struct {
 
 	Target string `json:"target,omitempty"`
 
-	CacheFrom []string `json:"cacheFrom,omitempty"` // string or array
+	CacheFrom StringArray `json:"cacheFrom,omitempty"`
 }
 
 func (b *BuildProps) Equals(other *BuildProps) bool {
@@ -45,30 +128,40 @@ func (b *BuildProps) Equals(other *BuildProps) bool {
 		slices.Equal(b.CacheFrom, other.CacheFrom)
 }
 
-type DockerImageProps struct {
-	// Required when using an image.
-	Image string `json:"image,omitempty"`
+type StringArray []string
 
-	Build BuildProps `json:"build,omitempty"`
+func (c *StringArray) UnmarshalJSON(data []byte) error {
+	var jsonObj interface{}
+	err := json.Unmarshal(data, &jsonObj)
 
-	AppPort int `json:"appPort,omitempty"` // int, string, or array WTF?!
+	if err != nil {
+		return fmt.Errorf("Failed to unmarshal CacheFrom: %w", err)
+	}
 
-	WorkspaceMount string `json:"workspaceMount,omitempty"`
+	switch obj := jsonObj.(type) {
+	case string:
+		*c = []string{obj}
+		return nil
+	case []interface{}:
+		strings := make([]string, 0, len(obj))
+		for _, v := range obj {
+			if value, ok := v.(string); ok {
+				strings = append(strings, value)
+			} else {
+				return fmt.Errorf("Unsupported type for CacheFrom: %T", v)
+			}
+		}
 
-	RunArgs []string `json:"runArgs,omitempty"`
-}
+		*c = strings
+		return nil
+	}
 
-func (d *DockerImageProps) Equals(other *DockerImageProps) bool {
-	return d.Image == other.Image &&
-		d.Build.Equals(&other.Build) &&
-		d.AppPort == other.AppPort &&
-		d.WorkspaceMount == other.WorkspaceMount &&
-		slices.Equal(d.RunArgs, other.RunArgs)
+	return fmt.Errorf("Unsupported type for CacheFrom: %T", jsonObj)
 }
 
 type DockerComposeProps struct {
 	// Required when using Docker Compose.
-	DockerComposeFile string `json:"dockerComposeFile,omitempty"` // string or array
+	DockerComposeFile StringArray `json:"dockerComposeFile,omitempty"`
 
 	// Required when using Docker Compose.
 	Service string `json:"service,omitempty"`
@@ -77,23 +170,23 @@ type DockerComposeProps struct {
 }
 
 func (d *DockerComposeProps) Equals(other *DockerComposeProps) bool {
-	return d.DockerComposeFile == other.DockerComposeFile &&
+	return slices.Equal(d.DockerComposeFile, other.DockerComposeFile) &&
 		d.Service == other.Service &&
 		slices.Equal(d.RunServices, other.RunServices)
 }
 
 type LifecycleProps struct {
-	InitializeCommand string `json:"initializeCommand,omitempty"` // string or array
+	InitializeCommand string `json:"initializeCommand,omitempty"` // string or array or object
 
-	OnCreateCommand string `json:"onCreateCommand,omitempty"` // string or array
+	OnCreateCommand string `json:"onCreateCommand,omitempty"` // string or array or object
 
-	UpdateContentCommand string `json:"updateContentCommand,omitempty"` // string or array
+	UpdateContentCommand string `json:"updateContentCommand,omitempty"` // string or array or object
 
-	PostCreateCommand string `json:"postCreateCommand,omitempty"` // string or array
+	PostCreateCommand string `json:"postCreateCommand,omitempty"` // string or array or object
 
-	PostStartCommand string `json:"postStartCommand,omitempty"` // string or array
+	PostStartCommand string `json:"postStartCommand,omitempty"` // string or array or object
 
-	PostAttachCommand string `json:"postAttachCommand,omitempty"` // string or array
+	PostAttachCommand string `json:"postAttachCommand,omitempty"` // string or array or object
 
 	WaitFor string `json:"waitFor,omitempty"` // enum
 }
