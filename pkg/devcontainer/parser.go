@@ -9,7 +9,7 @@ import (
 	"github.com/artmoskvin/hide/pkg/jsonc"
 )
 
-func ParseDevContainerJSON(folder, relativePath string) (*DevContainerConfig, error) {
+func ReadConfig(folder, relativePath string) ([]byte, error) {
 	path := ""
 	if relativePath != "" {
 		path = filepath.Join(filepath.ToSlash(folder), relativePath)
@@ -45,12 +45,23 @@ func ParseDevContainerJSON(folder, relativePath string) (*DevContainerConfig, er
 		return nil, err
 	}
 
-	devContainer := &DevContainerConfig{}
-	err = json.Unmarshal(jsonc.ToJSON(bytes), devContainer)
-	if err != nil {
+	return bytes, nil
+}
+
+func ParseConfig(content []byte) (*Config, error) {
+	devContainer := &Config{}
+	if err := json.Unmarshal(jsonc.ToJSON(content), devContainer); err != nil {
 		return nil, err
 	}
 
-	devContainer.Origin = path
 	return devContainer, nil
+}
+
+func ParseDockerComposeConfig(content []byte) (*DockerComposeProps, error) {
+	config := &DockerComposeProps{}
+	if err := json.Unmarshal(jsonc.ToJSON(content), config); err != nil {
+		return nil, err
+	}
+
+	return config, nil
 }
