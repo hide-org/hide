@@ -128,37 +128,6 @@ func (b *BuildProps) Equals(other *BuildProps) bool {
 		slices.Equal(b.CacheFrom, other.CacheFrom)
 }
 
-type StringArray []string
-
-func (c *StringArray) UnmarshalJSON(data []byte) error {
-	var jsonObj interface{}
-	err := json.Unmarshal(data, &jsonObj)
-
-	if err != nil {
-		return fmt.Errorf("Failed to unmarshal CacheFrom: %w", err)
-	}
-
-	switch obj := jsonObj.(type) {
-	case string:
-		*c = []string{obj}
-		return nil
-	case []interface{}:
-		strings := make([]string, 0, len(obj))
-		for _, v := range obj {
-			if value, ok := v.(string); ok {
-				strings = append(strings, value)
-			} else {
-				return fmt.Errorf("Unsupported type for CacheFrom: %T", v)
-			}
-		}
-
-		*c = strings
-		return nil
-	}
-
-	return fmt.Errorf("Unsupported type for CacheFrom: %T", jsonObj)
-}
-
 type DockerComposeProps struct {
 	// Required when using Docker Compose.
 	DockerComposeFile StringArray `json:"dockerComposeFile,omitempty"`
@@ -176,28 +145,28 @@ func (d *DockerComposeProps) Equals(other *DockerComposeProps) bool {
 }
 
 type LifecycleProps struct {
-	InitializeCommand string `json:"initializeCommand,omitempty"` // string or array or object
+	InitializeCommand LifecycleCommand `json:"initializeCommand,omitempty"`
 
-	OnCreateCommand string `json:"onCreateCommand,omitempty"` // string or array or object
+	OnCreateCommand LifecycleCommand `json:"onCreateCommand,omitempty"`
 
-	UpdateContentCommand string `json:"updateContentCommand,omitempty"` // string or array or object
+	UpdateContentCommand LifecycleCommand `json:"updateContentCommand,omitempty"`
 
-	PostCreateCommand string `json:"postCreateCommand,omitempty"` // string or array or object
+	PostCreateCommand LifecycleCommand `json:"postCreateCommand,omitempty"`
 
-	PostStartCommand string `json:"postStartCommand,omitempty"` // string or array or object
+	PostStartCommand LifecycleCommand `json:"postStartCommand,omitempty"`
 
-	PostAttachCommand string `json:"postAttachCommand,omitempty"` // string or array or object
+	PostAttachCommand LifecycleCommand `json:"postAttachCommand,omitempty"`
 
 	WaitFor string `json:"waitFor,omitempty"` // enum
 }
 
 func (l *LifecycleProps) Equals(other *LifecycleProps) bool {
-	return l.InitializeCommand == other.InitializeCommand &&
-		l.OnCreateCommand == other.OnCreateCommand &&
-		l.UpdateContentCommand == other.UpdateContentCommand &&
-		l.PostCreateCommand == other.PostCreateCommand &&
-		l.PostStartCommand == other.PostStartCommand &&
-		l.PostAttachCommand == other.PostAttachCommand &&
+	return l.InitializeCommand.Equals(&other.InitializeCommand) &&
+		l.OnCreateCommand.Equals(&other.OnCreateCommand) &&
+		l.UpdateContentCommand.Equals(&other.UpdateContentCommand) &&
+		l.PostCreateCommand.Equals(&other.PostCreateCommand) &&
+		l.PostStartCommand.Equals(&other.PostStartCommand) &&
+		l.PostAttachCommand.Equals(&other.PostAttachCommand) &&
 		l.WaitFor == other.WaitFor
 }
 
