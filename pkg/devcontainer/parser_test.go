@@ -2,9 +2,10 @@ package devcontainer_test
 
 import (
 	"encoding/json"
+	"testing"
+
 	"github.com/artmoskvin/hide/pkg/devcontainer"
 	"github.com/artmoskvin/hide/pkg/jsonc"
-	"testing"
 )
 
 func TestParseConfig(t *testing.T) {
@@ -226,4 +227,50 @@ func parseDockerImageProps(content []byte) (*devcontainer.DockerImageProps, erro
 	}
 
 	return config, nil
+}
+
+func TestConfigWithCustomizations(t *testing.T) {
+	tests := []struct {
+		name     string
+		content  []byte
+		expected *devcontainer.Config
+	}{
+		{
+			name: "vscode",
+			content: []byte(`{
+	"customizations": {
+		// Configure properties specific to VS Code.
+		"vscode": {
+			// Set *default* container specific settings.json values on container create.
+			"settings": {},
+			"extensions": ["streetsidesoftware.code-spell-checker"],
+		}
+	}
+}`),
+			expected: &devcontainer.Config{
+				GeneralProperties: devcontainer.GeneralProperties{
+					Customizations: map[string]map[string]any{
+						"vscode": {
+							"settings": map[string]any{},
+							// interface{} because unmarshaller doesn't know the type of the value
+							"extensions": []interface{}{"streetsidesoftware.code-spell-checker"},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			actual, err := devcontainer.ParseConfig(tt.content)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			if !actual.Equals(tt.expected) {
+				t.Errorf("expected: %+v, actual: %+v", tt.expected, actual)
+			}
+		})
+	}
 }

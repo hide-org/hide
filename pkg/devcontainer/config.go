@@ -4,8 +4,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"maps"
+	"reflect"
 	"slices"
 	"strconv"
+	"strings"
 )
 
 type Config struct {
@@ -194,18 +196,22 @@ type GeneralProperties struct {
 	RemoteUser           string                    `json:"remoteUser,omitempty"`
 	ContainerUser        string                    `json:"containerUser,omitempty"`
 	UpdateRemoteUserUID  bool                      `json:"updateRemoteUserUID,omitempty"`
-	UserEnvProbe         string                    `json:"userEnvProbe,omitempty"` // enum: "none", "interactiveShell", "loginShell", or "loginInteractiveShell" (default)
-	OverrideCommand      bool                      `json:"overrideCommand,omitempty"`
-	ShutdownAction       string                    `json:"shutdownAction,omitempty"` // enum: "none", "stopContainer" (default for image or Dockerfile), or "stopCompose" (default for Docker Compose)
-	Init                 bool                      `json:"init,omitempty"`
-	Privileged           bool                      `json:"privileged,omitempty"`
-	CapAdd               []string                  `json:"capAdd,omitempty"`
-	SecurityOpt          []string                  `json:"securityOpt,omitempty"`
-	Mounts               []string                  `json:"mounts,omitempty"` // can be a string or an object; how to express union types?
-	WorkspaceFolder      string                    `json:"workspaceFolder,omitempty"`
+
+	// enum: "none", "interactiveShell", "loginShell", or "loginInteractiveShell" (default)
+	UserEnvProbe    string `json:"userEnvProbe,omitempty"`
+	OverrideCommand bool   `json:"overrideCommand,omitempty"`
+
+	// enum: "none", "stopContainer" (default for image or Dockerfile), or "stopCompose" (default for Docker Compose)
+	ShutdownAction  string   `json:"shutdownAction,omitempty"`
+	Init            bool     `json:"init,omitempty"`
+	Privileged      bool     `json:"privileged,omitempty"`
+	CapAdd          []string `json:"capAdd,omitempty"`
+	SecurityOpt     []string `json:"securityOpt,omitempty"`
+	Mounts          []Mount  `json:"mounts,omitempty"`
+	WorkspaceFolder string   `json:"workspaceFolder,omitempty"`
 	// Features                    map[string]map[string]string `json:"features,omitempty"`
-	OverrideFeatureInstallOrder []string `json:"overrideFeatureInstallOrder,omitempty"`
-	// Customizations              map[string]map[string]any    `json:"customizations,omitempty"`
+	OverrideFeatureInstallOrder []string                  `json:"overrideFeatureInstallOrder,omitempty"`
+	Customizations              map[string]map[string]any `json:"customizations,omitempty"`
 }
 
 func (g *GeneralProperties) Equals(other *GeneralProperties) bool {
@@ -229,14 +235,103 @@ func (g *GeneralProperties) Equals(other *GeneralProperties) bool {
 		g.WorkspaceFolder == other.WorkspaceFolder &&
 		// maps.Equal(g.Features, other.Features) &&
 		slices.Equal(g.OverrideFeatureInstallOrder, other.OverrideFeatureInstallOrder) &&
-		true
-	// maps.Equal(g.Customizations, other.Customizations)
+		customizationsEqual(g.Customizations, other.Customizations)
+}
+
+func customizationsEqual(a, b map[string]map[string]any) bool {
+	if len(a) != len(b) {
+		return false
+	}
+
+	for key, value := range a {
+		otherValue, ok := b[key]
+		if !ok {
+			return false
+		}
+
+		// this can be slow
+		if !reflect.DeepEqual(value, otherValue) {
+			fmt.Println("Values are not equal for key", key)
+			return false
+		}
+	}
+
+	return true
+}
+
+type Mount struct {
+	//Can be bind, volume, or tmpfs
+	Type string `json:"type,omitempty"`
+
+	// May be specified as source or src
+	Source string `json:"source,omitempty"`
+
+	// May be specified as destination, dst, or target
+	Destination string `json:"destination,omitempty"`
+}
+
+func (m *Mount) UnmarshalJSON(data []byte) error {
+	var jsonObj interface{}
+	err := json.Unmarshal(data, &jsonObj)
+
+	if err != nil {
+		return fmt.Errorf("Failed to unmarshal Mount: %w", err)
+	}
+
+	switch obj := jsonObj.(type) {
+	case string:
+		for _, kvPair := range strings.Split(obj, ",") {
+			kv := strings.Split(kvPair, "=")
+			key := kv[0]
+			value := kv[1]
+
+			switch key {
+			case "type":
+				m.Type = value
+			case "source", "src":
+				m.Source = value
+			case "destination", "dst", "target":
+				m.Destination = value
+			}
+		}
+
+		return nil
+	case map[string]interface{}:
+		if _type, ok := obj["type"].(string); ok {
+			m.Type = _type
+		}
+
+		for _, key := range []string{"source", "src"} {
+			source, ok := obj[key].(string)
+			if ok {
+				m.Source = source
+				break
+			}
+		}
+
+		for _, key := range []string{"destination", "dst", "target"} {
+			destination, ok := obj[key].(string)
+			if ok {
+				m.Destination = destination
+				break
+			}
+		}
+
+		return nil
+
+	default:
+		return fmt.Errorf("Unsupported type for Mount: %T", jsonObj)
+	}
 }
 
 type PortAttributes struct {
-	Label            string `json:"label,omitempty"`
-	Protocol         string `json:"protocol,omitempty"`      // enum
-	OnAutoForward    string `json:"onAutoForward,omitempty"` // enum
+	Label string `json:"label,omitempty"`
+
+	// enum
+	Protocol string `json:"protocol,omitempty"`
+
+	// enum
+	OnAutoForward    string `json:"onAutoForward,omitempty"`
 	RequireLocalPort bool   `json:"requireLocalPort,omitempty"`
 	ElevateIfNeeded  bool   `json:"elevateIfNeeded,omitempty"`
 }
