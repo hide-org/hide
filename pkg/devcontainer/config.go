@@ -251,7 +251,6 @@ func customizationsEqual(a, b map[string]map[string]any) bool {
 
 		// this can be slow
 		if !reflect.DeepEqual(value, otherValue) {
-			fmt.Println("Values are not equal for key", key)
 			return false
 		}
 	}
