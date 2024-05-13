@@ -50,12 +50,3 @@ func ParseConfig(content []byte) (*Config, error) {
 
 	return devContainer, nil
 }
-
-func ParseDockerComposeConfig(content []byte) (*DockerComposeProps, error) {
-	config := &DockerComposeProps{}
-	if err := json.Unmarshal(jsonc.ToJSON(content), config); err != nil {
-		return nil, err
-	}
-
-	return config, nil
-}

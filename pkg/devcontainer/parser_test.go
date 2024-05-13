@@ -79,42 +79,6 @@ func TestParseConfig(t *testing.T) {
 	}
 }
 
-func TestDockerComposePropsEquals(t *testing.T) {
-	tests := []struct {
-		name     string
-		content  []byte
-		expected *devcontainer.DockerComposeProps
-	}{
-		{
-			name: "full",
-			content: []byte(`{
-	"dockerComposeFile": "docker-compose.yml", 
-	"service": "app", 
-	"runServices": ["app", "db"], 
-	"workspaceFolder": "/workspace"
-}`),
-			expected: &devcontainer.DockerComposeProps{
-				DockerComposeFile: []string{"docker-compose.yml"},
-				Service:           "app",
-				RunServices:       []string{"app", "db"},
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			actual, err := devcontainer.ParseDockerComposeConfig(tt.content)
-			if err != nil {
-				t.Fatalf("unexpected error: %v", err)
-			}
-
-			if !actual.Equals(tt.expected) {
-				t.Errorf("expected: %+v, actual: %+v", tt.expected, actual)
-			}
-		})
-	}
-}
-
 func TestDockerImagePropsUnmarshalJSON(t *testing.T) {
 	tests := []struct {
 		name     string
