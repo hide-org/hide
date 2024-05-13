@@ -1,8 +1,11 @@
 package devcontainer_test
 
 import (
+	"bytes"
 	"encoding/json"
+	"io/fs"
 	"testing"
+	"testing/fstest"
 
 	"github.com/artmoskvin/hide/pkg/devcontainer"
 	"github.com/artmoskvin/hide/pkg/jsonc"
@@ -270,6 +273,103 @@ func TestConfigWithCustomizations(t *testing.T) {
 
 			if !actual.Equals(tt.expected) {
 				t.Errorf("expected: %+v, actual: %+v", tt.expected, actual)
+			}
+		})
+	}
+}
+
+func TestReadConfig(t *testing.T) {
+	tests := []struct {
+		name       string
+		fileSystem fs.FS
+		expected   []byte
+	}{
+		{
+			name: ".devcontainer/devcontainer.json",
+			fileSystem: fstest.MapFS{
+				".devcontainer/devcontainer.json": {Data: []byte(`{
+	"key": "value"
+}`)},
+			},
+			expected: []byte(`{
+	"key": "value"
+}`),
+		},
+		{
+			name: ".devcontainer.json",
+			fileSystem: fstest.MapFS{
+				".devcontainer.json": {Data: []byte(`{
+	"key": "value"
+}`)},
+			},
+			expected: []byte(`{
+	"key": "value"
+}`),
+		},
+		{
+			name: ".devcontainer/test-folder/devcontainer.json",
+			fileSystem: fstest.MapFS{
+				".devcontainer/test-folder/devcontainer.json": {Data: []byte(`{
+	"key": "value"
+}`)},
+			},
+			expected: []byte(`{
+	"key": "value"
+}`),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			actual, err := devcontainer.ReadConfig(tt.fileSystem)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			if !bytes.Equal(actual, tt.expected) {
+				t.Errorf("expected: %+v, actual: %+v", tt.expected, actual)
+			}
+		})
+	}
+}
+
+func TestReadConfigFails(t *testing.T) {
+	tests := []struct {
+		name       string
+		fileSystem fs.FS
+	}{
+		{
+			name: "no devcontainer.json",
+			fileSystem: fstest.MapFS{
+				"test-file": {Data: []byte("test")},
+			},
+		},
+		{
+			name: "more than one devcontainer.json",
+			fileSystem: fstest.MapFS{
+				".devcontainer/test-folder-1/devcontainer.json": {Data: []byte(`{
+	"key": "value"
+}`)},
+				".devcontainer/test-folder-2/devcontainer.json": {Data: []byte(`{
+	"key": "value"
+}`)},
+			},
+		},
+		{
+			name: "too deep subfolder structure",
+			fileSystem: fstest.MapFS{
+				".devcontainer/test-folder/test-subfolder/devcontainer.json": {Data: []byte(`{
+	"key": "value"
+}`)},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := devcontainer.ReadConfig(tt.fileSystem)
+			if err == nil {
+				t.Fatalf("expected error, got nil")
 			}
 		})
 	}

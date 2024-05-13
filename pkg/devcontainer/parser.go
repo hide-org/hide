@@ -2,50 +2,44 @@ package devcontainer
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
-	"os"
-	"path/filepath"
+	"io/fs"
 
 	"github.com/artmoskvin/hide/pkg/jsonc"
 )
 
-func ReadConfig(folder, relativePath string) ([]byte, error) {
-	path := ""
-	if relativePath != "" {
-		path = filepath.Join(filepath.ToSlash(folder), relativePath)
-		_, err := os.Stat(path)
-		if err != nil {
-			return nil, fmt.Errorf("devcontainer path %s doesn't exist: %w", path, err)
-		}
-	} else {
-		path = filepath.Join(folder, ".devcontainer", "devcontainer.json")
-		_, err := os.Stat(path)
-		if err != nil {
-			path = filepath.Join(folder, ".devcontainer.json")
-			_, err = os.Stat(path)
-			if err != nil {
-				matches, err := filepath.Glob(filepath.ToSlash(filepath.Clean(folder)) + "/.devcontainer/**/devcontainer.json")
-				if err != nil {
-					return nil, err
-				} else if len(matches) == 0 {
-					return nil, nil
-				}
-			}
-		}
+func ReadConfig(fileSystem fs.FS) ([]byte, error) {
+	content, err := fs.ReadFile(fileSystem, ".devcontainer/devcontainer.json")
+
+	if err == nil {
+		return content, nil
 	}
 
-	var err error
-	path, err = filepath.Abs(path)
+	content, err = fs.ReadFile(fileSystem, ".devcontainer.json")
+	if err == nil {
+		return content, nil
+	}
+
+	matches, err := fs.Glob(fileSystem, ".devcontainer/**/devcontainer.json")
 	if err != nil {
-		return nil, fmt.Errorf("make path absolute: %w", err)
+		return nil, fmt.Errorf("Failed to glob search '.devcontainer/**/devcontainer.json': %w", err)
 	}
 
-	bytes, err := os.ReadFile(path)
+	if len(matches) == 0 {
+		return nil, errors.New("devcontainer.json not found")
+	}
+
+	if len(matches) > 1 {
+		return nil, errors.New("multiple devcontainer.json found")
+	}
+
+	content, err = fs.ReadFile(fileSystem, matches[0])
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("Failed to read devcontainer.json: %w", err)
 	}
 
-	return bytes, nil
+	return content, nil
 }
 
 func ParseConfig(content []byte) (*Config, error) {
