@@ -1,10 +1,10 @@
 package devcontainer
 
 import (
-	"encoding/json"
+	// "encoding/json"
 	"fmt"
-	"os/exec"
-	"strings"
+	// "os/exec"
+	// "strings"
 )
 
 type Container struct {
@@ -26,7 +26,8 @@ type Manager interface {
 }
 
 type CliManager struct {
-	Store Store
+	Store  Store
+	Runner Runner
 }
 
 func NewDevContainerManager() Manager {
@@ -34,27 +35,28 @@ func NewDevContainerManager() Manager {
 }
 
 func (m CliManager) StartContainer(projectPath string) (Container, error) {
-	cmd := exec.Command("devcontainer", "up", "--log-format", "json", "--workspace-folder", projectPath)
-	cmdOut, err := cmd.Output()
-
-	if err != nil {
-		return Container{}, fmt.Errorf("Failed to launch devcontainer: %w", err)
-	}
-
-	fmt.Println(">", cmd.String())
-	fmt.Println(string(cmdOut))
-
-	jsonOutput := string(cmdOut)
-
-	var response map[string]interface{}
-
-	fmt.Println("Trying to parse json: ", jsonOutput)
-
-	if err := json.Unmarshal([]byte(jsonOutput), &response); err != nil {
-		return Container{}, fmt.Errorf("Failed to parse devcontainer output: %w", err)
-	}
-
-	containerId := response["containerId"].(string)
+	// cmd := exec.Command("devcontainer", "up", "--log-format", "json", "--workspace-folder", projectPath)
+	// cmdOut, err := cmd.Output()
+	//
+	// if err != nil {
+	// 	return Container{}, fmt.Errorf("Failed to launch devcontainer: %w", err)
+	// }
+	//
+	// fmt.Println(">", cmd.String())
+	// fmt.Println(string(cmdOut))
+	//
+	// jsonOutput := string(cmdOut)
+	//
+	// var response map[string]interface{}
+	//
+	// fmt.Println("Trying to parse json: ", jsonOutput)
+	//
+	// if err := json.Unmarshal([]byte(jsonOutput), &response); err != nil {
+	// 	return Container{}, fmt.Errorf("Failed to parse devcontainer output: %w", err)
+	// }
+	//
+	// containerId := response["containerId"].(string)
+	containerId, _ := m.Runner.Run(Config{})
 	container := Container{Id: containerId}
 	m.Store.CreateContainer(&container)
 	return container, nil
@@ -78,11 +80,12 @@ func (m CliManager) FindContainerByProject(projectId string) (Container, error) 
 }
 
 func (m CliManager) StopContainer(containerId string) error {
-	cmd := exec.Command("docker", "stop", containerId)
-
-	if _, err := cmd.Output(); err != nil {
-		return fmt.Errorf("Failed to stop container %s: %w", containerId, err)
-	}
+	// cmd := exec.Command("docker", "stop", containerId)
+	//
+	// if _, err := cmd.Output(); err != nil {
+	// 	return fmt.Errorf("Failed to stop container %s: %w", containerId, err)
+	// }
+	_ = m.Runner.Stop(containerId)
 
 	if err := m.Store.DeleteContainer(containerId); err != nil {
 		return fmt.Errorf("Failed to delete container %s: %w", containerId, err)
@@ -92,16 +95,17 @@ func (m CliManager) StopContainer(containerId string) error {
 }
 
 func (m CliManager) Exec(containerId string, projectPath string, command string) (ExecResult, error) {
-	allArgs := append([]string{"exec", "--workspace-folder", projectPath}, strings.Split(command, " ")...)
-	cmd := exec.Command("devcontainer", allArgs...)
-	cmdOut, err := cmd.Output()
-
-	if err != nil {
-		return ExecResult{}, fmt.Errorf("Failed to exec command %s in devcontainer %s: %w", command, containerId, err)
-	}
-
-	fmt.Println("> ", cmd.String())
-	fmt.Println(string(cmdOut))
+	// allArgs := append([]string{"exec", "--workspace-folder", projectPath}, strings.Split(command, " ")...)
+	// cmd := exec.Command("devcontainer", allArgs...)
+	// cmdOut, err := cmd.Output()
+	//
+	// if err != nil {
+	// 	return ExecResult{}, fmt.Errorf("Failed to exec command %s in devcontainer %s: %w", command, containerId, err)
+	// }
+	//
+	// fmt.Println("> ", cmd.String())
+	// fmt.Println(string(cmdOut))
+	cmdOut, _ := m.Runner.Exec(containerId, command)
 
 	// TODO: how to get exit code and stderr?
 	return ExecResult{StdOut: string(cmdOut)}, nil
