@@ -34,7 +34,7 @@ type DockerImageProps struct {
 
 	Context string `json:"context,omitempty"`
 
-	Build BuildProps `json:"build,omitempty"`
+	Build *BuildProps `json:"build,omitempty"`
 
 	// This property accepts a port or array of ports that should be published locally when the container is running.
 	AppPort AppPort `json:"appPort,omitempty"`
@@ -46,7 +46,7 @@ type DockerImageProps struct {
 
 func (d *DockerImageProps) Equals(other *DockerImageProps) bool {
 	return d.Image == other.Image &&
-		d.Build.Equals(&other.Build) &&
+		d.Build.Equals(other.Build) &&
 		slices.Equal(d.AppPort, other.AppPort) &&
 		d.WorkspaceMount == other.WorkspaceMount &&
 		slices.Equal(d.RunArgs, other.RunArgs)

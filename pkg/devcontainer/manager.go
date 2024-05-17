@@ -3,7 +3,7 @@ package devcontainer
 import (
 	// "encoding/json"
 	"fmt"
-	// "os/exec"
+	"os/exec"
 	// "strings"
 )
 
@@ -19,7 +19,7 @@ type ExecResult struct {
 }
 
 type Manager interface {
-	StartContainer(projectPath string) (Container, error)
+	StartContainer(projectPath string, config Config) (Container, error)
 	FindContainerByProject(projectId string) (Container, error)
 	StopContainer(containerId string) error
 	Exec(containerId string, projectPath string, command string) (ExecResult, error)
@@ -34,7 +34,7 @@ func NewDevContainerManager() Manager {
 	return CliManager{Store: NewInMemoryStore(make(map[string]*Container))}
 }
 
-func (m CliManager) StartContainer(projectPath string) (Container, error) {
+func (m CliManager) StartContainer(projectPath string, config Config) (Container, error) {
 	// cmd := exec.Command("devcontainer", "up", "--log-format", "json", "--workspace-folder", projectPath)
 	// cmdOut, err := cmd.Output()
 	//
