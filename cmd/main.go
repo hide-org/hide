@@ -10,13 +10,22 @@ import (
 	"github.com/artmoskvin/hide/pkg/filemanager"
 	"github.com/artmoskvin/hide/pkg/handlers"
 	"github.com/artmoskvin/hide/pkg/project"
+	"github.com/artmoskvin/hide/pkg/util"
+	"github.com/docker/docker/client"
 )
 
 const ProjectsDir = "hide-projects"
 
 func main() {
 	mux := http.NewServeMux()
-	devContainerManager := devcontainer.NewDevContainerManager()
+	dockerClient, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+
+	if err != nil {
+		panic(err)
+	}
+
+	dockerRunner := devcontainer.NewRunnerImpl(dockerClient, util.NewExecutorImpl())
+	devContainerManager := devcontainer.NewDevContainerManager(dockerRunner)
 	projectStore := project.NewInMemoryStore(make(map[string]*project.Project))
 	home, err := os.UserHomeDir()
 

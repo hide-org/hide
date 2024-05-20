@@ -6,14 +6,14 @@ import (
 
 // MockDevContainerManager is a mock type for devcontainer.Manager
 type MockDevContainerManager struct {
-	StartContainerFunc         func(projectPath string) (devcontainer.Container, error)
+	StartContainerFunc         func(projectPath string, config devcontainer.Config) (devcontainer.Container, error)
 	FindContainerByProjectFunc func(projectId string) (devcontainer.Container, error)
 	StopContainerFunc          func(containerId string) error
 	ExecFunc                   func(containerId string, projectPath string, command string) (devcontainer.ExecResult, error)
 }
 
-func (m *MockDevContainerManager) StartContainer(projectPath string) (devcontainer.Container, error) {
-	return m.StartContainerFunc(projectPath)
+func (m *MockDevContainerManager) StartContainer(projectPath string, config devcontainer.Config) (devcontainer.Container, error) {
+	return m.StartContainerFunc(projectPath, config)
 }
 
 func (m *MockDevContainerManager) FindContainerByProject(projectId string) (devcontainer.Container, error) {

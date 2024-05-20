@@ -3,6 +3,8 @@ package project
 import (
 	"errors"
 	"fmt"
+	"io/fs"
+	"log"
 	"math/rand"
 	"os"
 	"os/exec"
@@ -21,14 +23,15 @@ type Task struct {
 	Command string `json:"command"`
 }
 
-type DevContainerConfig struct {
-	Tasks []Task `json:"tasks"`
+type Config struct {
+	DevContainerConfig *devcontainer.Config `json:"devContainerConfig"`
+	Tasks              []Task               `json:"tasks"`
 }
 
 type Project struct {
-	Id     string             `json:"id"`
-	Path   string             `json:"path"`
-	Config DevContainerConfig `json:"config"`
+	Id     string `json:"id"`
+	Path   string `json:"path"`
+	Config Config `json:"config"`
 }
 
 func (project *Project) FindTaskByAlias(alias string) (Task, error) {
@@ -76,14 +79,20 @@ func (pm ManagerImpl) CreateProject(request CreateProjectRequest) (Project, erro
 		return Project{}, fmt.Errorf("Failed to clone git repo: %w", err)
 	}
 
-	devContainerConfig := pm.devContainerConfigFromProject(projectPath)
+	config, err := pm.configFromProject(os.DirFS(projectPath))
 
-	if _, err := pm.DevContainerManager.StartContainer(projectPath); err != nil {
+	if err != nil {
+		removeProjectDir(projectPath)
+		return Project{}, fmt.Errorf("Failed to read devcontainer.json: %w", err)
+	}
+
+	if _, err := pm.DevContainerManager.StartContainer(projectPath, config.DevContainerConfig); err != nil {
+		log.Println("Failed to launch devcontainer:", err)
 		removeProjectDir(projectPath)
 		return Project{}, fmt.Errorf("Failed to launch devcontainer: %w", err)
 	}
 
-	project := Project{Id: projectId, Path: projectPath, Config: devContainerConfig}
+	project := Project{Id: projectId, Path: projectPath, Config: config}
 
 	if err := pm.Store.CreateProject(&project); err != nil {
 		removeProjectDir(projectPath)
@@ -151,9 +160,23 @@ func (pm ManagerImpl) createProjectDir(path string) error {
 	return nil
 }
 
-func (pm ManagerImpl) devContainerConfigFromProject(projectPath string) DevContainerConfig {
-	// TODO: find devcontainer.json in the project and parse it into a Config struct
-	return DevContainerConfig{Tasks: []Task{}}
+func (pm ManagerImpl) configFromProject(fileSystem fs.FS) (Config, error) {
+	configFile, err := devcontainer.ReadConfig(fileSystem)
+
+	if err != nil {
+		return Config{}, fmt.Errorf("Failed to read devcontainer.json: %w", err)
+	}
+
+	config, err := devcontainer.ParseConfig(configFile)
+
+	if err != nil {
+		return Config{}, fmt.Errorf("Failed to parse devcontainer.json: %w", err)
+	}
+
+	// TODO: parse tasks from customizations
+	var tasks []Task
+
+	return Config{DevContainerConfig: config, Tasks: tasks}, nil
 }
 
 func removeProjectDir(projectPath string) {

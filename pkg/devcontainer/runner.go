@@ -3,36 +3,42 @@ package devcontainer
 import (
 	"context"
 	"fmt"
-	"io"
+
+	// "io"
 	"log"
 	"os"
-	"os/exec"
+
+	// "os/exec"
 
 	"github.com/artmoskvin/hide/pkg/util"
 	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/image"
+	// "github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/pkg/archive"
+	// v1 "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
 type Runner interface {
-	Run(projectPath string, config Config) (string, error)
+	Run(projectPath string, config *Config) (string, error)
 	Stop(containerId string) error
 	Exec(containerId string, command string) (string, error)
 }
 
 type RunnerImpl struct {
-	dockerClient    client.Client
+	dockerClient    *client.Client
 	commandExecutor util.Executor
 }
 
-func NewRunnerImpl(client client.Client) Runner {
+func NewRunnerImpl(client *client.Client, commandExecutor util.Executor) Runner {
 	return &RunnerImpl{
-		dockerClient: client,
+		dockerClient:    client,
+		commandExecutor: commandExecutor,
 	}
 }
 
-func (r *RunnerImpl) Run(projectPath string, config Config) (string, error) {
+func (r *RunnerImpl) Run(projectPath string, config *Config) (string, error) {
 	// Run initialize commands
 	if config.LifecycleProps.InitializeCommand != nil {
 		for _, command := range config.LifecycleProps.InitializeCommand {
@@ -42,10 +48,12 @@ func (r *RunnerImpl) Run(projectPath string, config Config) (string, error) {
 		}
 	}
 
+	ctx := context.Background()
+
 	// Pull image
 	if config.Image != "" {
-		log.Println("Pulling image", config.Image)
-		output, err := r.dockerClient.ImagePull(context.Background(), config.Image, image.PullOptions{})
+		log.Println("Pulling image...", config.Image)
+		output, err := r.dockerClient.ImagePull(ctx, config.Image, image.PullOptions{})
 		if err != nil {
 			return "", fmt.Errorf("Failed to pull image %s: %w", config.Image, err)
 		}
@@ -59,22 +67,29 @@ func (r *RunnerImpl) Run(projectPath string, config Config) (string, error) {
 	}
 
 	// Build image
-	if config.Build != nil || config.Dockerfile != "" {
-		log.Println("Building image")
+	if config.Dockerfile != "" || (config.Build != nil && config.Build.Dockerfile != "") {
+		log.Println("Building image...")
 		buildContext, err := archive.TarWithOptions(projectPath, &archive.TarOptions{})
 
 		if err != nil {
 			return "", fmt.Errorf("Failed to create tar archive for Docker build context: %w", err)
 		}
 
-		imageBuildResponse, err := r.dockerClient.ImageBuild(context.Background(), buildContext, types.ImageBuildOptions{
+		var dockerFile string
+
+		if config.Dockerfile != "" {
+			dockerFile = config.Dockerfile
+		} else if config.Build != nil && config.Build.Dockerfile != "" {
+			dockerFile = config.Build.Dockerfile
+		}
+
+		imageBuildResponse, err := r.dockerClient.ImageBuild(ctx, buildContext, types.ImageBuildOptions{
 			// TODO: add build args
-			Tags:       []string{config.Image},
-			Dockerfile: config.Build.Dockerfile,
-			// Context:    config.Build.Context,
-			// BuildArgs:  config.Build.Args,
-			// Platform:   config.Build.Platform,
-			// NoCache:    config.Build.NoCache,
+			Dockerfile: dockerFile,
+			BuildArgs:  config.Build.Args,
+			Context:    buildContext,
+			CacheFrom:  config.Build.CacheFrom,
+			Target:     config.Build.Target,
 		})
 
 		if err != nil {
@@ -87,10 +102,35 @@ func (r *RunnerImpl) Run(projectPath string, config Config) (string, error) {
 			log.Printf("Error streaming output: %v\n", err)
 		}
 
-		log.Println("Built image", config.Image)
+		log.Println("Built image")
 	}
 
-	return "", nil
+	// Build docker compose
+	if len(config.DockerComposeFile) > 0 {
+		log.Println("Building docker-compose...")
+		// TODO: build docker-compose file
+	}
+
+	containerConfig := &container.Config{Image: config.Image, Cmd: []string{"/bin/sh", "-c", "while sleep 1000; do :; done"}}
+	createResponse, err := r.dockerClient.ContainerCreate(ctx, containerConfig, nil, nil, nil, "")
+
+	if err != nil {
+		return "", fmt.Errorf("Failed to create container: %w", err)
+	}
+
+	containerId := createResponse.ID
+
+	log.Println("Created container", containerId)
+
+	// start container
+
+	if err := r.dockerClient.ContainerStart(ctx, containerId, container.StartOptions{}); err != nil {
+		return "", fmt.Errorf("Failed to start container: %w", err)
+	}
+
+	log.Println("Started container", containerId)
+
+	return containerId, nil
 }
 
 func (r *RunnerImpl) Stop(containerId string) error {

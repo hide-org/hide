@@ -125,12 +125,12 @@ func TestDockerImagePropsUnmarshalJSON(t *testing.T) {
 	"workspaceMount": "/workspace"
 }`),
 			expected: &devcontainer.DockerImageProps{
-				Build: devcontainer.BuildProps{
+				Build: &devcontainer.BuildProps{
 					Dockerfile: "Dockerfile",
 					Context:    ".",
-					Args: map[string]string{
+					Args: args(map[string]string{
 						"NODE_ENV": "development",
-					},
+					}),
 					Options:   []string{"--no-cache"},
 					Target:    "development",
 					CacheFrom: []string{"node:14"},
@@ -337,4 +337,14 @@ func TestReadConfigFails(t *testing.T) {
 			}
 		})
 	}
+}
+
+func args(args map[string]string) map[string]*string {
+	result := make(map[string]*string)
+
+	for key, value := range args {
+		result[key] = &value
+	}
+
+	return result
 }

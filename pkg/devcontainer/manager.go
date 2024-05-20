@@ -3,7 +3,7 @@ package devcontainer
 import (
 	// "encoding/json"
 	"fmt"
-	"os/exec"
+	// "os/exec"
 	// "strings"
 )
 
@@ -19,7 +19,7 @@ type ExecResult struct {
 }
 
 type Manager interface {
-	StartContainer(projectPath string, config Config) (Container, error)
+	StartContainer(projectPath string, config *Config) (Container, error)
 	FindContainerByProject(projectId string) (Container, error)
 	StopContainer(containerId string) error
 	Exec(containerId string, projectPath string, command string) (ExecResult, error)
@@ -30,11 +30,11 @@ type CliManager struct {
 	Runner Runner
 }
 
-func NewDevContainerManager() Manager {
-	return CliManager{Store: NewInMemoryStore(make(map[string]*Container))}
+func NewDevContainerManager(Runner Runner) Manager {
+	return CliManager{Store: NewInMemoryStore(make(map[string]*Container)), Runner: Runner}
 }
 
-func (m CliManager) StartContainer(projectPath string, config Config) (Container, error) {
+func (m CliManager) StartContainer(projectPath string, config *Config) (Container, error) {
 	// cmd := exec.Command("devcontainer", "up", "--log-format", "json", "--workspace-folder", projectPath)
 	// cmdOut, err := cmd.Output()
 	//
@@ -56,9 +56,18 @@ func (m CliManager) StartContainer(projectPath string, config Config) (Container
 	// }
 	//
 	// containerId := response["containerId"].(string)
-	containerId, _ := m.Runner.Run(Config{})
+	containerId, err := m.Runner.Run(projectPath, config)
+
+	if err != nil {
+		return Container{}, fmt.Errorf("Failed to launch devcontainer: %w", err)
+	}
+
 	container := Container{Id: containerId}
-	m.Store.CreateContainer(&container)
+
+	if err := m.Store.CreateContainer(&container); err != nil {
+		return Container{}, fmt.Errorf("Failed to create container in store: %w", err)
+	}
+
 	return container, nil
 }
 

@@ -112,7 +112,7 @@ type BuildProps struct {
 
 	Context string `json:"context,omitempty"`
 
-	Args map[string]string `json:"args,omitempty"`
+	Args map[string]*string `json:"args,omitempty"`
 
 	Options []string `json:"options,omitempty"`
 
