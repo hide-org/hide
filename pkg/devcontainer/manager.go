@@ -3,6 +3,7 @@ package devcontainer
 import (
 	// "encoding/json"
 	"fmt"
+	"strings"
 	// "os/exec"
 	// "strings"
 )
@@ -20,6 +21,7 @@ type ExecResult struct {
 
 type Manager interface {
 	StartContainer(projectPath string, config *Config) (Container, error)
+	// TODO: remove
 	FindContainerByProject(projectId string) (Container, error)
 	StopContainer(containerId string) error
 	Exec(containerId string, projectPath string, command string) (ExecResult, error)
@@ -114,8 +116,8 @@ func (m CliManager) Exec(containerId string, projectPath string, command string)
 	//
 	// fmt.Println("> ", cmd.String())
 	// fmt.Println(string(cmdOut))
-	cmdOut, _ := m.Runner.Exec(containerId, command)
+	cmdOut, _ := m.Runner.Exec(containerId, strings.Split(command, " "))
 
 	// TODO: how to get exit code and stderr?
-	return ExecResult{StdOut: string(cmdOut)}, nil
+	return cmdOut, nil
 }

@@ -28,10 +28,13 @@ type Config struct {
 	Tasks              []Task               `json:"tasks"`
 }
 
+type ProjectId = string
+
 type Project struct {
-	Id     string `json:"id"`
-	Path   string `json:"path"`
-	Config Config `json:"config"`
+	Id          ProjectId `json:"id"`
+	Path        string    `json:"path"`
+	Config      Config    `json:"config"`
+	containerId string
 }
 
 func (project *Project) FindTaskByAlias(alias string) (Task, error) {
@@ -51,9 +54,9 @@ type TaskResult struct {
 
 type Manager interface {
 	CreateProject(request CreateProjectRequest) (Project, error)
-	GetProject(projectId string) (Project, error)
-	ResolveTaskAlias(projectId string, alias string) (Task, error)
-	CreateTask(projectId string, command string) (TaskResult, error)
+	GetProject(projectId ProjectId) (Project, error)
+	ResolveTaskAlias(projectId ProjectId, alias string) (Task, error)
+	CreateTask(projectId ProjectId, command string) (TaskResult, error)
 }
 
 type ManagerImpl struct {
@@ -86,13 +89,15 @@ func (pm ManagerImpl) CreateProject(request CreateProjectRequest) (Project, erro
 		return Project{}, fmt.Errorf("Failed to read devcontainer.json: %w", err)
 	}
 
-	if _, err := pm.DevContainerManager.StartContainer(projectPath, config.DevContainerConfig); err != nil {
+	container, err := pm.DevContainerManager.StartContainer(projectPath, config.DevContainerConfig)
+
+	if err != nil {
 		log.Println("Failed to launch devcontainer:", err)
 		removeProjectDir(projectPath)
 		return Project{}, fmt.Errorf("Failed to launch devcontainer: %w", err)
 	}
 
-	project := Project{Id: projectId, Path: projectPath, Config: config}
+	project := Project{Id: projectId, Path: projectPath, Config: config, containerId: container.Id}
 
 	if err := pm.Store.CreateProject(&project); err != nil {
 		removeProjectDir(projectPath)
@@ -135,13 +140,7 @@ func (pm ManagerImpl) CreateTask(projectId string, command string) (TaskResult, 
 		return TaskResult{}, fmt.Errorf("Project with id %s not found", projectId)
 	}
 
-	container, err := pm.DevContainerManager.FindContainerByProject(projectId)
-
-	if err != nil {
-		return TaskResult{}, fmt.Errorf("Failed to find container for project %s: %w", projectId, err)
-	}
-
-	execResult, err := pm.DevContainerManager.Exec(container.Id, project.Path, command)
+	execResult, err := pm.DevContainerManager.Exec(project.containerId, project.Path, command)
 
 	if err != nil {
 		return TaskResult{}, fmt.Errorf("Failed to execute command: %w", err)
