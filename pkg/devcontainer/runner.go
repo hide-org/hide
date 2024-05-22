@@ -75,6 +75,7 @@ func (r *DockerRunner) Run(projectPath string, config *Config) (string, error) {
 	}
 
 	// Run onCreate commands
+	// TODO: run inside of container
 	if command := config.LifecycleProps.OnCreateCommand; command != nil {
 		if err := r.executeLifecycleCommand(command, projectPath); err != nil {
 			return "", fmt.Errorf("Failed to run onCreate command %s: %w", command, err)
@@ -82,6 +83,7 @@ func (r *DockerRunner) Run(projectPath string, config *Config) (string, error) {
 	}
 
 	// Run updateContent commands
+	// TODO: run inside of container
 	if command := config.LifecycleProps.UpdateContentCommand; command != nil {
 		if err := r.executeLifecycleCommand(command, projectPath); err != nil {
 			return "", fmt.Errorf("Failed to run updateContent command %s: %w", command, err)
@@ -89,6 +91,7 @@ func (r *DockerRunner) Run(projectPath string, config *Config) (string, error) {
 	}
 
 	// Run postCreate commands
+	// TODO: run inside of container
 	if command := config.LifecycleProps.PostCreateCommand; command != nil {
 		if err := r.executeLifecycleCommand(command, projectPath); err != nil {
 			return "", fmt.Errorf("Failed to run postCreate command %s: %w", command, err)
@@ -158,6 +161,7 @@ func (r *DockerRunner) Exec(containerID string, command []string) (ExecResult, e
 	return ExecResult{StdOut: buf.String(), StdErr: "", ExitCode: inspectResp.ExitCode}, nil
 }
 
+// TODO: execute commands in a separate goroutine
 func (r *DockerRunner) executeLifecycleCommand(lifecycleCommand LifecycleCommand, workingDir string) error {
 	for name, command := range lifecycleCommand {
 		if name != "" {

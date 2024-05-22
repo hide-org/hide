@@ -31,17 +31,29 @@ type DockerImageProps struct {
 	// Required when using an image.
 	Image string `json:"image,omitempty"`
 
+	// Dockerfile path. Duplicate of BuildProps.Dockerfile.
 	Dockerfile string `json:"dockerfile,omitempty"`
 
+	// Docker build context. Duplicate of BuildProps.Context.
 	Context string `json:"context,omitempty"`
 
+	// Docker build options
 	Build *BuildProps `json:"build,omitempty"`
 
-	// This property accepts a port or array of ports that should be published locally when the container is running.
+	// This property accepts a port or array of ports that should be published locally when the container is running. Unlike forwardPorts, your application may need to listen on all interfaces (0.0.0.0) not just localhost for it to be available externally. Defaults to [].
+	// TODO: use when creating/running container
 	AppPort AppPort `json:"appPort,omitempty"`
 
+	// Requires workspaceFolder be set as well. Overrides the default local mount point for the workspace when the container is created. Supports the same values as the Docker CLI --mount flag.
+	// TODO: use when creating/running container
 	WorkspaceMount string `json:"workspaceMount,omitempty"`
 
+	// Requires workspaceMount be set. Sets the default path that devcontainer.json supporting services / tools should open when connecting to the container. Defaults to the automatic source code mount location.
+	// TODO: use when creating/running container
+	WorkspaceFolder string `json:"workspaceFolder,omitempty"`
+
+	// An array of Docker CLI arguments that should be used when running the container. Defaults to [].
+	// TODO: use when creating/running container
 	RunArgs []string `json:"runArgs,omitempty"`
 }
 
@@ -50,6 +62,7 @@ func (d *DockerImageProps) Equals(other *DockerImageProps) bool {
 		d.Build.Equals(other.Build) &&
 		slices.Equal(d.AppPort, other.AppPort) &&
 		d.WorkspaceMount == other.WorkspaceMount &&
+		d.WorkspaceFolder == other.WorkspaceFolder &&
 		slices.Equal(d.RunArgs, other.RunArgs)
 }
 
@@ -118,6 +131,7 @@ type BuildProps struct {
 	Args map[string]*string `json:"args,omitempty"`
 
 	// An array of Docker image build options that should be passed to the build command when building a Dockerfile. Defaults to []. For example: "build": { "options": [ "--add-host=host.docker.internal:host-gateway" ] }
+	// NOTE: this options are currently ignored because it's too cumbersome to manually parse them into the types.ImageBuildOptions, there should be a better way to do it
 	Options []string `json:"options,omitempty"`
 
 	// A string that specifies a Docker image build target that should be passed when building a Dockerfile. Defaults to not set. For example: "build": { "target": "development" }
@@ -153,19 +167,29 @@ func (d *DockerComposeProps) Equals(other *DockerComposeProps) bool {
 }
 
 type LifecycleProps struct {
+	// A command string or list of command arguments to run on the host machine during initialization, including during container creation and on subsequent starts. The command may run more than once during a given session.
 	InitializeCommand LifecycleCommand `json:"initializeCommand,omitempty"`
 
+	// This command is the first of three (along with updateContentCommand and postCreateCommand) that finalizes container setup when a dev container is created. It and subsequent commands execute inside the container immediately after it has started for the first time.
 	OnCreateCommand LifecycleCommand `json:"onCreateCommand,omitempty"`
 
+	// This command is the second of three that finalizes container setup when a dev container is created. It executes inside the container after onCreateCommand whenever new content is available in the source tree during the creation process.
 	UpdateContentCommand LifecycleCommand `json:"updateContentCommand,omitempty"`
 
+	// This command is the last of three that finalizes container setup when a dev container is created. It happens after updateContentCommand and once the dev container has been assigned to a user for the first time.
 	PostCreateCommand LifecycleCommand `json:"postCreateCommand,omitempty"`
 
+	// A command to run each time the container is successfully started.
+	// TODO: should we run it inside of container?
 	PostStartCommand LifecycleCommand `json:"postStartCommand,omitempty"`
 
+	// A command to run each time a tool has successfully attached to the container.
+	// TODO: should we run it inside of container?
 	PostAttachCommand LifecycleCommand `json:"postAttachCommand,omitempty"`
 
-	WaitFor string `json:"waitFor,omitempty"` // enum
+	// An enum that specifies the command any tool should wait for before connecting. Defaults to updateContentCommand.
+	// TODO: use it
+	WaitFor string `json:"waitFor,omitempty"`
 }
 
 func (l *LifecycleProps) Equals(other *LifecycleProps) bool {
@@ -178,11 +202,10 @@ func (l *LifecycleProps) Equals(other *LifecycleProps) bool {
 		l.WaitFor == other.WaitFor
 }
 
+// Can be useful when provisioning cloud resources
 type HostRequirements struct {
-	Cpus int `json:"cpus,omitempty"`
-
-	Memory string `json:"memory,omitempty"`
-
+	Cpus    int    `json:"cpus,omitempty"`
+	Memory  string `json:"memory,omitempty"`
 	Storage string `json:"storage,omitempty"`
 }
 
@@ -193,31 +216,80 @@ func (h *HostRequirements) Equals(other *HostRequirements) bool {
 }
 
 type GeneralProperties struct {
-	Name                 string                    `json:"name,omitempty"`
-	ForwardPorts         []string                  `json:"forwardPorts,omitempty"`
-	PortsAttributes      map[string]PortAttributes `json:"portsAttributes,omitempty"`
-	OtherPortsAttributes PortAttributes            `json:"otherPortsAttributes,omitempty"`
-	ContainerEnv         map[string]string         `json:"containerEnv,omitempty"`
-	RemoteEnv            map[string]string         `json:"remoteEnv,omitempty"`
-	RemoteUser           string                    `json:"remoteUser,omitempty"`
-	ContainerUser        string                    `json:"containerUser,omitempty"`
-	UpdateRemoteUserUID  bool                      `json:"updateRemoteUserUID,omitempty"`
+	// A name for the dev container.
+	Name string `json:"name,omitempty"`
 
-	// enum: "none", "interactiveShell", "loginShell", or "loginInteractiveShell" (default)
-	UserEnvProbe    string `json:"userEnvProbe,omitempty"`
-	OverrideCommand bool   `json:"overrideCommand,omitempty"`
+	// An array of port numbers or "host:port" values (e.g. [3000, "db:5432"]) that should always be forwarded from inside the primary container to the local machine (including on the web). Defaults to [].
+	// TODO: use when creating/running container
+	ForwardPorts []string `json:"forwardPorts,omitempty"`
 
-	// enum: "none", "stopContainer" (default for image or Dockerfile), or "stopCompose" (default for Docker Compose)
-	ShutdownAction  string   `json:"shutdownAction,omitempty"`
-	Init            bool     `json:"init,omitempty"`
-	Privileged      bool     `json:"privileged,omitempty"`
-	CapAdd          []string `json:"capAdd,omitempty"`
-	SecurityOpt     []string `json:"securityOpt,omitempty"`
-	Mounts          []Mount  `json:"mounts,omitempty"`
-	WorkspaceFolder string   `json:"workspaceFolder,omitempty"`
+	// Object that maps a port number, "host:port" value, range, or regular expression to a set of default options.
+	PortsAttributes map[string]PortAttributes `json:"portsAttributes,omitempty"`
+
+	// Default options for ports, port ranges, and hosts that aren’t configured using portsAttributes.
+	OtherPortsAttributes PortAttributes `json:"otherPortsAttributes,omitempty"`
+
+	// A set of name-value pairs that sets or overrides environment variables for the container. Sets the variable on the Docker container itself, so all processes spawned in the container will have access to it.
+	// TODO: use when creating/running container
+	ContainerEnv map[string]string `json:"containerEnv,omitempty"`
+
+	// A set of name-value pairs that sets or overrides environment variables for the devcontainer.json supporting service / tool (or sub-processes like terminals) but not the container as a whole.
+	// TODO: how to use it?
+	RemoteEnv map[string]string `json:"remoteEnv,omitempty"`
+
+	// Overrides the user that Hide uses to run processes inside the container. Defaults to the user the container as a whole is running as (often root).
+	// TODO: use when running commands?
+	RemoteUser string `json:"remoteUser,omitempty"`
+
+	// Overrides the user for all operations run as inside the container. Defaults to either root or the last USER instruction in the related Dockerfile used to create the image.
+	// TODO: use when creating/running container
+	ContainerUser string `json:"containerUser,omitempty"`
+
+	// On Linux, if containerUser or remoteUser is specified, the user’s UID/GID will be updated to match the local user’s UID/GID to avoid permission problems with bind mounts. Defaults to true.
+	// TODO: how to use it?
+	UpdateRemoteUserUID bool `json:"updateRemoteUserUID,omitempty"`
+
+	// Indicates the type of shell to use to “probe” for user environment variables: "none", "interactiveShell", "loginShell", or "loginInteractiveShell" (default)
+	// NOTE: most likely we don't need this
+	UserEnvProbe string `json:"userEnvProbe,omitempty"`
+
+	// Tells devcontainer.json supporting services / tools whether they should run /bin/sh -c "while sleep 1000; do :; done" when starting the container instead of the container’s default command (since the container can shut down if the default command fails). Set to false if the default command must run for the container to function properly. Defaults to true for when using an image or Dockerfile and false when referencing a Docker Compose file.
+	// TODO: how to use it?
+	OverrideCommand bool `json:"overrideCommand,omitempty"`
+
+	// Indicates whether devcontainer.json supporting tools should stop the containers when the related tool window is closed / shut down. Values are none, stopContainer (default for image or Dockerfile), and stopCompose (default for Docker Compose).
+	// TODO: how to use it?
+	ShutdownAction string `json:"shutdownAction,omitempty"`
+
+	// Defaults to false. Cross-orchestrator way to indicate whether the tini init process should be used to help deal with zombie processes.
+	// TODO: use when creating/running container
+	Init bool `json:"init,omitempty"`
+
+	// Defaults to false. Cross-orchestrator way to cause the container to run in privileged mode (--privileged). Required for things like Docker-in-Docker, but has security implications particularly when running directly on Linux.
+	// TODO: use when creating/running container
+	Privileged bool `json:"privileged,omitempty"`
+
+	// Defaults to []. Cross-orchestrator way to add capabilities typically disabled for a container.
+	// TODO: use when creating/running container
+	CapAdd []string `json:"capAdd,omitempty"`
+
+	// Defaults to []. Cross-orchestrator way to set container security options.
+	// TODO: use when creating/running container
+	SecurityOpt []string `json:"securityOpt,omitempty"`
+
+	// Defaults to unset. Cross-orchestrator way to add additional mounts to a container.
+	// TODO: use when creating/running container
+	Mounts []Mount `json:"mounts,omitempty"`
+
+	// An object of Dev Container Feature IDs and related options to be added into your primary container.
+	// NOTE: this is not supported yet
 	// Features                    map[string]map[string]string `json:"features,omitempty"`
-	OverrideFeatureInstallOrder []string                  `json:"overrideFeatureInstallOrder,omitempty"`
-	Customizations              map[string]map[string]any `json:"customizations,omitempty"`
+
+	// By default, Features will attempt to automatically set the order they are installed based on a installsAfter property within each of them. This property allows you to override the Feature install order when needed.
+	OverrideFeatureInstallOrder []string `json:"overrideFeatureInstallOrder,omitempty"`
+
+	// Product specific properties, defined in supporting tools like Hide.
+	Customizations map[string]map[string]any `json:"customizations,omitempty"`
 }
 
 func (g *GeneralProperties) Equals(other *GeneralProperties) bool {
@@ -238,7 +310,6 @@ func (g *GeneralProperties) Equals(other *GeneralProperties) bool {
 		slices.Equal(g.CapAdd, other.CapAdd) &&
 		slices.Equal(g.SecurityOpt, other.SecurityOpt) &&
 		slices.Equal(g.Mounts, other.Mounts) &&
-		g.WorkspaceFolder == other.WorkspaceFolder &&
 		// maps.Equal(g.Features, other.Features) &&
 		slices.Equal(g.OverrideFeatureInstallOrder, other.OverrideFeatureInstallOrder) &&
 		customizationsEqual(g.Customizations, other.Customizations)
