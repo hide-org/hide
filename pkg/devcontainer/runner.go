@@ -5,22 +5,18 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"path/filepath"
 
-	// "io"
 	"log"
 	"os"
-
-	// "os/exec"
 
 	"github.com/artmoskvin/hide/pkg/util"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/image"
 
-	// "github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/pkg/archive"
-	// v1 "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
 var DefaultContainerCommand = []string{"/bin/sh", "-c", "while sleep 1000; do :; done"}
@@ -53,29 +49,21 @@ func (r *DockerRunner) Run(projectPath string, config *Config) (string, error) {
 
 	ctx := context.Background()
 
-	// Pull image
-	if config.Image != "" {
-		if err := r.pullImage(ctx, config.Image); err != nil {
-			return "", fmt.Errorf("Failed to pull image %s: %w", config.Image, err)
-		}
-	}
-
-	// Build image
-	// TODO: get image id (or tag)
-	if config.Build != nil && config.Build.Dockerfile != "" {
-		if err := r.buildImage(ctx, projectPath, config.Build); err != nil {
-			return "", fmt.Errorf("Failed to build Docker image: %w", err)
-		}
-	}
-
 	// Build docker compose
 	if len(config.DockerComposeFile) > 0 {
-		log.Println("Building docker-compose...")
 		// TODO: build docker-compose file
+		return "", fmt.Errorf("Docker Compose is not supported yet")
+	}
+
+	// Pull or build image
+	imageId, err := r.pullOrBuildImage(ctx, projectPath, config)
+
+	if err != nil {
+		return "", fmt.Errorf("Failed to pull or build image: %w", err)
 	}
 
 	// Create container
-	containerId, err := r.createContainer(ctx, config.Image)
+	containerId, err := r.createContainer(ctx, imageId)
 
 	if err != nil {
 		return "", fmt.Errorf("Failed to create container: %w", err)
@@ -184,6 +172,47 @@ func (r *DockerRunner) executeLifecycleCommand(lifecycleCommand LifecycleCommand
 	return nil
 }
 
+func (r *DockerRunner) pullOrBuildImage(ctx context.Context, workingDir string, config *Config) (string, error) {
+	if config.Image != "" {
+		if err := r.pullImage(ctx, config.Image); err != nil {
+			return "", fmt.Errorf("Failed to pull image %s: %w", config.Image, err)
+		}
+
+		return config.Image, nil
+	}
+
+	var dockerFile, context string
+
+	if config.Dockerfile != "" {
+		dockerFile = config.Dockerfile
+	} else if config.Build != nil && config.Build.Dockerfile != "" {
+		dockerFile = config.Build.Dockerfile
+	} else {
+		return "", fmt.Errorf("Dockerfile not found")
+	}
+
+	if config.Context != "" {
+		context = config.Context
+	} else if config.Build != nil && config.Build.Context != "" {
+		context = config.Build.Context
+	} else {
+		// default value
+		// NOTE: this is bad; default values should be set during parsing
+		context = "."
+	}
+
+	dockerFilePath := filepath.Join(workingDir, config.Path, dockerFile)
+	contextPath := filepath.Join(workingDir, config.Path, context)
+	imageId, err := r.buildImage(ctx, contextPath, dockerFilePath, config.Build, config.Name)
+
+	if err != nil {
+		return "", fmt.Errorf("Failed to build image: %w", err)
+	}
+
+	return imageId, nil
+
+}
+
 func (r *DockerRunner) pullImage(ctx context.Context, _image string) error {
 	log.Println("Pulling image...", _image)
 
@@ -204,26 +233,35 @@ func (r *DockerRunner) pullImage(ctx context.Context, _image string) error {
 	return nil
 }
 
-func (r *DockerRunner) buildImage(ctx context.Context, workingDir string, buildProps *BuildProps) error {
-	log.Println("Building image...")
+func (r *DockerRunner) buildImage(ctx context.Context, buildContextPath string, dockerFilePath string, buildProps *BuildProps, containerName string) (string, error) {
+	log.Println("Building image from", buildContextPath)
 
-	buildContext, err := archive.TarWithOptions(workingDir, &archive.TarOptions{})
+	buildContext, err := archive.TarWithOptions(buildContextPath, &archive.TarOptions{})
 
 	if err != nil {
-		return fmt.Errorf("Failed to create tar archive for Docker build context: %w", err)
+		return "", fmt.Errorf("Failed to create tar archive from %s for Docker build context: %w", buildContextPath, err)
+	}
+
+	var tag string
+
+	if containerName != "" {
+		tag = fmt.Sprintf("%s-%s:%s", containerName, util.RandomString(6), "latest")
+	} else {
+		tag = fmt.Sprintf("%s:%s", util.RandomString(6), "latest")
 	}
 
 	imageBuildResponse, err := r.dockerClient.ImageBuild(ctx, buildContext, types.ImageBuildOptions{
-		// TODO: add build args
-		Dockerfile: buildProps.Dockerfile,
+		Tags:       []string{tag},
+		Dockerfile: dockerFilePath,
 		BuildArgs:  buildProps.Args,
 		Context:    buildContext,
 		CacheFrom:  buildProps.CacheFrom,
 		Target:     buildProps.Target,
+		// NOTE: other options are ignored because in the devcontainer spec they are defined as []string and it's too cumbersome to parse them into types.ImageBuildOptions{}
 	})
 
 	if err != nil {
-		return fmt.Errorf("Failed to build Docker image: %w", err)
+		return "", fmt.Errorf("Failed to build Docker image: %w", err)
 	}
 
 	defer imageBuildResponse.Body.Close()
@@ -232,9 +270,9 @@ func (r *DockerRunner) buildImage(ctx context.Context, workingDir string, buildP
 		log.Printf("Error streaming output: %v\n", err)
 	}
 
-	log.Println("Built image")
+	log.Println("Built image with tag", tag)
 
-	return nil
+	return tag, nil
 }
 
 func (r *DockerRunner) createContainer(ctx context.Context, image string) (string, error) {

@@ -5,13 +5,12 @@ import (
 	"fmt"
 	"io/fs"
 	"log"
-	"math/rand"
 	"os"
 	"os/exec"
 	"path"
-	"time"
 
 	"github.com/artmoskvin/hide/pkg/devcontainer"
+	"github.com/artmoskvin/hide/pkg/util"
 )
 
 type CreateProjectRequest struct {
@@ -70,7 +69,7 @@ func NewProjectManager(devContainerManager devcontainer.Manager, projectStore St
 }
 
 func (pm ManagerImpl) CreateProject(request CreateProjectRequest) (Project, error) {
-	projectId := randomString(10)
+	projectId := util.RandomString(10)
 	projectPath := path.Join(pm.ProjectsRoot, projectId)
 
 	if err := pm.createProjectDir(projectPath); err != nil {
@@ -160,10 +159,10 @@ func (pm ManagerImpl) createProjectDir(path string) error {
 }
 
 func (pm ManagerImpl) configFromProject(fileSystem fs.FS) (Config, error) {
-	configFile, err := devcontainer.ReadConfig(fileSystem)
+	configFile, err := devcontainer.FindConfig(fileSystem)
 
 	if err != nil {
-		return Config{}, fmt.Errorf("Failed to read devcontainer.json: %w", err)
+		return Config{}, fmt.Errorf("Failed to find devcontainer.json: %w", err)
 	}
 
 	config, err := devcontainer.ParseConfig(configFile)
@@ -187,16 +186,6 @@ func removeProjectDir(projectPath string) {
 	fmt.Println("Removed project directory: ", projectPath)
 
 	return
-}
-
-func randomString(length int) string {
-	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-	var seededRand *rand.Rand = rand.New(rand.NewSource(time.Now().UnixNano()))
-	b := make([]byte, length)
-	for i := range b {
-		b[i] = charset[seededRand.Intn(len(charset))]
-	}
-	return string(b)
 }
 
 func cloneGitRepo(githubUrl string, projectPath string) error {

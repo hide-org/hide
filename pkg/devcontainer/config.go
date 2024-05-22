@@ -11,6 +11,7 @@ import (
 )
 
 type Config struct {
+	Path string
 	DockerImageProps
 	DockerComposeProps
 	LifecycleProps
@@ -110,14 +111,19 @@ type BuildProps struct {
 	// The path is relative to the devcontainer.json file.
 	Dockerfile string `json:"dockerfile,omitempty"`
 
+	// Path that the Docker build should be run from relative to devcontainer.json. For example, a value of ".." would allow you to reference content in sibling directories. Defaults to ".".
 	Context string `json:"context,omitempty"`
 
+	// A set of name-value pairs containing Docker image build arguments that should be passed when building a Dockerfile. Environment and pre-defined variables may be referenced in the values. Defaults to not set. For example: "build": { "args": { "MYARG": "MYVALUE", "MYARGFROMENVVAR": "${localEnv:VARIABLE_NAME}" } }
 	Args map[string]*string `json:"args,omitempty"`
 
+	// An array of Docker image build options that should be passed to the build command when building a Dockerfile. Defaults to []. For example: "build": { "options": [ "--add-host=host.docker.internal:host-gateway" ] }
 	Options []string `json:"options,omitempty"`
 
+	// A string that specifies a Docker image build target that should be passed when building a Dockerfile. Defaults to not set. For example: "build": { "target": "development" }
 	Target string `json:"target,omitempty"`
 
+	// A string or array of strings that specify one or more images to use as caches when building the image. Cached image identifiers are passed to the docker build command with --cache-from.
 	CacheFrom StringArray `json:"cacheFrom,omitempty"`
 }
 

@@ -285,7 +285,7 @@ func TestReadConfig(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			actual, err := devcontainer.ReadConfig(tt.fileSystem)
+			actual, err := devcontainer.FindConfig(tt.fileSystem)
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
@@ -331,7 +331,7 @@ func TestReadConfigFails(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := devcontainer.ReadConfig(tt.fileSystem)
+			_, err := devcontainer.FindConfig(tt.fileSystem)
 			if err == nil {
 				t.Fatalf("expected error, got nil")
 			}
