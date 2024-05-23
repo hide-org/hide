@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"path/filepath"
+	"strconv"
 
 	"log"
 	"os"
@@ -14,6 +15,8 @@ import (
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/image"
+	"github.com/docker/docker/api/types/mount"
+	"github.com/docker/go-connections/nat"
 
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/pkg/archive"
@@ -30,12 +33,14 @@ type Runner interface {
 type DockerRunner struct {
 	dockerClient    *client.Client
 	commandExecutor util.Executor
+	context         context.Context
 }
 
-func NewRunnerImpl(client *client.Client, commandExecutor util.Executor) Runner {
+func NewRunnerImpl(client *client.Client, commandExecutor util.Executor, context context.Context) Runner {
 	return &DockerRunner{
 		dockerClient:    client,
 		commandExecutor: commandExecutor,
+		context:         context,
 	}
 }
 
@@ -47,8 +52,6 @@ func (r *DockerRunner) Run(projectPath string, config *Config) (string, error) {
 		}
 	}
 
-	ctx := context.Background()
-
 	// Build docker compose
 	if len(config.DockerComposeFile) > 0 {
 		// TODO: build docker-compose file
@@ -56,21 +59,21 @@ func (r *DockerRunner) Run(projectPath string, config *Config) (string, error) {
 	}
 
 	// Pull or build image
-	imageId, err := r.pullOrBuildImage(ctx, projectPath, config)
+	imageId, err := r.pullOrBuildImage(projectPath, config)
 
 	if err != nil {
 		return "", fmt.Errorf("Failed to pull or build image: %w", err)
 	}
 
 	// Create container
-	containerId, err := r.createContainer(ctx, imageId)
+	containerId, err := r.createContainer(imageId, projectPath, config)
 
 	if err != nil {
 		return "", fmt.Errorf("Failed to create container: %w", err)
 	}
 
 	// Start container
-	if err := r.startContainer(ctx, containerId); err != nil {
+	if err := r.startContainer(containerId); err != nil {
 		return "", fmt.Errorf("Failed to start container: %w", err)
 	}
 
@@ -176,9 +179,9 @@ func (r *DockerRunner) executeLifecycleCommand(lifecycleCommand LifecycleCommand
 	return nil
 }
 
-func (r *DockerRunner) pullOrBuildImage(ctx context.Context, workingDir string, config *Config) (string, error) {
+func (r *DockerRunner) pullOrBuildImage(workingDir string, config *Config) (string, error) {
 	if config.Image != "" {
-		if err := r.pullImage(ctx, config.Image); err != nil {
+		if err := r.pullImage(config.Image); err != nil {
 			return "", fmt.Errorf("Failed to pull image %s: %w", config.Image, err)
 		}
 
@@ -207,7 +210,7 @@ func (r *DockerRunner) pullOrBuildImage(ctx context.Context, workingDir string, 
 
 	dockerFilePath := filepath.Join(workingDir, config.Path, dockerFile)
 	contextPath := filepath.Join(workingDir, config.Path, context)
-	imageId, err := r.buildImage(ctx, contextPath, dockerFilePath, config.Build, config.Name)
+	imageId, err := r.buildImage(contextPath, dockerFilePath, config.Build, config.Name)
 
 	if err != nil {
 		return "", fmt.Errorf("Failed to build image: %w", err)
@@ -217,10 +220,10 @@ func (r *DockerRunner) pullOrBuildImage(ctx context.Context, workingDir string, 
 
 }
 
-func (r *DockerRunner) pullImage(ctx context.Context, _image string) error {
+func (r *DockerRunner) pullImage(_image string) error {
 	log.Println("Pulling image...", _image)
 
-	output, err := r.dockerClient.ImagePull(ctx, _image, image.PullOptions{})
+	output, err := r.dockerClient.ImagePull(r.context, _image, image.PullOptions{})
 
 	if err != nil {
 		return err
@@ -237,7 +240,7 @@ func (r *DockerRunner) pullImage(ctx context.Context, _image string) error {
 	return nil
 }
 
-func (r *DockerRunner) buildImage(ctx context.Context, buildContextPath string, dockerFilePath string, buildProps *BuildProps, containerName string) (string, error) {
+func (r *DockerRunner) buildImage(buildContextPath string, dockerFilePath string, buildProps *BuildProps, containerName string) (string, error) {
 	log.Println("Building image from", buildContextPath)
 
 	buildContext, err := archive.TarWithOptions(buildContextPath, &archive.TarOptions{})
@@ -254,7 +257,7 @@ func (r *DockerRunner) buildImage(ctx context.Context, buildContextPath string, 
 		tag = fmt.Sprintf("%s:%s", util.RandomString(6), "latest")
 	}
 
-	imageBuildResponse, err := r.dockerClient.ImageBuild(ctx, buildContext, types.ImageBuildOptions{
+	imageBuildResponse, err := r.dockerClient.ImageBuild(r.context, buildContext, types.ImageBuildOptions{
 		Tags:       []string{tag},
 		Dockerfile: dockerFilePath,
 		BuildArgs:  buildProps.Args,
@@ -279,12 +282,81 @@ func (r *DockerRunner) buildImage(ctx context.Context, buildContextPath string, 
 	return tag, nil
 }
 
-func (r *DockerRunner) createContainer(ctx context.Context, image string) (string, error) {
+func (r *DockerRunner) createContainer(image string, projectPath string, config *Config) (string, error) {
 	log.Println("Creating container...")
 
 	// TODO: add other container parameters
-	containerConfig := &container.Config{Image: image, Cmd: DefaultContainerCommand}
-	createResponse, err := r.dockerClient.ContainerCreate(ctx, containerConfig, nil, nil, nil, "")
+	env := []string{}
+
+	for envKey, envValue := range config.ContainerEnv {
+		env = append(env, fmt.Sprintf("%s=%s", envKey, envValue))
+	}
+
+	containerConfig := &container.Config{Image: image, Cmd: DefaultContainerCommand, Env: env}
+
+	if config.ContainerUser != "" {
+		containerConfig.User = config.ContainerUser
+	}
+
+	portBindings := make(nat.PortMap)
+
+	for _, port := range config.AppPort {
+		port_str := strconv.Itoa(port)
+		port, err := nat.NewPort("tcp", port_str)
+
+		if err != nil {
+			return "", fmt.Errorf("Failed to create new TCP port from port %s: %w", port_str, err)
+		}
+
+		portBindings[port] = []nat.PortBinding{{HostIP: "127.0.0.1", HostPort: port_str}}
+	}
+
+	mounts := []mount.Mount{}
+
+	if config.WorkspaceMount != nil && config.WorkspaceFolder != "" {
+		mounts = append(mounts, mount.Mount{
+			Type:   mount.TypeBind,
+			Source: config.WorkspaceMount.Source,
+			Target: config.WorkspaceMount.Destination,
+		})
+
+		containerConfig.WorkingDir = config.WorkspaceFolder
+	} else {
+		mounts = append(mounts, mount.Mount{
+			Type:   mount.TypeBind,
+			Source: projectPath,
+			Target: "/workspace",
+		})
+
+		containerConfig.WorkingDir = "/workspace"
+	}
+
+	if len(config.Mounts) > 0 {
+		for _, _mount := range config.Mounts {
+			mountType, err := stringToType(_mount.Type)
+
+			if err != nil {
+				return "", fmt.Errorf("Failed to convert mount type %s to type.Type: %w", _mount.Type, err)
+			}
+
+			mounts = append(mounts, mount.Mount{
+				Type:   mountType,
+				Source: _mount.Source,
+				Target: _mount.Destination,
+			})
+		}
+	}
+
+	hostConfig := container.HostConfig{
+		PortBindings: portBindings,
+		Mounts:       mounts,
+		Init:         &config.Init,
+		Privileged:   config.Privileged,
+		CapAdd:       config.CapAdd,
+		SecurityOpt:  config.SecurityOpt,
+	}
+
+	createResponse, err := r.dockerClient.ContainerCreate(r.context, containerConfig, &hostConfig, nil, nil, "")
 
 	if err != nil {
 		return "", err
@@ -297,10 +369,10 @@ func (r *DockerRunner) createContainer(ctx context.Context, image string) (strin
 	return containerId, nil
 }
 
-func (r *DockerRunner) startContainer(ctx context.Context, containerId string) error {
+func (r *DockerRunner) startContainer(containerId string) error {
 	log.Println("Starting container...")
 
-	err := r.dockerClient.ContainerStart(ctx, containerId, container.StartOptions{})
+	err := r.dockerClient.ContainerStart(r.context, containerId, container.StartOptions{})
 
 	if err != nil {
 		return err
@@ -309,4 +381,21 @@ func (r *DockerRunner) startContainer(ctx context.Context, containerId string) e
 	log.Println("Started container", containerId)
 
 	return nil
+}
+
+func stringToType(s string) (mount.Type, error) {
+	switch s {
+	case string(mount.TypeBind):
+		return mount.TypeBind, nil
+	case string(mount.TypeVolume):
+		return mount.TypeVolume, nil
+	case string(mount.TypeTmpfs):
+		return mount.TypeTmpfs, nil
+	case string(mount.TypeNamedPipe):
+		return mount.TypeNamedPipe, nil
+	case string(mount.TypeCluster):
+		return mount.TypeCluster, nil
+	default:
+		return "", fmt.Errorf("Unsupported mount type: %s", s)
+	}
 }
