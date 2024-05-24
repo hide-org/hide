@@ -59,8 +59,10 @@ type TaskResult struct {
 type Manager interface {
 	CreateProject(request CreateProjectRequest) (Project, error)
 	GetProject(projectId ProjectId) (Project, error)
+	GetProjects() ([]*Project, error)
 	ResolveTaskAlias(projectId ProjectId, alias string) (Task, error)
 	CreateTask(projectId ProjectId, command string) (TaskResult, error)
+	Cleanup() error
 }
 
 type ManagerImpl struct {
@@ -121,6 +123,16 @@ func (pm ManagerImpl) GetProject(projectId string) (Project, error) {
 	return *project, nil
 }
 
+func (pm ManagerImpl) GetProjects() ([]*Project, error) {
+	projects, err := pm.Store.GetProjects()
+
+	if err != nil {
+		return nil, fmt.Errorf("Failed to get projects: %w", err)
+	}
+
+	return projects, nil
+}
+
 func (pm ManagerImpl) ResolveTaskAlias(projectId string, alias string) (Task, error) {
 	project, err := pm.GetProject(projectId)
 
@@ -151,6 +163,20 @@ func (pm ManagerImpl) CreateTask(projectId string, command string) (TaskResult, 
 	}
 
 	return TaskResult{StdOut: execResult.StdOut, StdErr: execResult.StdErr, ExitCode: execResult.ExitCode}, nil
+}
+
+func (pm ManagerImpl) Cleanup() error {
+	projects, err := pm.GetProjects()
+
+	if err != nil {
+		return fmt.Errorf("Failed to get projects: %w", err)
+	}
+
+	for _, project := range projects {
+		pm.DevContainerRunner.Stop(project.containerId)
+	}
+
+	return nil
 }
 
 func (pm ManagerImpl) createProjectDir(path string) error {
