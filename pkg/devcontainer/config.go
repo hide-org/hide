@@ -139,9 +139,17 @@ type BuildProps struct {
 }
 
 func (b *BuildProps) Equals(other *BuildProps) bool {
+	if b == nil && other == nil {
+		return true
+	}
+
+	if b == nil || other == nil {
+		return false
+	}
+
 	return b.Dockerfile == other.Dockerfile &&
 		b.Context == other.Context &&
-		maps.Equal(b.Args, other.Args) &&
+		maps.EqualFunc(b.Args, other.Args, stringPointerEqual) &&
 		slices.Equal(b.Options, other.Options) &&
 		b.Target == other.Target &&
 		slices.Equal(b.CacheFrom, other.CacheFrom)
@@ -408,4 +416,14 @@ func (p *PortAttributes) Equals(other *PortAttributes) bool {
 		p.OnAutoForward == other.OnAutoForward &&
 		p.RequireLocalPort == other.RequireLocalPort &&
 		p.ElevateIfNeeded == other.ElevateIfNeeded
+}
+
+func stringPointerEqual(x, y *string) bool {
+	if x == nil && y == nil {
+		return true
+	}
+	if x == nil || y == nil {
+		return false
+	}
+	return *x == *y
 }

@@ -1,6 +1,7 @@
 package devcontainer
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -12,6 +13,10 @@ import (
 type File struct {
 	Path    string
 	Content []byte
+}
+
+func (f *File) Equals(other *File) bool {
+	return f.Path == other.Path && bytes.Equal(f.Content, other.Content)
 }
 
 func FindConfig(fileSystem fs.FS) (File, error) {

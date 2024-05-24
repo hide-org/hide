@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"strings"
 
 	"github.com/artmoskvin/hide/pkg/devcontainer"
 	"github.com/artmoskvin/hide/pkg/util"
@@ -36,6 +37,10 @@ type Project struct {
 	containerId string
 }
 
+func NewProject(id ProjectId, path string, config Config, containerId string) Project {
+	return Project{Id: id, Path: path, Config: config, containerId: containerId}
+}
+
 func (project *Project) FindTaskByAlias(alias string) (Task, error) {
 	for _, task := range project.Config.Tasks {
 		if task.Alias == alias {
@@ -59,13 +64,13 @@ type Manager interface {
 }
 
 type ManagerImpl struct {
-	DevContainerManager devcontainer.Manager
-	Store               Store
-	ProjectsRoot        string
+	DevContainerRunner devcontainer.Runner
+	Store              Store
+	ProjectsRoot       string
 }
 
-func NewProjectManager(devContainerManager devcontainer.Manager, projectStore Store, projectsRoot string) Manager {
-	return ManagerImpl{DevContainerManager: devContainerManager, Store: projectStore, ProjectsRoot: projectsRoot}
+func NewProjectManager(devContainerRunner devcontainer.Runner, projectStore Store, projectsRoot string) Manager {
+	return ManagerImpl{DevContainerRunner: devContainerRunner, Store: projectStore, ProjectsRoot: projectsRoot}
 }
 
 func (pm ManagerImpl) CreateProject(request CreateProjectRequest) (Project, error) {
@@ -88,7 +93,7 @@ func (pm ManagerImpl) CreateProject(request CreateProjectRequest) (Project, erro
 		return Project{}, fmt.Errorf("Failed to read devcontainer.json: %w", err)
 	}
 
-	container, err := pm.DevContainerManager.StartContainer(projectPath, config.DevContainerConfig)
+	containerId, err := pm.DevContainerRunner.Run(projectPath, config.DevContainerConfig)
 
 	if err != nil {
 		log.Println("Failed to launch devcontainer:", err)
@@ -96,7 +101,7 @@ func (pm ManagerImpl) CreateProject(request CreateProjectRequest) (Project, erro
 		return Project{}, fmt.Errorf("Failed to launch devcontainer: %w", err)
 	}
 
-	project := Project{Id: projectId, Path: projectPath, Config: config, containerId: container.Id}
+	project := Project{Id: projectId, Path: projectPath, Config: config, containerId: containerId}
 
 	if err := pm.Store.CreateProject(&project); err != nil {
 		removeProjectDir(projectPath)
@@ -139,7 +144,7 @@ func (pm ManagerImpl) CreateTask(projectId string, command string) (TaskResult, 
 		return TaskResult{}, fmt.Errorf("Project with id %s not found", projectId)
 	}
 
-	execResult, err := pm.DevContainerManager.Exec(project.containerId, project.Path, command)
+	execResult, err := pm.DevContainerRunner.Exec(project.containerId, strings.Split(command, " "))
 
 	if err != nil {
 		return TaskResult{}, fmt.Errorf("Failed to execute command: %w", err)

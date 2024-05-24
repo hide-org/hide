@@ -24,6 +24,12 @@ import (
 
 var DefaultContainerCommand = []string{"/bin/sh", "-c", "while sleep 1000; do :; done"}
 
+type ExecResult struct {
+	StdOut   string
+	StdErr   string
+	ExitCode int
+}
+
 type Runner interface {
 	Run(projectPath string, config *Config) (string, error)
 	Stop(containerId string) error
@@ -36,7 +42,7 @@ type DockerRunner struct {
 	context         context.Context
 }
 
-func NewRunnerImpl(client *client.Client, commandExecutor util.Executor, context context.Context) Runner {
+func NewDockerRunner(client *client.Client, commandExecutor util.Executor, context context.Context) Runner {
 	return &DockerRunner{
 		dockerClient:    client,
 		commandExecutor: commandExecutor,
@@ -78,25 +84,22 @@ func (r *DockerRunner) Run(projectPath string, config *Config) (string, error) {
 	}
 
 	// Run onCreate commands
-	// TODO: run inside of container
 	if command := config.LifecycleProps.OnCreateCommand; command != nil {
-		if err := r.executeLifecycleCommand(command, projectPath); err != nil {
+		if err := r.executeLifecycleCommandInContainer(command, containerId); err != nil {
 			return "", fmt.Errorf("Failed to run onCreate command %s: %w", command, err)
 		}
 	}
 
 	// Run updateContent commands
-	// TODO: run inside of container
 	if command := config.LifecycleProps.UpdateContentCommand; command != nil {
-		if err := r.executeLifecycleCommand(command, projectPath); err != nil {
+		if err := r.executeLifecycleCommandInContainer(command, containerId); err != nil {
 			return "", fmt.Errorf("Failed to run updateContent command %s: %w", command, err)
 		}
 	}
 
 	// Run postCreate commands
-	// TODO: run inside of container
 	if command := config.LifecycleProps.PostCreateCommand; command != nil {
-		if err := r.executeLifecycleCommand(command, projectPath); err != nil {
+		if err := r.executeLifecycleCommandInContainer(command, containerId); err != nil {
 			return "", fmt.Errorf("Failed to run postCreate command %s: %w", command, err)
 		}
 	}
@@ -132,7 +135,7 @@ func (r *DockerRunner) Exec(containerID string, command []string) (ExecResult, e
 		AttachStdout: true,
 		AttachStderr: true,
 	}
-	execIDResp, err := r.dockerClient.ContainerExecCreate(context.Background(), containerID, execConfig)
+	execIDResp, err := r.dockerClient.ContainerExecCreate(r.context, containerID, execConfig)
 
 	if err != nil {
 		return ExecResult{}, fmt.Errorf("Failed to create execute configuration for command %s in container %s: %w", command, containerID, err)
@@ -140,7 +143,7 @@ func (r *DockerRunner) Exec(containerID string, command []string) (ExecResult, e
 
 	execID := execIDResp.ID
 
-	resp, err := r.dockerClient.ContainerExecAttach(context.Background(), execID, types.ExecStartCheck{})
+	resp, err := r.dockerClient.ContainerExecAttach(r.context, execID, types.ExecStartCheck{})
 
 	if err != nil {
 		return ExecResult{}, fmt.Errorf("Failed to attach to exec process %s in container %s: %w", execID, containerID, err)
@@ -164,7 +167,6 @@ func (r *DockerRunner) Exec(containerID string, command []string) (ExecResult, e
 	return ExecResult{StdOut: buf.String(), StdErr: "", ExitCode: inspectResp.ExitCode}, nil
 }
 
-// TODO: execute commands in a separate goroutine
 func (r *DockerRunner) executeLifecycleCommand(lifecycleCommand LifecycleCommand, workingDir string) error {
 	for name, command := range lifecycleCommand {
 		if name != "" {
@@ -174,6 +176,25 @@ func (r *DockerRunner) executeLifecycleCommand(lifecycleCommand LifecycleCommand
 		if err := r.commandExecutor.Run(command, workingDir, os.Stdout, os.Stderr); err != nil {
 			return err
 		}
+	}
+
+	return nil
+}
+
+func (r *DockerRunner) executeLifecycleCommandInContainer(lifecycleCommand LifecycleCommand, containerId string) error {
+	for _, command := range lifecycleCommand {
+		log.Printf("Running command %s in container %s", command, containerId)
+
+		result, err := r.Exec(containerId, command)
+
+		if err != nil {
+			return err
+		}
+
+		if result.ExitCode != 0 {
+			return fmt.Errorf("Exit code %d. Stdout: %s, Stderr: %s", result.ExitCode, result.StdOut, result.StdErr)
+		}
+
 	}
 
 	return nil
@@ -285,7 +306,6 @@ func (r *DockerRunner) buildImage(buildContextPath string, dockerFilePath string
 func (r *DockerRunner) createContainer(image string, projectPath string, config *Config) (string, error) {
 	log.Println("Creating container...")
 
-	// TODO: add other container parameters
 	env := []string{}
 
 	for envKey, envValue := range config.ContainerEnv {

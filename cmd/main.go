@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"os"
@@ -24,8 +25,8 @@ func main() {
 		panic(err)
 	}
 
-	dockerRunner := devcontainer.NewRunnerImpl(dockerClient, util.NewExecutorImpl())
-	devContainerManager := devcontainer.NewDevContainerManager(dockerRunner)
+	context := context.Background()
+	containerRunner := devcontainer.NewDockerRunner(dockerClient, util.NewExecutorImpl(), context)
 	projectStore := project.NewInMemoryStore(make(map[string]*project.Project))
 	home, err := os.UserHomeDir()
 
@@ -35,7 +36,7 @@ func main() {
 
 	projectsDir := filepath.Join(home, ProjectsDir)
 
-	projectManager := project.NewProjectManager(devContainerManager, projectStore, projectsDir)
+	projectManager := project.NewProjectManager(containerRunner, projectStore, projectsDir)
 	fileManager := filemanager.NewFileManager()
 	createProjectHandler := handlers.CreateProjectHandler{Manager: projectManager}
 	createTaskHandler := handlers.CreateTaskHandler{Manager: projectManager}
