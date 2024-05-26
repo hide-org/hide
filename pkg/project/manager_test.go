@@ -12,9 +12,17 @@ import (
 
 func TestProject_findTaskByAlias(t *testing.T) {
 	project := project.Project{
-		Config: project.DevContainerConfig{
-			Tasks: []project.Task{
-				{Alias: "test-task", Command: "echo test"},
+		Config: project.Config{
+			DevContainerConfig: devcontainer.Config{
+				GeneralProperties: devcontainer.GeneralProperties{
+					Customizations: devcontainer.Customizations{
+						Hide: &devcontainer.HideCustomization{
+							Tasks: []devcontainer.Task{
+								{Alias: "test-task", Command: "echo test"},
+							},
+						},
+					},
+				},
 			},
 		},
 	}
@@ -32,9 +40,17 @@ func TestProject_findTaskByAlias(t *testing.T) {
 
 func TestProject_findTaskByAlias_notFound(t *testing.T) {
 	project := project.Project{
-		Config: project.DevContainerConfig{
-			Tasks: []project.Task{
-				{Alias: "test-task", Command: "echo test"},
+		Config: project.Config{
+			DevContainerConfig: devcontainer.Config{
+				GeneralProperties: devcontainer.GeneralProperties{
+					Customizations: devcontainer.Customizations{
+						Hide: &devcontainer.HideCustomization{
+							Tasks: []devcontainer.Task{
+								{Alias: "test-task", Command: "echo test"},
+							},
+						},
+					},
+				},
 			},
 		},
 	}
@@ -51,7 +67,7 @@ func TestManagerImpl_CreateProject(t *testing.T) {
 }
 
 func TestManagerImpl_GetProject_Succeeds(t *testing.T) {
-	_project := project.Project{Id: "test-project", Path: "/tmp/test-project", Config: project.DevContainerConfig{}}
+	_project := project.Project{Id: "test-project", Path: "/tmp/test-project", Config: project.Config{}}
 	pm := project.NewProjectManager(nil, project.NewInMemoryStore(map[string]*project.Project{"test-project": &_project}), "/tmp")
 	project, err := pm.GetProject("test-project")
 
@@ -74,8 +90,22 @@ func TestManagerImpl_GetProject_Fails(t *testing.T) {
 }
 
 func TestManagerImpl_ResolveTaskAlias_Succeeds(t *testing.T) {
-	task := project.Task{Alias: "test-alias", Command: "echo test"}
-	_project := project.Project{Id: "test-project", Path: "/tmp/test-project", Config: project.DevContainerConfig{Tasks: []project.Task{task}}}
+	task := devcontainer.Task{Alias: "test-alias", Command: "echo test"}
+	_project := project.Project{
+		Id:   "test-project",
+		Path: "/tmp/test-project",
+		Config: project.Config{
+			DevContainerConfig: devcontainer.Config{
+				GeneralProperties: devcontainer.GeneralProperties{
+					Customizations: devcontainer.Customizations{
+						Hide: &devcontainer.HideCustomization{
+							Tasks: []devcontainer.Task{task},
+						},
+					},
+				},
+			},
+		},
+	}
 	pm := project.NewProjectManager(nil, project.NewInMemoryStore(map[string]*project.Project{"test-project": &_project}), "/tmp")
 	resolvedTask, err := pm.ResolveTaskAlias("test-project", "test-alias")
 
@@ -98,7 +128,7 @@ func TestManagerImpl_ResolveTaskAlias_ProjectNotFound(t *testing.T) {
 }
 
 func TestManagerImpl_ResolveTaskAlias_TaskNotFound(t *testing.T) {
-	_project := project.Project{Id: "test-project", Path: "/tmp/test-project", Config: project.DevContainerConfig{}}
+	_project := project.Project{Id: "test-project", Path: "/tmp/test-project", Config: project.Config{}}
 	pm := project.NewProjectManager(nil, project.NewInMemoryStore(map[string]*project.Project{"test-project": &_project}), "/tmp")
 	_, err := pm.ResolveTaskAlias("test-project", "missing-alias")
 
@@ -109,16 +139,12 @@ func TestManagerImpl_ResolveTaskAlias_TaskNotFound(t *testing.T) {
 
 func TestManagerImpl_CreateTask(t *testing.T) {
 	const projectId = "test-project"
-	_project := project.Project{Id: projectId, Path: "/tmp/test-project", Config: project.DevContainerConfig{}}
-	container := devcontainer.Container{Id: "test-container", ProjectId: projectId}
-	devContainerManager := &mocks.MockDevContainerManager{
-		FindContainerByProjectFunc: func(projectId string) (devcontainer.Container, error) {
-			return container, nil
-		},
-		ExecFunc: func(containerId string, projectPath string, command string) (devcontainer.ExecResult, error) {
+	_project := project.NewProject(projectId, "/tmp/test-project", project.Config{}, "test-container")
+	devContainerRunner := &mocks.MockDevContainerRunner{
+		ExecFunc: func(containerId string, command []string) (devcontainer.ExecResult, error) {
 			return devcontainer.ExecResult{StdOut: "test-stdout", StdErr: "test-stderr", ExitCode: 1}, nil
 		}}
-	pm := project.NewProjectManager(devContainerManager, project.NewInMemoryStore(map[string]*project.Project{projectId: &_project}), "/tmp")
+	pm := project.NewProjectManager(devContainerRunner, project.NewInMemoryStore(map[string]*project.Project{projectId: &_project}), "/tmp")
 
 	taskResult, err := pm.CreateTask(projectId, "echo test")
 
@@ -142,36 +168,15 @@ func TestManagerImpl_CreateTask_ProjectNotFound(t *testing.T) {
 	}
 }
 
-func TestManagerImpl_CreateTask_ContainerNotFound(t *testing.T) {
-	const projectId = "test-project"
-	_project := project.Project{Id: projectId, Path: "/tmp/test-project", Config: project.DevContainerConfig{}}
-	devContainerManager := &mocks.MockDevContainerManager{
-		FindContainerByProjectFunc: func(projectId string) (devcontainer.Container, error) {
-			return devcontainer.Container{}, errors.New("container not found")
-		},
-	}
-	pm := project.NewProjectManager(devContainerManager, project.NewInMemoryStore(map[string]*project.Project{projectId: &_project}), "/tmp")
-
-	_, err := pm.CreateTask(projectId, "echo test")
-
-	if err == nil {
-		t.Errorf("Expected error, got nil")
-	}
-}
-
 func TestManagerImpl_CreateTask_ExecError(t *testing.T) {
 	const projectId = "test-project"
-	_project := project.Project{Id: projectId, Path: "/tmp/test-project", Config: project.DevContainerConfig{}}
-	container := devcontainer.Container{Id: "test-container", ProjectId: projectId}
-	devContainerManager := &mocks.MockDevContainerManager{
-		FindContainerByProjectFunc: func(projectId string) (devcontainer.Container, error) {
-			return container, nil
-		},
-		ExecFunc: func(containerId string, projectPath string, command string) (devcontainer.ExecResult, error) {
+	_project := project.NewProject(projectId, "/tmp/test-project", project.Config{}, "test-container")
+	devContainerRunner := &mocks.MockDevContainerRunner{
+		ExecFunc: func(containerId string, command []string) (devcontainer.ExecResult, error) {
 			return devcontainer.ExecResult{}, errors.New("exec error")
 		},
 	}
-	pm := project.NewProjectManager(devContainerManager, project.NewInMemoryStore(map[string]*project.Project{projectId: &_project}), "/tmp")
+	pm := project.NewProjectManager(devContainerRunner, project.NewInMemoryStore(map[string]*project.Project{projectId: &_project}), "/tmp")
 
 	_, err := pm.CreateTask(projectId, "echo test")
 

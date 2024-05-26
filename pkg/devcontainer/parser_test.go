@@ -1,7 +1,6 @@
 package devcontainer_test
 
 import (
-	"bytes"
 	"encoding/json"
 	"io/fs"
 	"testing"
@@ -14,51 +13,51 @@ import (
 func TestParseConfig(t *testing.T) {
 	tests := []struct {
 		name     string
-		content  []byte
+		content  devcontainer.File
 		expected *devcontainer.Config
 	}{
 		{
 			name: "empty",
-			content: []byte(`{
-		}`),
+			content: devcontainer.File{Path: "config.json", Content: []byte(`{
+		}`)},
 			expected: &devcontainer.Config{},
 		},
 		{
 			name: "full",
-			content: []byte(`{
-			"dockerComposeFile": "docker-compose.yml",
-			"service": "app",
-			"runServices": ["app", "db"],
-			"workspaceFolder": "/workspace"
-		}`),
+			content: devcontainer.File{Path: "config.json", Content: []byte(`{
+	"dockerComposeFile": "docker-compose.yml",
+	"service": "app",
+	"runServices": ["app", "db"],
+	"workspaceFolder": "/workspace"
+}`)},
 			expected: &devcontainer.Config{
 				DockerComposeProps: devcontainer.DockerComposeProps{
 					DockerComposeFile: []string{"docker-compose.yml"},
 					Service:           "app",
 					RunServices:       []string{"app", "db"},
 				},
-				GeneralProperties: devcontainer.GeneralProperties{
+				DockerImageProps: devcontainer.DockerImageProps{
 					WorkspaceFolder: "/workspace",
 				},
 			},
 		},
 		{
 			name: "full with comments",
-			content: []byte(`{
-			// Required when using Docker Compose.
-			"dockerComposeFile": "docker-compose.yml",
-			// Required when using Docker Compose.
-			"service": "app",
-			"runServices": ["app", "db"],
-			"workspaceFolder": "/workspace"
-		}`),
+			content: devcontainer.File{Path: "config.json", Content: []byte(`{
+	// Required when using Docker Compose.
+	"dockerComposeFile": "docker-compose.yml",
+	// Required when using Docker Compose.
+	"service": "app",
+	"runServices": ["app", "db"],
+	"workspaceFolder": "/workspace"
+}`)},
 			expected: &devcontainer.Config{
 				DockerComposeProps: devcontainer.DockerComposeProps{
 					DockerComposeFile: []string{"docker-compose.yml"},
 					Service:           "app",
 					RunServices:       []string{"app", "db"},
 				},
-				GeneralProperties: devcontainer.GeneralProperties{
+				DockerImageProps: devcontainer.DockerImageProps{
 					WorkspaceFolder: "/workspace",
 				},
 			},
@@ -82,36 +81,32 @@ func TestParseConfig(t *testing.T) {
 func TestDockerImagePropsUnmarshalJSON(t *testing.T) {
 	tests := []struct {
 		name     string
-		content  []byte
+		content  devcontainer.File
 		expected *devcontainer.DockerImageProps
 	}{
 		{
 			name: "image",
-			content: []byte(`{
+			content: devcontainer.File{Path: "config.json", Content: []byte(`{
 	"image": "node:14",
-	"workspaceMount": "/workspace"
-}`),
+}`)},
 			expected: &devcontainer.DockerImageProps{
-				Image:          "node:14",
-				WorkspaceMount: "/workspace",
+				Image: "node:14",
 			},
 		},
 		{
 			name: "dockerfile",
-			content: []byte(`{
+			content: devcontainer.File{Path: "config.json", Content: []byte(`{
 	"dockerfile": "Dockerfile",
 	"context": ".",
-	"workspaceMount": "/workspace"
-}`),
+}`)},
 			expected: &devcontainer.DockerImageProps{
-				Dockerfile:     "Dockerfile",
-				Context:        ".",
-				WorkspaceMount: "/workspace",
+				Dockerfile: "Dockerfile",
+				Context:    ".",
 			},
 		},
 		{
 			name: "build",
-			content: []byte(`{
+			content: devcontainer.File{Path: "config.json", Content: []byte(`{
 	"build": {
 		"dockerfile": "Dockerfile",
 		"context": ".",
@@ -122,60 +117,52 @@ func TestDockerImagePropsUnmarshalJSON(t *testing.T) {
 		"target": "development",
 		"cacheFrom": ["node:14"]
 	},
-	"workspaceMount": "/workspace"
-}`),
+}`)},
 			expected: &devcontainer.DockerImageProps{
-				Build: devcontainer.BuildProps{
+				Build: &devcontainer.BuildProps{
 					Dockerfile: "Dockerfile",
 					Context:    ".",
-					Args: map[string]string{
+					Args: args(map[string]string{
 						"NODE_ENV": "development",
-					},
+					}),
 					Options:   []string{"--no-cache"},
 					Target:    "development",
 					CacheFrom: []string{"node:14"},
 				},
-				WorkspaceMount: "/workspace",
 			},
 		},
 		{
 			name: "appPort string",
-			content: []byte(`{
+			content: devcontainer.File{Path: "config.json", Content: []byte(`{
 	"appPort": "3000",
-	"workspaceMount": "/workspace"
-}`),
+}`)},
 			expected: &devcontainer.DockerImageProps{
-				AppPort:        []int{3000},
-				WorkspaceMount: "/workspace",
+				AppPort: []int{3000},
 			},
 		},
 		{
 			name: "appPort int",
-			content: []byte(`{
+			content: devcontainer.File{Path: "config.json", Content: []byte(`{
 	"appPort": 3000,
-	"workspaceMount": "/workspace"
-}`),
+}`)},
 			expected: &devcontainer.DockerImageProps{
-				AppPort:        []int{3000},
-				WorkspaceMount: "/workspace",
+				AppPort: []int{3000},
 			},
 		},
 		{
 			name: "appPort array",
-			content: []byte(`{
+			content: devcontainer.File{Path: "config.json", Content: []byte(`{
 	"appPort": [3000, 3001],
-	"workspaceMount": "/workspace"
-}`),
+}`)},
 			expected: &devcontainer.DockerImageProps{
-				AppPort:        []int{3000, 3001},
-				WorkspaceMount: "/workspace",
+				AppPort: []int{3000, 3001},
 			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			actual, err := parseDockerImageProps(tt.content)
+			actual, err := parseDockerImageProps(tt.content.Content)
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
@@ -199,12 +186,12 @@ func parseDockerImageProps(content []byte) (*devcontainer.DockerImageProps, erro
 func TestConfigWithCustomizations(t *testing.T) {
 	tests := []struct {
 		name     string
-		content  []byte
+		content  devcontainer.File
 		expected *devcontainer.Config
 	}{
 		{
-			name: "vscode",
-			content: []byte(`{
+			name: "ignored",
+			content: devcontainer.File{Path: "config.json", Content: []byte(`{
 	"customizations": {
 		// Configure properties specific to VS Code.
 		"vscode": {
@@ -213,14 +200,37 @@ func TestConfigWithCustomizations(t *testing.T) {
 			"extensions": ["streetsidesoftware.code-spell-checker"],
 		}
 	}
-}`),
+}`)},
 			expected: &devcontainer.Config{
 				GeneralProperties: devcontainer.GeneralProperties{
-					Customizations: map[string]map[string]any{
-						"vscode": {
-							"settings": map[string]any{},
-							// interface{} because unmarshaller doesn't know the type of the value
-							"extensions": []interface{}{"streetsidesoftware.code-spell-checker"},
+					Customizations: devcontainer.Customizations{},
+				},
+			},
+		},
+		{
+			name: "hide with tasks",
+			content: devcontainer.File{Path: "config.json", Content: []byte(`{
+	"customizations": {
+		"hide": {
+			"tasks": [
+				{
+					"alias": "test-task",
+					"command": "echo test"
+				}
+			]
+		}
+	}
+}`)},
+			expected: &devcontainer.Config{
+				GeneralProperties: devcontainer.GeneralProperties{
+					Customizations: devcontainer.Customizations{
+						Hide: &devcontainer.HideCustomization{
+							Tasks: []devcontainer.Task{
+								{
+									Alias:   "test-task",
+									Command: "echo test",
+								},
+							},
 						},
 					},
 				},
@@ -246,7 +256,7 @@ func TestReadConfig(t *testing.T) {
 	tests := []struct {
 		name       string
 		fileSystem fs.FS
-		expected   []byte
+		expected   devcontainer.File
 	}{
 		{
 			name: ".devcontainer/devcontainer.json",
@@ -255,9 +265,9 @@ func TestReadConfig(t *testing.T) {
 	"key": "value"
 }`)},
 			},
-			expected: []byte(`{
+			expected: devcontainer.File{Path: ".devcontainer/devcontainer.json", Content: []byte(`{
 	"key": "value"
-}`),
+}`)},
 		},
 		{
 			name: ".devcontainer.json",
@@ -266,9 +276,9 @@ func TestReadConfig(t *testing.T) {
 	"key": "value"
 }`)},
 			},
-			expected: []byte(`{
+			expected: devcontainer.File{Path: ".devcontainer.json", Content: []byte(`{
 	"key": "value"
-}`),
+}`)},
 		},
 		{
 			name: ".devcontainer/test-folder/devcontainer.json",
@@ -277,20 +287,20 @@ func TestReadConfig(t *testing.T) {
 	"key": "value"
 }`)},
 			},
-			expected: []byte(`{
+			expected: devcontainer.File{Path: ".devcontainer/test-folder/devcontainer.json", Content: []byte(`{
 	"key": "value"
-}`),
+}`)},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			actual, err := devcontainer.ReadConfig(tt.fileSystem)
+			actual, err := devcontainer.FindConfig(tt.fileSystem)
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
 
-			if !bytes.Equal(actual, tt.expected) {
+			if !actual.Equals(&tt.expected) {
 				t.Errorf("expected: %+v, actual: %+v", tt.expected, actual)
 			}
 		})
@@ -331,10 +341,20 @@ func TestReadConfigFails(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := devcontainer.ReadConfig(tt.fileSystem)
+			_, err := devcontainer.FindConfig(tt.fileSystem)
 			if err == nil {
 				t.Fatalf("expected error, got nil")
 			}
 		})
 	}
+}
+
+func args(args map[string]string) map[string]*string {
+	result := make(map[string]*string)
+
+	for key, value := range args {
+		result[key] = &value
+	}
+
+	return result
 }

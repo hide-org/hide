@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"os"
@@ -10,13 +11,22 @@ import (
 	"github.com/artmoskvin/hide/pkg/filemanager"
 	"github.com/artmoskvin/hide/pkg/handlers"
 	"github.com/artmoskvin/hide/pkg/project"
+	"github.com/artmoskvin/hide/pkg/util"
+	"github.com/docker/docker/client"
 )
 
 const ProjectsDir = "hide-projects"
 
 func main() {
 	mux := http.NewServeMux()
-	devContainerManager := devcontainer.NewDevContainerManager()
+	dockerClient, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+
+	if err != nil {
+		panic(err)
+	}
+
+	context := context.Background()
+	containerRunner := devcontainer.NewDockerRunner(dockerClient, util.NewExecutorImpl(), context)
 	projectStore := project.NewInMemoryStore(make(map[string]*project.Project))
 	home, err := os.UserHomeDir()
 
@@ -26,7 +36,7 @@ func main() {
 
 	projectsDir := filepath.Join(home, ProjectsDir)
 
-	projectManager := project.NewProjectManager(devContainerManager, projectStore, projectsDir)
+	projectManager := project.NewProjectManager(containerRunner, projectStore, projectsDir)
 	fileManager := filemanager.NewFileManager()
 	createProjectHandler := handlers.CreateProjectHandler{Manager: projectManager}
 	createTaskHandler := handlers.CreateTaskHandler{Manager: projectManager}

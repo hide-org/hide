@@ -1,6 +1,7 @@
 package devcontainer
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -9,44 +10,63 @@ import (
 	"github.com/artmoskvin/hide/pkg/jsonc"
 )
 
-func ReadConfig(fileSystem fs.FS) ([]byte, error) {
+type File struct {
+	Path    string
+	Content []byte
+}
+
+func (f *File) Equals(other *File) bool {
+	if f == nil && other == nil {
+		return true
+	}
+
+	if f == nil || other == nil {
+		return false
+	}
+
+	return f.Path == other.Path && bytes.Equal(f.Content, other.Content)
+}
+
+func FindConfig(fileSystem fs.FS) (File, error) {
 	content, err := fs.ReadFile(fileSystem, ".devcontainer/devcontainer.json")
 
 	if err == nil {
-		return content, nil
+		return File{Path: ".devcontainer/devcontainer.json", Content: content}, nil
 	}
 
 	content, err = fs.ReadFile(fileSystem, ".devcontainer.json")
 	if err == nil {
-		return content, nil
+		return File{Path: ".devcontainer.json", Content: content}, nil
 	}
 
 	matches, err := fs.Glob(fileSystem, ".devcontainer/**/devcontainer.json")
 	if err != nil {
-		return nil, fmt.Errorf("Failed to glob search '.devcontainer/**/devcontainer.json': %w", err)
+		return File{}, fmt.Errorf("Failed to glob search '.devcontainer/**/devcontainer.json': %w", err)
 	}
 
 	if len(matches) == 0 {
-		return nil, errors.New("devcontainer.json not found")
+		return File{}, errors.New("devcontainer.json not found")
 	}
 
 	if len(matches) > 1 {
-		return nil, errors.New("multiple devcontainer.json found")
+		return File{}, errors.New("multiple devcontainer.json found")
 	}
 
 	content, err = fs.ReadFile(fileSystem, matches[0])
 	if err != nil {
-		return nil, fmt.Errorf("Failed to read devcontainer.json: %w", err)
+		return File{}, fmt.Errorf("Failed to read devcontainer.json: %w", err)
 	}
 
-	return content, nil
+	return File{Path: matches[0], Content: content}, nil
 }
 
-func ParseConfig(content []byte) (*Config, error) {
-	devContainer := &Config{}
-	if err := json.Unmarshal(jsonc.ToJSON(content), devContainer); err != nil {
+func ParseConfig(configFile File) (*Config, error) {
+	config := &Config{}
+	if err := json.Unmarshal(jsonc.ToJSON(configFile.Content), config); err != nil {
 		return nil, err
 	}
 
-	return devContainer, nil
+	config.Path = configFile.Path
+
+	return config, nil
 }
