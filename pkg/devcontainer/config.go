@@ -287,7 +287,7 @@ type GeneralProperties struct {
 	OverrideFeatureInstallOrder []string `json:"overrideFeatureInstallOrder,omitempty"`
 
 	// Product specific properties, defined in supporting tools like Hide.
-	Customizations map[string]map[string]any `json:"customizations,omitempty"`
+	Customizations Customizations `json:"customizations,omitempty"`
 }
 
 func (g *GeneralProperties) Equals(other *GeneralProperties) bool {
@@ -310,7 +310,7 @@ func (g *GeneralProperties) Equals(other *GeneralProperties) bool {
 		slices.Equal(g.Mounts, other.Mounts) &&
 		// maps.Equal(g.Features, other.Features) &&
 		slices.Equal(g.OverrideFeatureInstallOrder, other.OverrideFeatureInstallOrder) &&
-		customizationsEqual(g.Customizations, other.Customizations)
+		g.Customizations.Equals(other.Customizations)
 }
 
 func customizationsEqual(a, b map[string]map[string]any) bool {
@@ -416,6 +416,35 @@ func (p *PortAttributes) Equals(other *PortAttributes) bool {
 		p.OnAutoForward == other.OnAutoForward &&
 		p.RequireLocalPort == other.RequireLocalPort &&
 		p.ElevateIfNeeded == other.ElevateIfNeeded
+}
+
+type Customizations struct {
+	Hide *HideCustomization `json:"hide,omitempty"`
+}
+
+func (c Customizations) Equals(other Customizations) bool {
+	return c.Hide.Equals(other.Hide)
+}
+
+type HideCustomization struct {
+	Tasks []Task `json:"tasks,omitempty"`
+}
+
+func (h *HideCustomization) Equals(other *HideCustomization) bool {
+	if h == nil && other == nil {
+		return true
+	}
+
+	if h == nil || other == nil {
+		return false
+	}
+
+	return slices.Equal(h.Tasks, other.Tasks)
+}
+
+type Task struct {
+	Alias   string `json:"alias"`
+	Command string `json:"command"`
 }
 
 func stringPointerEqual(x, y *string) bool {

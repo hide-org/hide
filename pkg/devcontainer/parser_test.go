@@ -190,7 +190,7 @@ func TestConfigWithCustomizations(t *testing.T) {
 		expected *devcontainer.Config
 	}{
 		{
-			name: "vscode",
+			name: "ignored",
 			content: devcontainer.File{Path: "config.json", Content: []byte(`{
 	"customizations": {
 		// Configure properties specific to VS Code.
@@ -203,11 +203,34 @@ func TestConfigWithCustomizations(t *testing.T) {
 }`)},
 			expected: &devcontainer.Config{
 				GeneralProperties: devcontainer.GeneralProperties{
-					Customizations: map[string]map[string]any{
-						"vscode": {
-							"settings": map[string]any{},
-							// interface{} because unmarshaller doesn't know the type of the value
-							"extensions": []interface{}{"streetsidesoftware.code-spell-checker"},
+					Customizations: devcontainer.Customizations{},
+				},
+			},
+		},
+		{
+			name: "hide with tasks",
+			content: devcontainer.File{Path: "config.json", Content: []byte(`{
+	"customizations": {
+		"hide": {
+			"tasks": [
+				{
+					"alias": "test-task",
+					"command": "echo test"
+				}
+			]
+		}
+	}
+}`)},
+			expected: &devcontainer.Config{
+				GeneralProperties: devcontainer.GeneralProperties{
+					Customizations: devcontainer.Customizations{
+						Hide: &devcontainer.HideCustomization{
+							Tasks: []devcontainer.Task{
+								{
+									Alias:   "test-task",
+									Command: "echo test",
+								},
+							},
 						},
 					},
 				},

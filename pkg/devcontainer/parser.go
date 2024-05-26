@@ -16,6 +16,14 @@ type File struct {
 }
 
 func (f *File) Equals(other *File) bool {
+	if f == nil && other == nil {
+		return true
+	}
+
+	if f == nil || other == nil {
+		return false
+	}
+
 	return f.Path == other.Path && bytes.Equal(f.Content, other.Content)
 }
 

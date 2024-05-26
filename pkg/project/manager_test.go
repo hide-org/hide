@@ -13,8 +13,16 @@ import (
 func TestProject_findTaskByAlias(t *testing.T) {
 	project := project.Project{
 		Config: project.Config{
-			Tasks: []project.Task{
-				{Alias: "test-task", Command: "echo test"},
+			DevContainerConfig: devcontainer.Config{
+				GeneralProperties: devcontainer.GeneralProperties{
+					Customizations: devcontainer.Customizations{
+						Hide: &devcontainer.HideCustomization{
+							Tasks: []devcontainer.Task{
+								{Alias: "test-task", Command: "echo test"},
+							},
+						},
+					},
+				},
 			},
 		},
 	}
@@ -33,8 +41,16 @@ func TestProject_findTaskByAlias(t *testing.T) {
 func TestProject_findTaskByAlias_notFound(t *testing.T) {
 	project := project.Project{
 		Config: project.Config{
-			Tasks: []project.Task{
-				{Alias: "test-task", Command: "echo test"},
+			DevContainerConfig: devcontainer.Config{
+				GeneralProperties: devcontainer.GeneralProperties{
+					Customizations: devcontainer.Customizations{
+						Hide: &devcontainer.HideCustomization{
+							Tasks: []devcontainer.Task{
+								{Alias: "test-task", Command: "echo test"},
+							},
+						},
+					},
+				},
 			},
 		},
 	}
@@ -74,8 +90,22 @@ func TestManagerImpl_GetProject_Fails(t *testing.T) {
 }
 
 func TestManagerImpl_ResolveTaskAlias_Succeeds(t *testing.T) {
-	task := project.Task{Alias: "test-alias", Command: "echo test"}
-	_project := project.Project{Id: "test-project", Path: "/tmp/test-project", Config: project.Config{Tasks: []project.Task{task}}}
+	task := devcontainer.Task{Alias: "test-alias", Command: "echo test"}
+	_project := project.Project{
+		Id:   "test-project",
+		Path: "/tmp/test-project",
+		Config: project.Config{
+			DevContainerConfig: devcontainer.Config{
+				GeneralProperties: devcontainer.GeneralProperties{
+					Customizations: devcontainer.Customizations{
+						Hide: &devcontainer.HideCustomization{
+							Tasks: []devcontainer.Task{task},
+						},
+					},
+				},
+			},
+		},
+	}
 	pm := project.NewProjectManager(nil, project.NewInMemoryStore(map[string]*project.Project{"test-project": &_project}), "/tmp")
 	resolvedTask, err := pm.ResolveTaskAlias("test-project", "test-alias")
 

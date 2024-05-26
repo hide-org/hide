@@ -18,14 +18,8 @@ type CreateProjectRequest struct {
 	RepoUrl string `json:"repoUrl"`
 }
 
-type Task struct {
-	Alias   string `json:"alias"`
-	Command string `json:"command"`
-}
-
 type Config struct {
-	DevContainerConfig *devcontainer.Config `json:"devContainerConfig"`
-	Tasks              []Task               `json:"tasks"`
+	DevContainerConfig devcontainer.Config `json:"devContainerConfig"`
 }
 
 type ProjectId = string
@@ -41,13 +35,17 @@ func NewProject(id ProjectId, path string, config Config, containerId string) Pr
 	return Project{Id: id, Path: path, Config: config, containerId: containerId}
 }
 
-func (project *Project) FindTaskByAlias(alias string) (Task, error) {
-	for _, task := range project.Config.Tasks {
+func (project *Project) FindTaskByAlias(alias string) (devcontainer.Task, error) {
+	if project.Config.DevContainerConfig.Customizations.Hide == nil {
+		return devcontainer.Task{}, errors.New("task not found")
+	}
+
+	for _, task := range project.Config.DevContainerConfig.Customizations.Hide.Tasks {
 		if task.Alias == alias {
 			return task, nil
 		}
 	}
-	return Task{}, errors.New("task not found")
+	return devcontainer.Task{}, errors.New("task not found")
 }
 
 type TaskResult struct {
@@ -60,7 +58,7 @@ type Manager interface {
 	CreateProject(request CreateProjectRequest) (Project, error)
 	GetProject(projectId ProjectId) (Project, error)
 	GetProjects() ([]*Project, error)
-	ResolveTaskAlias(projectId ProjectId, alias string) (Task, error)
+	ResolveTaskAlias(projectId ProjectId, alias string) (devcontainer.Task, error)
 	CreateTask(projectId ProjectId, command string) (TaskResult, error)
 	Cleanup() error
 }
@@ -133,17 +131,17 @@ func (pm ManagerImpl) GetProjects() ([]*Project, error) {
 	return projects, nil
 }
 
-func (pm ManagerImpl) ResolveTaskAlias(projectId string, alias string) (Task, error) {
+func (pm ManagerImpl) ResolveTaskAlias(projectId string, alias string) (devcontainer.Task, error) {
 	project, err := pm.GetProject(projectId)
 
 	if err != nil {
-		return Task{}, fmt.Errorf("Project with id %s not found", projectId)
+		return devcontainer.Task{}, fmt.Errorf("Project with id %s not found", projectId)
 	}
 
 	task, err := project.FindTaskByAlias(alias)
 
 	if err != nil {
-		return Task{}, fmt.Errorf("Task with alias %s not found", alias)
+		return devcontainer.Task{}, fmt.Errorf("Task with alias %s not found", alias)
 	}
 
 	return task, nil
@@ -202,10 +200,7 @@ func (pm ManagerImpl) configFromProject(fileSystem fs.FS) (Config, error) {
 		return Config{}, fmt.Errorf("Failed to parse devcontainer.json: %w", err)
 	}
 
-	// TODO: parse tasks from customizations
-	var tasks []Task
-
-	return Config{DevContainerConfig: config, Tasks: tasks}, nil
+	return Config{DevContainerConfig: *config}, nil
 }
 
 func removeProjectDir(projectPath string) {

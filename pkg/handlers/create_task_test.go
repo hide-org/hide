@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/artmoskvin/hide/pkg/devcontainer"
 	"github.com/artmoskvin/hide/pkg/handlers"
 	"github.com/artmoskvin/hide/pkg/project"
 	"github.com/artmoskvin/hide/pkg/project/mocks"
@@ -57,8 +58,8 @@ func TestCreateTaskHandler_Alias_Success(t *testing.T) {
 
 	// Setup
 	mockManager := &mocks.MockProjectManager{
-		ResolveTaskAliasFunc: func(projectId string, alias string) (project.Task, error) {
-			return project.Task{Command: "resolved command"}, nil
+		ResolveTaskAliasFunc: func(projectId string, alias string) (devcontainer.Task, error) {
+			return devcontainer.Task{Command: "resolved command"}, nil
 		},
 		CreateTaskFunc: func(projectId string, command string) (project.TaskResult, error) {
 			return expectedResult, nil

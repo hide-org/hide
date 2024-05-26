@@ -31,7 +31,7 @@ type ExecResult struct {
 }
 
 type Runner interface {
-	Run(projectPath string, config *Config) (string, error)
+	Run(projectPath string, config Config) (string, error)
 	Stop(containerId string) error
 	Exec(containerId string, command []string) (ExecResult, error)
 }
@@ -50,7 +50,7 @@ func NewDockerRunner(client *client.Client, commandExecutor util.Executor, conte
 	}
 }
 
-func (r *DockerRunner) Run(projectPath string, config *Config) (string, error) {
+func (r *DockerRunner) Run(projectPath string, config Config) (string, error) {
 	// Run initialize commands
 	if command := config.LifecycleProps.InitializeCommand; command != nil {
 		if err := r.executeLifecycleCommand(command, projectPath); err != nil {
@@ -168,10 +168,8 @@ func (r *DockerRunner) Exec(containerID string, command []string) (ExecResult, e
 }
 
 func (r *DockerRunner) executeLifecycleCommand(lifecycleCommand LifecycleCommand, workingDir string) error {
-	for name, command := range lifecycleCommand {
-		if name != "" {
-			log.Println("Running command: ", name)
-		}
+	for _, command := range lifecycleCommand {
+		log.Printf("Running command '%s'", command)
 
 		if err := r.commandExecutor.Run(command, workingDir, os.Stdout, os.Stderr); err != nil {
 			return err
@@ -200,7 +198,7 @@ func (r *DockerRunner) executeLifecycleCommandInContainer(lifecycleCommand Lifec
 	return nil
 }
 
-func (r *DockerRunner) pullOrBuildImage(workingDir string, config *Config) (string, error) {
+func (r *DockerRunner) pullOrBuildImage(workingDir string, config Config) (string, error) {
 	if config.Image != "" {
 		if err := r.pullImage(config.Image); err != nil {
 			return "", fmt.Errorf("Failed to pull image %s: %w", config.Image, err)
@@ -264,6 +262,8 @@ func (r *DockerRunner) pullImage(_image string) error {
 func (r *DockerRunner) buildImage(buildContextPath string, dockerFilePath string, buildProps *BuildProps, containerName string) (string, error) {
 	log.Println("Building image from", buildContextPath)
 
+	log.Println("Warning: building images is not stable yet")
+
 	buildContext, err := archive.TarWithOptions(buildContextPath, &archive.TarOptions{})
 
 	if err != nil {
@@ -303,7 +303,7 @@ func (r *DockerRunner) buildImage(buildContextPath string, dockerFilePath string
 	return tag, nil
 }
 
-func (r *DockerRunner) createContainer(image string, projectPath string, config *Config) (string, error) {
+func (r *DockerRunner) createContainer(image string, projectPath string, config Config) (string, error) {
 	log.Println("Creating container...")
 
 	env := []string{}
