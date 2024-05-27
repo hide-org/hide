@@ -74,14 +74,18 @@ func NewProjectManager(devContainerRunner devcontainer.Runner, projectStore Stor
 }
 
 func (pm ManagerImpl) CreateProject(request CreateProjectRequest) (Project, error) {
+	log.Printf("Creating project for repo %s", request.RepoUrl)
+
 	projectId := util.RandomString(10)
 	projectPath := path.Join(pm.ProjectsRoot, projectId)
 
 	if err := pm.createProjectDir(projectPath); err != nil {
+		log.Printf("Failed to create project directory: %s", err)
 		return Project{}, fmt.Errorf("Failed to create project directory: %w", err)
 	}
 
 	if err := cloneGitRepo(request.RepoUrl, projectPath); err != nil {
+		log.Printf("Failed to clone git repo: %s", err)
 		removeProjectDir(projectPath)
 		return Project{}, fmt.Errorf("Failed to clone git repo: %w", err)
 	}
@@ -89,6 +93,7 @@ func (pm ManagerImpl) CreateProject(request CreateProjectRequest) (Project, erro
 	config, err := pm.configFromProject(os.DirFS(projectPath))
 
 	if err != nil {
+		log.Printf("Failed to read devcontainer config: %s", err)
 		removeProjectDir(projectPath)
 		return Project{}, fmt.Errorf("Failed to read devcontainer.json: %w", err)
 	}
@@ -104,75 +109,106 @@ func (pm ManagerImpl) CreateProject(request CreateProjectRequest) (Project, erro
 	project := Project{Id: projectId, Path: projectPath, Config: config, containerId: containerId}
 
 	if err := pm.Store.CreateProject(&project); err != nil {
+		log.Printf("Failed to save project: %s", err)
 		removeProjectDir(projectPath)
 		return Project{}, fmt.Errorf("Failed to save project: %w", err)
 	}
+
+	log.Printf("Created project %s for repo %s", projectId, request.RepoUrl)
 
 	return project, nil
 }
 
 func (pm ManagerImpl) GetProject(projectId string) (Project, error) {
+	log.Printf("Getting project %s", projectId)
+
 	project, err := pm.Store.GetProject(projectId)
 
 	if err != nil {
+		log.Printf("Project with id %s not found", projectId)
 		return Project{}, fmt.Errorf("Project with id %s not found", projectId)
 	}
+
+	log.Printf("Got project %+v", project)
 
 	return *project, nil
 }
 
 func (pm ManagerImpl) GetProjects() ([]*Project, error) {
+	log.Printf("Getting projects")
+
 	projects, err := pm.Store.GetProjects()
 
 	if err != nil {
+		log.Printf("Failed to get projects: %s", err)
 		return nil, fmt.Errorf("Failed to get projects: %w", err)
 	}
+
+	log.Printf("Got projects %+v", projects)
 
 	return projects, nil
 }
 
 func (pm ManagerImpl) ResolveTaskAlias(projectId string, alias string) (devcontainer.Task, error) {
+	log.Printf("Resolving task alias %s for project %s", alias, projectId)
+
 	project, err := pm.GetProject(projectId)
 
 	if err != nil {
+		log.Printf("Project with id %s not found", projectId)
 		return devcontainer.Task{}, fmt.Errorf("Project with id %s not found", projectId)
 	}
 
 	task, err := project.FindTaskByAlias(alias)
 
 	if err != nil {
+		log.Printf("Task with alias %s for project %s not found", alias, projectId)
 		return devcontainer.Task{}, fmt.Errorf("Task with alias %s not found", alias)
 	}
+
+	log.Printf("Resolved task alias %s for project %s: %+v", alias, projectId, task)
 
 	return task, nil
 }
 
 func (pm ManagerImpl) CreateTask(projectId string, command string) (TaskResult, error) {
+	log.Printf("Creating task for project %s. Command: %s", projectId, command)
+
 	project, err := pm.GetProject(projectId)
 
 	if err != nil {
+		log.Printf("Project with id %s not found", projectId)
 		return TaskResult{}, fmt.Errorf("Project with id %s not found", projectId)
 	}
 
 	execResult, err := pm.DevContainerRunner.Exec(project.containerId, strings.Split(command, " "))
 
 	if err != nil {
+		log.Printf("Failed to execute command '%s' in container %s: %s", command, project.containerId, err)
 		return TaskResult{}, fmt.Errorf("Failed to execute command: %w", err)
 	}
+
+	log.Printf("Task '%s' for project %s executed successfully", command, projectId)
 
 	return TaskResult{StdOut: execResult.StdOut, StdErr: execResult.StdErr, ExitCode: execResult.ExitCode}, nil
 }
 
 func (pm ManagerImpl) Cleanup() error {
+	log.Printf("Cleaning up projects")
+
 	projects, err := pm.GetProjects()
 
 	if err != nil {
+		log.Printf("Failed to get projects: %s", err)
 		return fmt.Errorf("Failed to get projects: %w", err)
 	}
 
 	for _, project := range projects {
+		log.Printf("Cleaning up project %s", project.Id)
 		pm.DevContainerRunner.Stop(project.containerId)
 	}
+
+	log.Printf("Cleaned up projects")
 
 	return nil
 }
@@ -182,7 +218,7 @@ func (pm ManagerImpl) createProjectDir(path string) error {
 		return fmt.Errorf("Failed to create project directory: %w", err)
 	}
 
-	fmt.Println("Created project directory: ", path)
+	log.Println("Created project directory: ", path)
 
 	return nil
 }
@@ -205,11 +241,11 @@ func (pm ManagerImpl) configFromProject(fileSystem fs.FS) (Config, error) {
 
 func removeProjectDir(projectPath string) {
 	if err := os.RemoveAll(projectPath); err != nil {
-		fmt.Printf("Failed to remove project directory %s: %s", projectPath, err)
+		log.Printf("Failed to remove project directory %s: %s", projectPath, err)
 		return
 	}
 
-	fmt.Println("Removed project directory: ", projectPath)
+	log.Println("Removed project directory: ", projectPath)
 
 	return
 }
@@ -222,8 +258,8 @@ func cloneGitRepo(githubUrl string, projectPath string) error {
 		return fmt.Errorf("Failed to clone git repo: %w", err)
 	}
 
-	fmt.Println("> ", cmd.String())
-	fmt.Println(string(cmdOut))
+	log.Printf("Cloned git repo %s to %s", githubUrl, projectPath)
+	log.Println(string(cmdOut))
 
 	return nil
 }

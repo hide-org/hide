@@ -51,7 +51,7 @@ func (c *LifecycleCommand) UnmarshalJSON(data []byte) error {
 	switch obj := jsonObj.(type) {
 	case string:
 		*c = LifecycleCommand{
-			"": []string{obj},
+			"": []string{"/bin/sh", "-c", obj},
 		}
 		return nil
 	case []interface{}:
