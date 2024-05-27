@@ -55,7 +55,7 @@ func main() {
 
 	port := ":8080"
 
-	fmt.Println(Splash)
+	fmt.Print(Splash)
 	log.Printf("Server started on %s\n", port)
 
 	if err := http.ListenAndServe(port, mux); err != nil {
