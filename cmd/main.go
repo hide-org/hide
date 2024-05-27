@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -53,6 +54,9 @@ func main() {
 	mux.Handle("DELETE /projects/{id}/files/{path...}", deleteFileHandler)
 
 	port := ":8080"
+
+	fmt.Println(Splash)
+	log.Printf("Server started on %s\n", port)
 
 	if err := http.ListenAndServe(port, mux); err != nil {
 		fmt.Println("Error starting server")
