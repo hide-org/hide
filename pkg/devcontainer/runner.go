@@ -151,11 +151,13 @@ func (r *DockerRunner) Exec(containerID string, command []string) (ExecResult, e
 
 	defer resp.Close()
 
-	var buf bytes.Buffer
-	multiWriter := io.MultiWriter(os.Stdout, &buf)
+	var stdOut, stdErr bytes.Buffer
 
-	if err := util.StreamOutput(resp.Reader, multiWriter); err != nil {
-		return ExecResult{}, fmt.Errorf("Error streaming output: %w", err)
+	stdOutWriter := io.MultiWriter(os.Stdout, &stdOut)
+	stdErrWriter := io.MultiWriter(os.Stderr, &stdErr)
+
+	if err := ReadOutputFromContainer(resp.Reader, stdOutWriter, stdErrWriter); err != nil {
+		return ExecResult{}, fmt.Errorf("Error reading output from container: %w", err)
 	}
 
 	inspectResp, err := r.dockerClient.ContainerExecInspect(context.Background(), execID)
@@ -164,7 +166,7 @@ func (r *DockerRunner) Exec(containerID string, command []string) (ExecResult, e
 		return ExecResult{}, fmt.Errorf("Failed to inspect exec process %s in container %s: %w", execID, containerID, err)
 	}
 
-	return ExecResult{StdOut: buf.String(), StdErr: "", ExitCode: inspectResp.ExitCode}, nil
+	return ExecResult{StdOut: stdOut.String(), StdErr: stdErr.String(), ExitCode: inspectResp.ExitCode}, nil
 }
 
 func (r *DockerRunner) executeLifecycleCommand(lifecycleCommand LifecycleCommand, workingDir string) error {
@@ -250,7 +252,7 @@ func (r *DockerRunner) pullImage(_image string) error {
 
 	defer output.Close()
 
-	if err := util.StreamOutput(output, os.Stdout); err != nil {
+	if err := util.ReadOutput(output, os.Stdout); err != nil {
 		log.Printf("Error streaming output: %v\n", err)
 	}
 
@@ -294,7 +296,7 @@ func (r *DockerRunner) buildImage(buildContextPath string, dockerFilePath string
 
 	defer imageBuildResponse.Body.Close()
 
-	if err := util.StreamOutput(imageBuildResponse.Body, os.Stdout); err != nil {
+	if err := util.ReadOutput(imageBuildResponse.Body, os.Stdout); err != nil {
 		log.Printf("Error streaming output: %v\n", err)
 	}
 
