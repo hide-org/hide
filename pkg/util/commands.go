@@ -43,8 +43,8 @@ func (e *ExecutorImpl) Run(command []string, dir string, stdout, stderr io.Write
 
 	// Stream the command output
 	// TODO: should we use logger instead?
-	go StreamOutput(cmdStdout, stdout)
-	go StreamOutput(cmdStderr, stderr)
+	go ReadOutput(cmdStdout, stdout)
+	go ReadOutput(cmdStderr, stderr)
 
 	// Wait for the command to complete
 	// TODO: do async wait
@@ -56,9 +56,9 @@ func (e *ExecutorImpl) Run(command []string, dir string, stdout, stderr io.Write
 	return nil
 }
 
-func StreamOutput(src io.Reader, dst io.Writer) error {
+func ReadOutput(src io.Reader, dst io.Writer) error {
 	if _, err := io.Copy(dst, src); err != nil {
-		return fmt.Errorf("Error streaming output: %w", err)
+		return err
 	}
 
 	return nil
