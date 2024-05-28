@@ -3,7 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"net/http"
-	"path/filepath"
+	"os"
 
 	"github.com/artmoskvin/hide/pkg/filemanager"
 	"github.com/artmoskvin/hide/pkg/project"
@@ -25,8 +25,7 @@ func (h ReadFileHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fullPath := filepath.Join(project.Path, filePath)
-	file, err := h.FileManager.ReadFile(fullPath)
+	file, err := h.FileManager.ReadFile(os.DirFS(project.Path), filePath)
 
 	if err != nil {
 		http.Error(w, "Failed to read file", http.StatusInternalServerError)

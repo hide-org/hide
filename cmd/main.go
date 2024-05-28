@@ -46,11 +46,13 @@ func main() {
 	readFileHandler := handlers.ReadFileHandler{Manager: projectManager, FileManager: fileManager}
 	updateFileHandler := handlers.UpdateFileHandler{Manager: projectManager, FileManager: fileManager}
 	deleteFileHandler := handlers.DeleteFileHandler{Manager: projectManager, FileManager: fileManager}
+	listFilesHandler := handlers.ListFilesHandler{ProjectManager: projectManager, FileManager: fileManager}
 
 	mux.Handle("POST /projects", createProjectHandler)
 	mux.Handle("POST /projects/{id}/tasks", createTaskHandler)
 	mux.Handle("GET /projects/{id}/tasks", listTasksHandler)
 	mux.Handle("POST /projects/{id}/files", createFileHandler)
+	mux.Handle("GET /projects/{id}/files", listFilesHandler)
 	mux.Handle("GET /projects/{id}/files/{path...}", readFileHandler)
 	mux.Handle("PUT /projects/{id}/files/{path...}", updateFileHandler)
 	mux.Handle("DELETE /projects/{id}/files/{path...}", deleteFileHandler)
