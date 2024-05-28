@@ -48,6 +48,14 @@ func (project *Project) FindTaskByAlias(alias string) (devcontainer.Task, error)
 	return devcontainer.Task{}, errors.New("task not found")
 }
 
+func (project *Project) GetTasks() []devcontainer.Task {
+	if project.Config.DevContainerConfig.Customizations.Hide == nil {
+		return []devcontainer.Task{}
+	}
+
+	return project.Config.DevContainerConfig.Customizations.Hide.Tasks
+}
+
 type TaskResult struct {
 	StdOut   string `json:"stdOut"`
 	StdErr   string `json:"stdErr"`
