@@ -28,8 +28,18 @@ func NewFileManager() FileManager {
 }
 
 func (fm *FileManagerImpl) CreateFile(path string, content string) (File, error) {
-	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
-		return File{}, fmt.Errorf("Failed to create file: %w", err)
+	log.Println("Creating file", path)
+
+	dir := filepath.Dir(path)
+
+	if err := os.MkdirAll(dir, os.ModePerm); err != nil {
+		log.Printf("Failed to create directory %s: %s", dir, err)
+		return File{}, fmt.Errorf("Failed to create directory %s: %w", dir, err)
+	}
+
+	if err := os.WriteFile(path, []byte(content), os.ModePerm); err != nil {
+		log.Printf("Failed to create file %s: %s", path, err)
+		return File{}, fmt.Errorf("Failed to create file %s: %w", path, err)
 	}
 
 	return File{Path: path, Content: content}, nil
@@ -48,6 +58,13 @@ func (fm *FileManagerImpl) ReadFile(fileSystem fs.FS, path string) (File, error)
 }
 
 func (fm *FileManagerImpl) UpdateFile(path string, content string) (File, error) {
+	log.Println("Updating file", path)
+
+	if !fileExists(path) {
+		log.Printf("File %s does not exist", path)
+		return File{}, fmt.Errorf("File %s does not exist", path)
+	}
+
 	return fm.CreateFile(path, content)
 }
 
@@ -90,4 +107,12 @@ func (fm *FileManagerImpl) ListFiles(rootPath string) ([]File, error) {
 	})
 
 	return files, err
+}
+
+func fileExists(path string) bool {
+	info, err := os.Stat(path)
+	if os.IsNotExist(err) {
+		return false
+	}
+	return !info.IsDir()
 }
