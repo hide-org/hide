@@ -8,8 +8,8 @@ HIDE is an IDE for CodeGen agents.
 - [ ] lsp
 - [ ] search
 - [ ] git
-- [x] python client
-- [x] langchain toolkit
+- [x] [python client](https://github.com/artmoskvin/hide-python)
+- [x] [langchain toolkit](https://github.com/artmoskvin/hide-python)
 - [ ] autogen toolkit
 - [ ] js/ts client
 
