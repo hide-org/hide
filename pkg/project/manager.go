@@ -14,8 +14,14 @@ import (
 	"github.com/artmoskvin/hide/pkg/util"
 )
 
+type Repository struct {
+	Url    string  `json:"url"`
+	Commit *string `json:"commit,omitempty"`
+}
+
 type CreateProjectRequest struct {
-	RepoUrl string `json:"repoUrl"`
+	Repository   Repository           `json:"repository"`
+	DevContainer *devcontainer.Config `json:"devcontainer,omitempty"`
 }
 
 type Config struct {
@@ -82,7 +88,7 @@ func NewProjectManager(devContainerRunner devcontainer.Runner, projectStore Stor
 }
 
 func (pm ManagerImpl) CreateProject(request CreateProjectRequest) (Project, error) {
-	log.Printf("Creating project for repo %s", request.RepoUrl)
+	log.Printf("Creating project for repo %s", request.Repository.Url)
 
 	projectId := util.RandomString(10)
 	projectPath := path.Join(pm.ProjectsRoot, projectId)
@@ -92,21 +98,29 @@ func (pm ManagerImpl) CreateProject(request CreateProjectRequest) (Project, erro
 		return Project{}, fmt.Errorf("Failed to create project directory: %w", err)
 	}
 
-	if err := cloneGitRepo(request.RepoUrl, projectPath); err != nil {
+	if err := cloneGitRepo(request.Repository, projectPath); err != nil {
 		log.Printf("Failed to clone git repo: %s", err)
 		removeProjectDir(projectPath)
 		return Project{}, fmt.Errorf("Failed to clone git repo: %w", err)
 	}
 
-	config, err := pm.configFromProject(os.DirFS(projectPath))
+	var devContainerConfig devcontainer.Config
 
-	if err != nil {
-		log.Printf("Failed to read devcontainer config: %s", err)
-		removeProjectDir(projectPath)
-		return Project{}, fmt.Errorf("Failed to read devcontainer.json: %w", err)
+	if request.DevContainer != nil {
+		devContainerConfig = *request.DevContainer
+	} else {
+		config, err := pm.configFromProject(os.DirFS(projectPath))
+
+		if err != nil {
+			log.Printf("Failed to get devcontainer config from repository %s: %s", request.Repository.Url, err)
+			removeProjectDir(projectPath)
+			return Project{}, fmt.Errorf("Failed to read devcontainer.json: %w", err)
+		}
+
+		devContainerConfig = config
 	}
 
-	containerId, err := pm.DevContainerRunner.Run(projectPath, config.DevContainerConfig)
+	containerId, err := pm.DevContainerRunner.Run(projectPath, devContainerConfig)
 
 	if err != nil {
 		log.Println("Failed to launch devcontainer:", err)
@@ -114,7 +128,7 @@ func (pm ManagerImpl) CreateProject(request CreateProjectRequest) (Project, erro
 		return Project{}, fmt.Errorf("Failed to launch devcontainer: %w", err)
 	}
 
-	project := Project{Id: projectId, Path: projectPath, Config: config, containerId: containerId}
+	project := Project{Id: projectId, Path: projectPath, Config: Config{DevContainerConfig: devContainerConfig}, containerId: containerId}
 
 	if err := pm.Store.CreateProject(&project); err != nil {
 		log.Printf("Failed to save project: %s", err)
@@ -122,7 +136,7 @@ func (pm ManagerImpl) CreateProject(request CreateProjectRequest) (Project, erro
 		return Project{}, fmt.Errorf("Failed to save project: %w", err)
 	}
 
-	log.Printf("Created project %s for repo %s", projectId, request.RepoUrl)
+	log.Printf("Created project %s for repo %s", projectId, request.Repository.Url)
 
 	return project, nil
 }
@@ -231,20 +245,20 @@ func (pm ManagerImpl) createProjectDir(path string) error {
 	return nil
 }
 
-func (pm ManagerImpl) configFromProject(fileSystem fs.FS) (Config, error) {
+func (pm ManagerImpl) configFromProject(fileSystem fs.FS) (devcontainer.Config, error) {
 	configFile, err := devcontainer.FindConfig(fileSystem)
 
 	if err != nil {
-		return Config{}, fmt.Errorf("Failed to find devcontainer.json: %w", err)
+		return devcontainer.Config{}, fmt.Errorf("Failed to find devcontainer.json: %w", err)
 	}
 
 	config, err := devcontainer.ParseConfig(configFile)
 
 	if err != nil {
-		return Config{}, fmt.Errorf("Failed to parse devcontainer.json: %w", err)
+		return devcontainer.Config{}, fmt.Errorf("Failed to parse devcontainer.json: %w", err)
 	}
 
-	return Config{DevContainerConfig: *config}, nil
+	return *config, nil
 }
 
 func removeProjectDir(projectPath string) {
@@ -258,16 +272,28 @@ func removeProjectDir(projectPath string) {
 	return
 }
 
-func cloneGitRepo(githubUrl string, projectPath string) error {
-	cmd := exec.Command("git", "clone", githubUrl, projectPath)
+func cloneGitRepo(repository Repository, projectPath string) error {
+	cmd := exec.Command("git", "clone", repository.Url, projectPath)
 	cmdOut, err := cmd.Output()
 
 	if err != nil {
 		return fmt.Errorf("Failed to clone git repo: %w", err)
 	}
 
-	log.Printf("Cloned git repo %s to %s", githubUrl, projectPath)
+	log.Printf("Cloned git repo %s to %s", repository.Url, projectPath)
 	log.Println(string(cmdOut))
+
+	if repository.Commit != nil {
+		cmd = exec.Command("git", "checkout", *repository.Commit)
+		cmdOut, err = cmd.Output()
+
+		if err != nil {
+			return fmt.Errorf("Failed to checkout commit %s: %w", *repository.Commit, err)
+		}
+
+		log.Printf("Checked out commit %s", *repository.Commit)
+		log.Println(string(cmdOut))
+	}
 
 	return nil
 }
