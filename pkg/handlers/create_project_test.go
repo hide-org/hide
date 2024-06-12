@@ -29,7 +29,7 @@ func TestCreateProjectHandler_Success(t *testing.T) {
 
 	handler := handlers.CreateProjectHandler{Manager: mockManager}
 
-	requestBody := project.CreateProjectRequest{RepoUrl: repoUrl}
+	requestBody := project.CreateProjectRequest{Repository: project.Repository{Url: repoUrl}}
 	body, _ := json.Marshal(requestBody)
 	request, _ := http.NewRequest("POST", "/projects", bytes.NewBuffer(body))
 	response := httptest.NewRecorder()
@@ -62,7 +62,7 @@ func TestCreateProjectHandler_Failure(t *testing.T) {
 
 	handler := handlers.CreateProjectHandler{Manager: mockManager}
 
-	requestBody := project.CreateProjectRequest{RepoUrl: repoUrl}
+	requestBody := project.CreateProjectRequest{Repository: project.Repository{Url: repoUrl}}
 	body, _ := json.Marshal(requestBody)
 	request, _ := http.NewRequest("POST", "/projects", bytes.NewBuffer(body))
 	response := httptest.NewRecorder()
