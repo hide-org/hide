@@ -19,14 +19,14 @@ func (h CreateProjectHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	project, err := h.Manager.CreateProject(request)
+	result := <-h.Manager.CreateProject(request)
 
-	if err != nil {
+	if result.IsFailure() {
 		http.Error(w, "Failed to create project", http.StatusInternalServerError)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(project)
+	json.NewEncoder(w).Encode(result.Get())
 }

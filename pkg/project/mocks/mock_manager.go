@@ -2,10 +2,11 @@ package mocks
 
 import "github.com/artmoskvin/hide/pkg/project"
 import "github.com/artmoskvin/hide/pkg/devcontainer"
+import "github.com/artmoskvin/hide/pkg/result"
 
 // MockProjectManager is a mock of the project.Manager interface for testing
 type MockProjectManager struct {
-	CreateProjectFunc    func(request project.CreateProjectRequest) (project.Project, error)
+	CreateProjectFunc    func(request project.CreateProjectRequest) <-chan result.Result[project.Project]
 	GetProjectFunc       func(projectId string) (project.Project, error)
 	GetProjectsFunc      func() ([]*project.Project, error)
 	ResolveTaskAliasFunc func(projectId string, alias string) (devcontainer.Task, error)
@@ -13,7 +14,7 @@ type MockProjectManager struct {
 	CleanupFunc          func() error
 }
 
-func (m *MockProjectManager) CreateProject(request project.CreateProjectRequest) (project.Project, error) {
+func (m *MockProjectManager) CreateProject(request project.CreateProjectRequest) <-chan result.Result[project.Project] {
 	return m.CreateProjectFunc(request)
 }
 
