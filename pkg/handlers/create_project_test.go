@@ -12,6 +12,7 @@ import (
 	"github.com/artmoskvin/hide/pkg/handlers"
 	"github.com/artmoskvin/hide/pkg/project"
 	"github.com/artmoskvin/hide/pkg/project/mocks"
+	"github.com/artmoskvin/hide/pkg/result"
 )
 
 const repoUrl = "https://github.com/example/repo.git"
@@ -22,8 +23,10 @@ func TestCreateProjectHandler_Success(t *testing.T) {
 
 	// Setup
 	mockManager := &mocks.MockProjectManager{
-		CreateProjectFunc: func(req project.CreateProjectRequest) (project.Project, error) {
-			return expectedProject, nil
+		CreateProjectFunc: func(req project.CreateProjectRequest) <-chan result.Result[project.Project] {
+			ch := make(chan result.Result[project.Project], 1)
+			ch <- result.Success(expectedProject)
+			return ch
 		},
 	}
 
@@ -55,8 +58,10 @@ func TestCreateProjectHandler_Success(t *testing.T) {
 func TestCreateProjectHandler_Failure(t *testing.T) {
 	// Setup
 	mockManager := &mocks.MockProjectManager{
-		CreateProjectFunc: func(req project.CreateProjectRequest) (project.Project, error) {
-			return project.Project{}, errors.New("Test error")
+		CreateProjectFunc: func(req project.CreateProjectRequest) <-chan result.Result[project.Project] {
+			ch := make(chan result.Result[project.Project], 1)
+			ch <- result.Failure[project.Project](errors.New("Test error"))
+			return ch
 		},
 	}
 

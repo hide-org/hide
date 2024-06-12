@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/artmoskvin/hide/pkg/devcontainer"
+	"github.com/artmoskvin/hide/pkg/result"
 	"github.com/artmoskvin/hide/pkg/util"
 )
 
@@ -69,7 +70,7 @@ type TaskResult struct {
 }
 
 type Manager interface {
-	CreateProject(request CreateProjectRequest) (Project, error)
+	CreateProject(request CreateProjectRequest) <-chan result.Result[Project]
 	GetProject(projectId ProjectId) (Project, error)
 	GetProjects() ([]*Project, error)
 	ResolveTaskAlias(projectId ProjectId, alias string) (devcontainer.Task, error)
@@ -87,58 +88,69 @@ func NewProjectManager(devContainerRunner devcontainer.Runner, projectStore Stor
 	return ManagerImpl{DevContainerRunner: devContainerRunner, Store: projectStore, ProjectsRoot: projectsRoot}
 }
 
-func (pm ManagerImpl) CreateProject(request CreateProjectRequest) (Project, error) {
-	log.Printf("Creating project for repo %s", request.Repository.Url)
+func (pm ManagerImpl) CreateProject(request CreateProjectRequest) <-chan result.Result[Project] {
+	c := make(chan result.Result[Project])
 
-	projectId := util.RandomString(10)
-	projectPath := path.Join(pm.ProjectsRoot, projectId)
+	go func() {
+		log.Printf("Creating project for repo %s", request.Repository.Url)
 
-	if err := pm.createProjectDir(projectPath); err != nil {
-		log.Printf("Failed to create project directory: %s", err)
-		return Project{}, fmt.Errorf("Failed to create project directory: %w", err)
-	}
+		projectId := util.RandomString(10)
+		projectPath := path.Join(pm.ProjectsRoot, projectId)
 
-	if err := cloneGitRepo(request.Repository, projectPath); err != nil {
-		log.Printf("Failed to clone git repo: %s", err)
-		removeProjectDir(projectPath)
-		return Project{}, fmt.Errorf("Failed to clone git repo: %w", err)
-	}
-
-	var devContainerConfig devcontainer.Config
-
-	if request.DevContainer != nil {
-		devContainerConfig = *request.DevContainer
-	} else {
-		config, err := pm.configFromProject(os.DirFS(projectPath))
-
-		if err != nil {
-			log.Printf("Failed to get devcontainer config from repository %s: %s", request.Repository.Url, err)
-			removeProjectDir(projectPath)
-			return Project{}, fmt.Errorf("Failed to read devcontainer.json: %w", err)
+		if err := pm.createProjectDir(projectPath); err != nil {
+			log.Printf("Failed to create project directory: %s", err)
+			c <- result.Failure[Project](fmt.Errorf("Failed to create project directory: %w", err))
+			return
 		}
 
-		devContainerConfig = config
-	}
+		if r := <-cloneGitRepo(request.Repository, projectPath); r.IsFailure() {
+			log.Printf("Failed to clone git repo: %s", r.Error)
+			removeProjectDir(projectPath)
+			c <- result.Failure[Project](fmt.Errorf("Failed to clone git repo: %w", r.Error))
+			return
+		}
 
-	containerId, err := pm.DevContainerRunner.Run(projectPath, devContainerConfig)
+		var devContainerConfig devcontainer.Config
 
-	if err != nil {
-		log.Println("Failed to launch devcontainer:", err)
-		removeProjectDir(projectPath)
-		return Project{}, fmt.Errorf("Failed to launch devcontainer: %w", err)
-	}
+		if request.DevContainer != nil {
+			devContainerConfig = *request.DevContainer
+		} else {
+			config, err := pm.configFromProject(os.DirFS(projectPath))
 
-	project := Project{Id: projectId, Path: projectPath, Config: Config{DevContainerConfig: devContainerConfig}, containerId: containerId}
+			if err != nil {
+				log.Printf("Failed to get devcontainer config from repository %s: %s", request.Repository.Url, err)
+				removeProjectDir(projectPath)
+				c <- result.Failure[Project](fmt.Errorf("Failed to read devcontainer.json: %w", err))
+				return
+			}
 
-	if err := pm.Store.CreateProject(&project); err != nil {
-		log.Printf("Failed to save project: %s", err)
-		removeProjectDir(projectPath)
-		return Project{}, fmt.Errorf("Failed to save project: %w", err)
-	}
+			devContainerConfig = config
+		}
 
-	log.Printf("Created project %s for repo %s", projectId, request.Repository.Url)
+		containerId, err := pm.DevContainerRunner.Run(projectPath, devContainerConfig)
 
-	return project, nil
+		if err != nil {
+			log.Println("Failed to launch devcontainer:", err)
+			removeProjectDir(projectPath)
+			c <- result.Failure[Project](fmt.Errorf("Failed to launch devcontainer: %w", err))
+			return
+		}
+
+		project := Project{Id: projectId, Path: projectPath, Config: Config{DevContainerConfig: devContainerConfig}, containerId: containerId}
+
+		if err := pm.Store.CreateProject(&project); err != nil {
+			log.Printf("Failed to save project: %s", err)
+			removeProjectDir(projectPath)
+			c <- result.Failure[Project](fmt.Errorf("Failed to save project: %w", err))
+			return
+		}
+
+		log.Printf("Created project %s for repo %s", projectId, request.Repository.Url)
+
+		c <- result.Success(project)
+	}()
+
+	return c
 }
 
 func (pm ManagerImpl) GetProject(projectId string) (Project, error) {
@@ -272,28 +284,36 @@ func removeProjectDir(projectPath string) {
 	return
 }
 
-func cloneGitRepo(repository Repository, projectPath string) error {
-	cmd := exec.Command("git", "clone", repository.Url, projectPath)
-	cmdOut, err := cmd.Output()
+func cloneGitRepo(repository Repository, projectPath string) <-chan result.Empty {
+	c := make(chan result.Empty)
 
-	if err != nil {
-		return fmt.Errorf("Failed to clone git repo: %w", err)
-	}
-
-	log.Printf("Cloned git repo %s to %s", repository.Url, projectPath)
-	log.Println(string(cmdOut))
-
-	if repository.Commit != nil {
-		cmd = exec.Command("git", "checkout", *repository.Commit)
-		cmdOut, err = cmd.Output()
+	go func() {
+		cmd := exec.Command("git", "clone", repository.Url, projectPath)
+		cmdOut, err := cmd.Output()
 
 		if err != nil {
-			return fmt.Errorf("Failed to checkout commit %s: %w", *repository.Commit, err)
+			c <- result.EmptyFailure(fmt.Errorf("Failed to clone git repo: %w", err))
+			return
 		}
 
-		log.Printf("Checked out commit %s", *repository.Commit)
+		log.Printf("Cloned git repo %s to %s", repository.Url, projectPath)
 		log.Println(string(cmdOut))
-	}
 
-	return nil
+		if repository.Commit != nil {
+			cmd = exec.Command("git", "checkout", *repository.Commit)
+			cmdOut, err = cmd.Output()
+
+			if err != nil {
+				c <- result.EmptyFailure(fmt.Errorf("Failed to checkout commit %s: %w", *repository.Commit, err))
+				return
+			}
+
+			log.Printf("Checked out commit %s", *repository.Commit)
+			log.Println(string(cmdOut))
+		}
+
+		c <- result.EmptySuccess()
+	}()
+
+	return c
 }
