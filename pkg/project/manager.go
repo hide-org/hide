@@ -73,6 +73,7 @@ type Manager interface {
 	CreateProject(request CreateProjectRequest) <-chan result.Result[Project]
 	GetProject(projectId ProjectId) (Project, error)
 	GetProjects() ([]*Project, error)
+	DeleteProject(projectId ProjectId) <-chan result.Empty
 	ResolveTaskAlias(projectId ProjectId, alias string) (devcontainer.Task, error)
 	CreateTask(projectId ProjectId, command string) (TaskResult, error)
 	Cleanup() error
@@ -181,6 +182,40 @@ func (pm ManagerImpl) GetProjects() ([]*Project, error) {
 	log.Printf("Got projects %+v", projects)
 
 	return projects, nil
+}
+
+func (pm ManagerImpl) DeleteProject(projectId string) <-chan result.Empty {
+	c := make(chan result.Empty)
+
+	go func() {
+		log.Printf("Deleting project %s", projectId)
+
+		project, err := pm.GetProject(projectId)
+
+		if err != nil {
+			log.Printf("Project with id %s not found", projectId)
+			c <- result.EmptyFailure(fmt.Errorf("Project with id %s not found", projectId))
+			return
+		}
+
+		if err := pm.DevContainerRunner.Stop(project.containerId); err != nil {
+			log.Printf("Failed to stop container %s: %s", project.containerId, err)
+			c <- result.EmptyFailure(fmt.Errorf("Failed to stop container: %w", err))
+			return
+		}
+
+		if err := pm.Store.DeleteProject(projectId); err != nil {
+			log.Printf("Failed to delete project %s: %s", projectId, err)
+			c <- result.EmptyFailure(fmt.Errorf("Failed to delete project: %w", err))
+			return
+		}
+
+		log.Printf("Deleted project %s", projectId)
+
+		c <- result.EmptySuccess()
+	}()
+
+	return c
 }
 
 func (pm ManagerImpl) ResolveTaskAlias(projectId string, alias string) (devcontainer.Task, error) {
