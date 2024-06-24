@@ -99,7 +99,7 @@ func TestLifecycleCommand_UnmarshalJSON(t *testing.T) {
 			json: []byte(`{"test_field":"test"}`),
 			expected: lifecycleCommandTestStruct{
 				TestField: devcontainer.LifecycleCommand{
-					"": {"/bin/sh", "-c", "test"},
+					"": {devcontainer.DefaultShell, "-c", "test"},
 				},
 			},
 		},
@@ -117,8 +117,8 @@ func TestLifecycleCommand_UnmarshalJSON(t *testing.T) {
 			json: []byte(`{"test_field":{"key1":"test1", "key2":"test2"}}`),
 			expected: lifecycleCommandTestStruct{
 				TestField: devcontainer.LifecycleCommand{
-					"key1": {"test1"},
-					"key2": {"test2"},
+					"key1": {devcontainer.DefaultShell, "-c", "test1"},
+					"key2": {devcontainer.DefaultShell, "-c", "test2"},
 				},
 			},
 		},

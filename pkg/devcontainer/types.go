@@ -51,7 +51,7 @@ func (c *LifecycleCommand) UnmarshalJSON(data []byte) error {
 	switch obj := jsonObj.(type) {
 	case string:
 		*c = LifecycleCommand{
-			"": []string{"/bin/sh", "-c", obj},
+			"": []string{DefaultShell, "-c", obj},
 		}
 		return nil
 	case []interface{}:
@@ -72,7 +72,7 @@ func (c *LifecycleCommand) UnmarshalJSON(data []byte) error {
 		for key, value := range obj {
 			switch obj := value.(type) {
 			case string:
-				commands[key] = []string{obj}
+				commands[key] = []string{DefaultShell, "-c", obj}
 			case []interface{}:
 				strings := make([]string, 0, len(obj))
 				for _, v := range obj {

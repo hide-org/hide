@@ -8,7 +8,6 @@ import (
 	"os"
 	"os/exec"
 	"path"
-	"strings"
 
 	"github.com/artmoskvin/hide/pkg/devcontainer"
 	"github.com/artmoskvin/hide/pkg/result"
@@ -250,14 +249,14 @@ func (pm ManagerImpl) CreateTask(projectId string, command string) (TaskResult, 
 		return TaskResult{}, fmt.Errorf("Project with id %s not found", projectId)
 	}
 
-	execResult, err := pm.DevContainerRunner.Exec(project.containerId, strings.Split(command, " "))
+	execResult, err := pm.DevContainerRunner.Exec(project.containerId, []string{"/bin/bash", "-c", command})
 
 	if err != nil {
 		log.Printf("Failed to execute command '%s' in container %s: %s", command, project.containerId, err)
 		return TaskResult{}, fmt.Errorf("Failed to execute command: %w", err)
 	}
 
-	log.Printf("Task '%s' for project %s executed successfully", command, projectId)
+	log.Printf("Task '%s' for project %s completed", command, projectId)
 
 	return TaskResult{StdOut: execResult.StdOut, StdErr: execResult.StdErr, ExitCode: execResult.ExitCode}, nil
 }
@@ -336,6 +335,7 @@ func cloneGitRepo(repository Repository, projectPath string) <-chan result.Empty
 
 		if repository.Commit != nil {
 			cmd = exec.Command("git", "checkout", *repository.Commit)
+			cmd.Dir = projectPath
 			cmdOut, err = cmd.Output()
 
 			if err != nil {
