@@ -3,6 +3,8 @@ package devcontainer
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"io"
 	"path/filepath"
@@ -16,13 +18,21 @@ import (
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/api/types/mount"
+	"github.com/docker/docker/api/types/registry"
 	"github.com/docker/go-connections/nat"
 
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/pkg/archive"
 )
 
-var DefaultContainerCommand = []string{"/bin/sh", "-c", "while sleep 1000; do :; done"}
+const DefaultShell = "/bin/sh"
+
+var DefaultContainerCommand = []string{DefaultShell, "-c", "while sleep 1000; do :; done"}
+
+type DockerRunnerConfig struct {
+	Username string
+	Password string
+}
 
 type ExecResult struct {
 	StdOut   string
@@ -40,13 +50,15 @@ type DockerRunner struct {
 	dockerClient    *client.Client
 	commandExecutor util.Executor
 	context         context.Context
+	config          DockerRunnerConfig
 }
 
-func NewDockerRunner(client *client.Client, commandExecutor util.Executor, context context.Context) Runner {
+func NewDockerRunner(client *client.Client, commandExecutor util.Executor, context context.Context, config DockerRunnerConfig) Runner {
 	return &DockerRunner{
 		dockerClient:    client,
 		commandExecutor: commandExecutor,
 		context:         context,
+		config:          config,
 	}
 }
 
@@ -242,9 +254,16 @@ func (r *DockerRunner) pullOrBuildImage(workingDir string, config Config) (strin
 }
 
 func (r *DockerRunner) pullImage(_image string) error {
-	log.Println("Pulling image...", _image)
+	log.Println("Pulling image", _image)
 
-	output, err := r.dockerClient.ImagePull(r.context, _image, image.PullOptions{})
+	authStr, err := r.encodeRegistryAuth(r.config.Username, r.config.Password)
+
+	if err != nil {
+		log.Printf("Failed to encode registry auth: %s", err)
+		return fmt.Errorf("Failed to encode registry auth: %w", err)
+	}
+
+	output, err := r.dockerClient.ImagePull(r.context, _image, image.PullOptions{RegistryAuth: authStr})
 
 	if err != nil {
 		return err
@@ -403,6 +422,23 @@ func (r *DockerRunner) startContainer(containerId string) error {
 	log.Println("Started container", containerId)
 
 	return nil
+}
+
+func (r *DockerRunner) encodeRegistryAuth(username, password string) (string, error) {
+	authConfig := registry.AuthConfig{
+		Username: username,
+		Password: password,
+	}
+
+	encodedJSON, err := json.Marshal(authConfig)
+
+	if err != nil {
+		return "", err
+	}
+
+	authStr := base64.URLEncoding.EncodeToString(encodedJSON)
+
+	return authStr, nil
 }
 
 func stringToType(s string) (mount.Type, error) {
