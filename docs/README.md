@@ -38,18 +38,19 @@ Hide is a headless IDE for coding agents. It provides scalable development envir
 
 # Installation
 
-Hide can be installed using Homebrew:
+Hide can be installed using [Homebrew](https://brew.sh/).
 
-1. Install [Homebrew](https://brew.sh/) if you don't have it installed.
+Add the Hide tap to your Homebrew:
 
-2. Add the Hide tap to your Homebrew:
-   ```bash
-   brew tap artmoskvin/hide
-   ```
-2. Install Hide using the brew install command:
-   ```bash
-   brew install hide
-   ```
+```bash
+brew tap artmoskvin/hide
+```
+
+Install Hide using the brew install command:
+
+```bash
+brew install hide
+```
 
 # Usage (Work in Progress)
 This section will provide detailed instructions on how to use Hide once the documentation is complete.

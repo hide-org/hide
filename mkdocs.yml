@@ -1,0 +1,5 @@
+site_name: Hide
+nav:
+  - Home: README.md
+theme: 
+  name: material
