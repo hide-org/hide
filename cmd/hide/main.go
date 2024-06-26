@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"log"
 	"net/http"
@@ -17,20 +18,33 @@ import (
 )
 
 const ProjectsDir = "hide-projects"
-const DotEnvPath = "."
-const DotEnvFile = ".env"
+const DefaultDotEnvPath = ".env"
 
 func main() {
-	err := util.LoadEnv(os.DirFS(DotEnvPath), DotEnvFile)
-	if err != nil {
-		log.Fatal("Error loading .env file:", err)
+	envPath := flag.String("env", DefaultDotEnvPath, "path to the .env file")
+	flag.Parse()
+
+	_, err := os.Stat(*envPath)
+
+	if os.IsNotExist(err) {
+		log.Printf("Debug: Environment file %s does not exist.", *envPath)
+	}
+
+	if err == nil {
+		dotEnvDir := filepath.Dir(*envPath)
+		dotEnvFile := filepath.Base(*envPath)
+
+		err := util.LoadEnv(os.DirFS(dotEnvDir), dotEnvFile)
+		if err != nil {
+			log.Printf("Warning: Cannot load environment variables from %s: %s", *envPath, err)
+		}
 	}
 
 	dockerUser := os.Getenv("DOCKER_USER")
 	dockerToken := os.Getenv("DOCKER_TOKEN")
 
 	if dockerUser == "" || dockerToken == "" {
-		log.Fatal("Error: DOCKER_USER and DOCKER_TOKEN environment variables are required")
+		log.Println("Warning: DOCKER_USER and DOCKER_TOKEN environment variables are empty. This might cause problems when pulling images from Docker Hub.")
 	}
 
 	mux := http.NewServeMux()
