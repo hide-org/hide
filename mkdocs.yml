@@ -1,5 +1,77 @@
 site_name: Hide
+site_url: https://hide.sh
+repo_url: https://github.com/artmoskvin/hide
+repo_name: artmoskvin/hide
 nav:
   - Home: README.md
+  - Installation: installation.md
+  - Usage: 
+    - usage/index.md
+    - Projects: usage/projects.md
+    - Tasks: usage/tasks.md
+    - Files: usage/files.md
+    - Seach: usage/search.md
+    - Git: usage/git.md
+  - Tutotials:
+    - tutorials/index.md
+    - Langchain: tutorials/langchain.md
+    - Autogen: tutorials/autogen.md
+    - SWE-Agent: tutorials/swe-agent.md
+  - Development: development.md
+  - Contributing: CONTRIBUTING.md
+  - API: api.md
 theme: 
   name: material
+  palette:
+    # Palette toggle for automatic mode
+    - media: "(prefers-color-scheme)"
+      toggle:
+        icon: material/brightness-auto
+        name: Switch to light mode
+
+    # Palette toggle for light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: purple
+      accent: green
+      toggle:
+        icon: material/toggle-switch-off-outline 
+        name: Switch to dark mode
+
+    # Palette toggle for dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      toggle:
+        icon: material/toggle-switch
+        name: Switch to system preference
+  icon:
+    logo: octicons/hubot-24
+    repo: fontawesome/brands/github
+  features:
+    - navigation.instant
+    - navigation.instant.progress
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.indexes
+    - navigation.top
+    - navigation.footer
+    - toc.follow
+    - search.highlight
+markdown_extensions:
+  - toc:
+      permalink: true
+  - pymdownx.superfences
+  - pymdownx.highlight:
+      anchor_linenums: true
+      pygments_lang_class: true
+      line_spans: __span
+  - pymdownx.inlinehilite
+  - pymdownx.tabbed:
+      alternate_style: true
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/artmoskvin/hide
+    - icon: fontawesome/brands/x-twitter
+      link: https://twitter.com/art_moskvin
+copyright: Copyright &copy; 2024 Artem Moskvin
