@@ -1,5 +1,97 @@
-Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Egestas fringilla phasellus faucibus scelerisque eleifend donec pretium. Id velit ut tortor pretium viverra suspendisse potenti. Arcu non odio euismod lacinia at quis risus sed. Tristique senectus et netus et malesuada fames ac. Non quam lacus suspendisse faucibus. Ridiculus mus mauris vitae ultricies leo integer. Porta nibh venenatis cras sed felis eget velit aliquet. Suspendisse in est ante in. Et malesuada fames ac turpis egestas maecenas pharetra convallis. Quisque sagittis purus sit amet volutpat. Id ornare arcu odio ut sem nulla pharetra. Feugiat nisl pretium fusce id. Egestas congue quisque egestas diam in arcu. Diam phasellus vestibulum lorem sed risus ultricies tristique nulla aliquet.
+# Development
 
-Commodo odio aenean sed adipiscing diam donec. Morbi tincidunt ornare massa eget egestas purus viverra. Nulla pharetra diam sit amet nisl suscipit adipiscing bibendum. Sit amet risus nullam eget felis. Id aliquet risus feugiat in ante. Aenean euismod elementum nisi quis. Ullamcorper morbi tincidunt ornare massa eget egestas. Maecenas pharetra convallis posuere morbi. Consectetur adipiscing elit ut aliquam purus sit. At quis risus sed vulputate odio. Neque convallis a cras semper. Consectetur adipiscing elit pellentesque habitant morbi tristique senectus et. Leo a diam sollicitudin tempor id eu nisl nunc. Lectus proin nibh nisl condimentum id venenatis a. Tellus cras adipiscing enim eu turpis egestas pretium. Est velit egestas dui id ornare arcu. Rhoncus est pellentesque elit ullamcorper dignissim cras tincidunt lobortis.
+## Testing
 
-Tristique risus nec feugiat in fermentum. Pharetra diam sit amet nisl suscipit adipiscing bibendum. Auctor eu augue ut lectus arcu bibendum at. Tincidunt nunc pulvinar sapien et. Tristique risus nec feugiat in. At volutpat diam ut venenatis tellus in metus. In massa tempor nec feugiat nisl pretium fusce. Fermentum posuere urna nec tincidunt praesent semper feugiat nibh sed. Sed ullamcorper morbi tincidunt ornare massa eget. Sed adipiscing diam donec adipiscing tristique risus. Aliquam etiam erat velit scelerisque in dictum. Nisl nunc mi ipsum faucibus vitae aliquet nec ullamcorper sit. Nibh praesent tristique magna sit amet purus gravida quis blandit. Risus quis varius quam quisque id diam vel quam elementum. Interdum varius sit amet mattis.
+To run the tests, run the following command:
+
+```bash
+go test ./...
+```
+
+or use the `make` command:
+
+```bash
+make test
+```
+
+To run the tests with verbose output, run the following command:
+
+```bash
+go test -v ./...
+```
+
+To run a specific test suite, run the following command:
+
+```bash
+go test -v ./test_suite.go
+```
+
+To run a specific test, run the following command:
+
+```bash
+go test -v ./test_suite.go -run TestName
+```
+
+## Running Hide locally
+
+To run Hide locally, run the following command:
+
+```bash
+go run ./cmd/hide
+```
+
+or use the `make` command:
+
+```bash
+make run
+```
+
+This will start a local server at `http://127.0.0.1:8080/`.
+
+## Release
+
+To release a new version of Hide, follow these steps:
+
+1. Create a new release using the GitHub UI or the command line. For example, to create a new release with the command line, run the following command:
+
+    ```bash
+    gh release create vX.Y.Z --title "Hide vX.Y.Z" --generate-notes
+    ```
+
+    Replace `X.Y.Z` with the version number of the new release following the [semantic versioning](https://semver.org/) convention.
+
+    For additional options and for UI instructions, refer to the [GitHub documentation](https://docs.github.com/en/repositories/releasing-projects-on-github/managing-releases-in-a-repository).
+
+2. Update the version in the [hide-brew](https://github.com/artmoskvin/homebrew-hide) formula:
+  1. Copy the URL of the new release (tar.gz file) from the GitHub UI or the command line.
+  2. Get the SHA256 checksum of the new release (tar.gz file) using the command line:
+
+     ```bash
+     sha256sum vX.Y.Z.tar.gz
+     ```
+
+  3. Update the `url` and the `sha256` fields in the `hide-brew.rb` file to the new release URL and checksum.
+
+## Documentation
+
+The documentation is built using [MkDocs](https://www.mkdocs.org/). To build the documentation, install MkDocs
+
+```bash
+pip install mkdocs
+```
+
+and then run the following command:
+
+```bash
+mkdocs build
+```
+
+The documentation will be built in the `site` directory.
+
+To serve the documentation locally, run the following command:
+
+```bash
+mkdocs serve
+```
+
+This will start a local server at `http://127.0.0.1:8000/`.

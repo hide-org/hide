@@ -1,5 +1,92 @@
-Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Egestas fringilla phasellus faucibus scelerisque eleifend donec pretium. Id velit ut tortor pretium viverra suspendisse potenti. Arcu non odio euismod lacinia at quis risus sed. Tristique senectus et netus et malesuada fames ac. Non quam lacus suspendisse faucibus. Ridiculus mus mauris vitae ultricies leo integer. Porta nibh venenatis cras sed felis eget velit aliquet. Suspendisse in est ante in. Et malesuada fames ac turpis egestas maecenas pharetra convallis. Quisque sagittis purus sit amet volutpat. Id ornare arcu odio ut sem nulla pharetra. Feugiat nisl pretium fusce id. Egestas congue quisque egestas diam in arcu. Diam phasellus vestibulum lorem sed risus ultricies tristique nulla aliquet.
+# Contributing to Hide
 
-Commodo odio aenean sed adipiscing diam donec. Morbi tincidunt ornare massa eget egestas purus viverra. Nulla pharetra diam sit amet nisl suscipit adipiscing bibendum. Sit amet risus nullam eget felis. Id aliquet risus feugiat in ante. Aenean euismod elementum nisi quis. Ullamcorper morbi tincidunt ornare massa eget egestas. Maecenas pharetra convallis posuere morbi. Consectetur adipiscing elit ut aliquam purus sit. At quis risus sed vulputate odio. Neque convallis a cras semper. Consectetur adipiscing elit pellentesque habitant morbi tristique senectus et. Leo a diam sollicitudin tempor id eu nisl nunc. Lectus proin nibh nisl condimentum id venenatis a. Tellus cras adipiscing enim eu turpis egestas pretium. Est velit egestas dui id ornare arcu. Rhoncus est pellentesque elit ullamcorper dignissim cras tincidunt lobortis.
+We're excited that you're interested in contributing to Hide! This document outlines the process for contributing to this project and provides some guidelines to ensure a smooth collaboration.
 
-Tristique risus nec feugiat in fermentum. Pharetra diam sit amet nisl suscipit adipiscing bibendum. Auctor eu augue ut lectus arcu bibendum at. Tincidunt nunc pulvinar sapien et. Tristique risus nec feugiat in. At volutpat diam ut venenatis tellus in metus. In massa tempor nec feugiat nisl pretium fusce. Fermentum posuere urna nec tincidunt praesent semper feugiat nibh sed. Sed ullamcorper morbi tincidunt ornare massa eget. Sed adipiscing diam donec adipiscing tristique risus. Aliquam etiam erat velit scelerisque in dictum. Nisl nunc mi ipsum faucibus vitae aliquet nec ullamcorper sit. Nibh praesent tristique magna sit amet purus gravida quis blandit. Risus quis varius quam quisque id diam vel quam elementum. Interdum varius sit amet mattis.
+## Getting Started
+
+1. Fork the repository on GitHub.
+2. Clone your fork locally:
+
+   ```bash
+   git clone https://github.com/your-username/hide.git
+   cd hide
+   ```
+
+3. Create a new branch for your contribution:
+
+   ```bash
+   git checkout -b your-branch-name
+   ```
+
+## Making Changes
+
+1. Make your changes in your feature branch.
+2. Add or update tests as necessary (see the Testing section below).
+3. Ensure your code follows the project's coding standards.
+4. Commit your changes:
+
+   ```bash
+   git commit -m "Add a brief, descriptive commit message"
+   ```
+
+## Testing
+
+We strongly emphasize the importance of testing. Please include tests for any new features or bug fixes. This helps maintain the project's quality and prevents regressions.
+
+To run the tests:
+
+```bash
+go test ./...
+```
+
+See also the [Development](development.md) page for more information on running the tests.
+
+Ensure all tests pass before submitting your pull request.
+
+## Submitting Changes
+
+1. Push your changes to your fork on GitHub:
+
+   ```bash
+   git push origin your-branch-name
+   ```
+
+2. Open a pull request against the main Hide repository.
+3. Clearly describe your changes and the reasoning behind them in the pull request description.
+4. Link any relevant issues in the pull request description.
+
+## Code Review Process
+
+The project maintainers will review your pull request. They may suggest some changes or improvements. This is a normal part of the contribution process, so don't be discouraged!
+
+## Good First Issues
+
+If you're new to the project, look for issues labeled `good first issue`. These are typically easier tasks that are suitable for newcomers to the project.
+
+You can find these issues [here](https://github.com/artmoskvin/hide/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22).
+
+## Style Guide
+
+For formatting, we use the standard Go formatting guidelines. To run the formatter, use the following command:
+
+```bash
+go fmt ./...
+```
+
+or use the `make` command:
+
+```bash
+make format
+```
+
+## Community Guidelines
+
+- Be respectful and considerate in your communications with other contributors.
+- Provide constructive feedback and be open to receiving it as well.
+- Focus on the best possible outcome for the project.
+
+## Questions?
+
+If you have any questions or need further clarification, don't hesitate to open an issue for discussion.
+
+Thank you for contributing to Hide!
