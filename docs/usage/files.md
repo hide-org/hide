@@ -1,13 +1,124 @@
 # Files
 
-## Paragraph 1
+## Understanding Files in Hide
 
-Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Egestas fringilla phasellus faucibus scelerisque eleifend donec pretium. Id velit ut tortor pretium viverra suspendisse potenti. Arcu non odio euismod lacinia at quis risus sed. Tristique senectus et netus et malesuada fames ac. Non quam lacus suspendisse faucibus. Ridiculus mus mauris vitae ultricies leo integer. Porta nibh venenatis cras sed felis eget velit aliquet. Suspendisse in est ante in. Et malesuada fames ac turpis egestas maecenas pharetra convallis. Quisque sagittis purus sit amet volutpat. Id ornare arcu odio ut sem nulla pharetra. Feugiat nisl pretium fusce id. Egestas congue quisque egestas diam in arcu. Diam phasellus vestibulum lorem sed risus ultricies tristique nulla aliquet.
+In Hide, the Files API allows coding agents to interact with the project's file system within the devcontainer environment. This enables operations such as creating, reading, updating, and deleting files. All file paths are relative to the project's root directory.
 
-## Paragraph 2
+!!! note
 
-Commodo odio aenean sed adipiscing diam donec. Morbi tincidunt ornare massa eget egestas purus viverra. Nulla pharetra diam sit amet nisl suscipit adipiscing bibendum. Sit amet risus nullam eget felis. Id aliquet risus feugiat in ante. Aenean euismod elementum nisi quis. Ullamcorper morbi tincidunt ornare massa eget egestas. Maecenas pharetra convallis posuere morbi. Consectetur adipiscing elit ut aliquam purus sit. At quis risus sed vulputate odio. Neque convallis a cras semper. Consectetur adipiscing elit pellentesque habitant morbi tristique senectus et. Leo a diam sollicitudin tempor id eu nisl nunc. Lectus proin nibh nisl condimentum id venenatis a. Tellus cras adipiscing enim eu turpis egestas pretium. Est velit egestas dui id ornare arcu. Rhoncus est pellentesque elit ullamcorper dignissim cras tincidunt lobortis.
+    For all code examples, the server is assumed to be running on `localhost:8080`. Adjust the URL if your Hide server is running on a different host or port.
 
-## Paragraph 3
+!!! note
 
-Tristique risus nec feugiat in fermentum. Pharetra diam sit amet nisl suscipit adipiscing bibendum. Auctor eu augue ut lectus arcu bibendum at. Tincidunt nunc pulvinar sapien et. Tristique risus nec feugiat in. At volutpat diam ut venenatis tellus in metus. In massa tempor nec feugiat nisl pretium fusce. Fermentum posuere urna nec tincidunt praesent semper feugiat nibh sed. Sed ullamcorper morbi tincidunt ornare massa eget. Sed adipiscing diam donec adipiscing tristique risus. Aliquam etiam erat velit scelerisque in dictum. Nisl nunc mi ipsum faucibus vitae aliquet nec ullamcorper sit. Nibh praesent tristique magna sit amet purus gravida quis blandit. Risus quis varius quam quisque id diam vel quam elementum. Interdum varius sit amet mattis.
+    For all requests, replace `{project_id}` with your actual project ID.
+
+### Creating a File
+
+To create a new file in your project:
+
+=== "curl"
+
+    ```bash
+    curl -X POST http://localhost:8080/projects/{project_id}/files \
+         -H "Content-Type: application/json" \
+         -d '{"path": "example.txt", "content": "Hello, World!"}'
+    ```
+
+=== "python"
+
+    ```python
+    # Coming soon
+    ```
+
+This will create a file named `example.txt` in your project's root directory with the content `Hello, World!`.
+
+### Listing Files
+
+To list all files in your project:
+
+=== "curl"
+
+    ```bash
+    curl http://localhost:8080/projects/{project_id}/files
+    ```
+
+=== "python"
+
+    ```python
+    # Coming soon
+    ```
+
+This will return a list of all files recursively in your project's root directory.
+
+### Reading a File
+
+To read the contents of a specific file:
+
+=== "curl"
+
+    ```bash
+    curl http://localhost:8080/projects/{project_id}/files/example.txt
+    ```
+
+=== "python"
+
+    ```python
+    # Coming soon
+    ```
+
+This will return the contents of the file `example.txt` in your project's root directory.
+
+We are working on supporting different parameters for reading files, such as specifying a range of lines, or including the line numbers in the response. Stay tuned! :blush:
+
+### Updating a File
+
+To update the contents of an existing file:
+
+=== "curl"
+
+    ```bash
+    curl -X PUT http://localhost:8080/projects/{project_id}/files/example.txt \
+         -H "Content-Type: application/json" \
+         -d '{"content": "Updated content!"}'
+    ```
+
+=== "python"
+
+    ```python
+    # Coming soon
+    ```
+
+This will update the contents of the file `example.txt` in your project's root directory to `Updated content!`. This API call will effectively overwrite the existing file.
+
+### Deleting a File
+
+To delete a specific file:
+
+=== "curl"
+
+    ```bash
+    curl -X DELETE http://localhost:8080/projects/{project_id}/files/example.txt
+    ```
+
+=== "python"
+
+    ```python
+    # Coming soon
+    ```
+
+This will delete the file `example.txt` in your project's root directory.
+
+### :construction: Applying Diffs
+
+Coming soon
+
+## Error Handling
+
+The API uses standard HTTP status codes to indicate the success or failure of requests:
+
+- 200: Successful operation
+- 404: File or project not found
+- 400: Bad request (e.g., invalid input)
+- 500: Internal server error
+
+Always check the status code and response body for detailed error messages.
