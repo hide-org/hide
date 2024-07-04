@@ -10,9 +10,9 @@ nav:
     - Projects: usage/projects.md
     - Tasks: usage/tasks.md
     - Files: usage/files.md
-    - Seach: usage/search.md
+    - Search: usage/search.md
     - Git: usage/git.md
-  - Tutotials:
+  - Tutorials:
     - tutorials/index.md
     - Langchain: tutorials/langchain.md
     - Autogen: tutorials/autogen.md
