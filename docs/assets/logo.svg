@@ -35,8 +35,8 @@
             <circle cx="4" cy="4" r="3" class="bg_filled"></circle>
         </marker>
     </defs>
-    <line x1="556" y1="184" x2="596" y2="184" class="solid"></line>
-    <line x1="472" y1="328" x2="488" y2="328" class="solid"></line>
+    <line x1="554" y1="187" x2="594" y2="187" class="solid"></line>
+    <line x1="476" y1="328" x2="492" y2="328" class="solid"></line>
     <g>
         <line x1="80" y1="16" x2="120" y2="16" class="solid"></line>
         <line x1="80" y1="16" x2="76" y2="24" class="solid"></line>
@@ -120,10 +120,10 @@
         <line x1="524" y1="104" x2="524" y2="160" class="broken"></line>
         <line x1="532" y1="120" x2="532" y2="224" class="broken"></line>
         <line x1="540" y1="136" x2="540" y2="208" class="broken"></line>
-        <line x1="544" y1="144" x2="556" y2="168" class="solid"></line>
+        <line x1="544" y1="144" x2="554" y2="165" class="solid"></line>
         <line x1="548" y1="152" x2="548" y2="192" class="broken"></line>
-        <line x1="556" y1="168" x2="596" y2="168" class="solid"></line>
-        <line x1="584" y1="144" x2="596" y2="168" class="solid"></line>
+        <line x1="554" y1="165" x2="594" y2="165" class="solid"></line>
+        <line x1="584" y1="144" x2="594" y2="165" class="solid"></line>
     </g>
     <g>
         <line x1="680" y1="16" x2="720" y2="16" class="solid"></line>
@@ -344,10 +344,10 @@
         <line x1="124" y1="184" x2="124" y2="240" class="broken"></line>
     </g>
     <g>
-        <line x1="556" y1="168" x2="556" y2="184" class="solid"></line>
-        <line x1="556" y1="184" x2="488" y2="320" class="solid"></line>
-        <line x1="596" y1="168" x2="596" y2="184" class="solid"></line>
-        <line x1="596" y1="184" x2="528" y2="320" class="solid"></line>
+        <line x1="554" y1="165" x2="554" y2="187" class="solid"></line>
+        <line x1="554" y1="187" x2="488" y2="320" class="solid"></line>
+        <line x1="594" y1="165" x2="594" y2="187" class="solid"></line>
+        <line x1="594" y1="187" x2="528" y2="320" class="solid"></line>
         <line x1="488" y1="320" x2="528" y2="320" class="solid"></line>
     </g>
     <g>
