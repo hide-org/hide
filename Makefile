@@ -14,3 +14,6 @@ clean:
 
 install:
 	go install ./cmd/hide
+
+format:
+	go fmt ./...

@@ -1,56 +1,83 @@
 <div style="display: flex; justify-content: center;">
-<pre style="color: rgb(241, 250, 152); background-color: rgb(41, 42, 53); line-height: 1.3;">
-          _____                    _____                    _____                    _____
-         /\    \                  /\    \                  /\    \                  /\    \
-        /::\____\                /::\    \                /::\    \                /::\    \
-       /:::/    /                \:::\    \              /::::\    \              /::::\    \
-      /:::/    /                  \:::\    \            /::::::\    \            /::::::\    \
-     /:::/    /                    \:::\    \          /:::/\:::\    \          /:::/\:::\    \
-    /:::/____/                      \:::\    \        /:::/  \:::\    \        /:::/__\:::\    \
-   /::::\    \                      /::::\    \      /:::/    \:::\    \      /::::\   \:::\    \
-  /::::::\    \   _____    ____    /::::::\    \    /:::/    / \:::\    \    /::::::\   \:::\    \
- /:::/\:::\    \ /\    \  /\   \  /:::/\:::\    \  /:::/    /   \:::\ ___\  /:::/\:::\   \:::\    \
-/:::/  \:::\    /::\____\/::\   \/:::/  \:::\____\/:::/____/     \:::|    |/:::/__\:::\   \:::\____\
-\::/    \:::\  /:::/    /\:::\  /:::/    \::/    /\:::\    \     /:::|____|\:::\   \:::\   \::/    /
- \/____/ \:::\/:::/    /  \:::\/:::/    / \/____/  \:::\    \   /:::/    /  \:::\   \:::\   \/____/
-          \::::::/    /    \::::::/    /            \:::\    \ /:::/    /    \:::\   \:::\    \
-           \::::/    /      \::::/____/              \:::\    /:::/    /      \:::\   \:::\____\
-           /:::/    /        \:::\    \               \:::\  /:::/    /        \:::\   \::/    /
-          /:::/    /          \:::\    \               \:::\/:::/    /          \:::\   \/____/
-         /:::/    /            \:::\    \               \::::::/    /            \:::\    \
-        /:::/    /              \:::\____\               \::::/    /              \:::\____\
-        \::/    /                \::/    /                \::/____/                \::/    /
-         \/____/                  \/____/                  ~~                       \/____/
-</pre>
+  <object data="assets/logo.svg" type="image/svg+xml"></object>
 </div>
 
 Hide is a headless IDE for coding agents. It provides scalable development environments with comprehensive tools for enhanced code generation quality.
 
 # Features
-- **Development containers**. Hide uses [devcontainers](https://containers.dev/) to create consistent and isolated development environments for agents. With devcontainers you can parallelize agent workloads and run them both on the local host and in the cloud. 
-- **CodeGen Toolkit**. Hide provides a toolkit designed specifically for coding agents to interact with the codebase. The toolkit contains the tools for code editing, task running, searching and git operations.
-  - **File API**. Allows agents to read and write files, including line numbers if needed, edit files with unified diffs, and receive helpful error messages to recover from failures.
-  - **Search API**. Enables agents to search for project files, content, and code symbols like functions and classes. Also provides symbol usage information for better navigation.
-  - **Git API**. Allows agents to pull, commit, and push changes to the remote git repository.
-  - **Task API**. Enables agents to run tasks and shell commands. Tasks can be used for testing, linting, formatting, and more.
-- **Code analysis**. Hide provides agents with the feedback from the code analysis tools, such as linters, formatters, and compilers, which improves the code generation quality and allows agents to recover from mistakes.
-- **Framework Support**. Hide supports some of the major frameworks for building agents by providing toolkits for them. If frameworks is not your thing you can use the API directly. 
 
-# Installation
+## Development Containers
 
-Hide can be installed using [Homebrew](https://brew.sh/).
+Hide leverages [devcontainers](https://containers.dev/) to create consistent and isolated development environments for agents.
 
-Add the Hide tap to your Homebrew:
+- **Parallelization**: Run multiple agent workloads simultaneously.
+- **Flexibility**: Execute environments both locally and in the cloud.
+- **Consistency**: Ensure uniform development setups across different machines.
 
-```bash
-brew tap artmoskvin/hide
+## CodeGen Toolkit
+
+Our comprehensive toolkit is specifically designed for coding agents to interact with the codebase efficiently.
+
+### File API
+
+Enables agents to manipulate files with precision:
+
+- Read and write files, including specific line numbers.
+- Edit files using unified diffs.
+- Receive helpful error messages for better error recovery.
+
+Example usage:
+```python
+# Coming soon
 ```
 
-Install Hide using the brew install command:
+### Search API
 
-```bash
-brew install hide
+Powerful search capabilities for improved codebase navigation:
+
+- Search for project files, content, and code symbols (functions, classes, etc.).
+- Retrieve symbol usage information.
+
+Example usage:
+```python
+# Coming soon
 ```
 
-# Usage (Work in Progress)
-This section will provide detailed instructions on how to use Hide once the documentation is complete.
+### Git API
+
+Seamless integration with version control:
+
+- Pull, commit, and push changes to remote git repositories.
+- Manage branches and resolve conflicts.
+
+Example usage:
+```python
+# Coming soon
+```
+
+### Task API
+
+Execute various development tasks:
+
+- Run tests, linters, formatters, and other development tools.
+- Execute shell commands within the development environment.
+
+Example usage:
+```python
+# Coming soon
+```
+
+### Code Analysis Integration
+
+Improve code generation quality with integrated analysis tools:
+
+- Receive feedback from linters, formatters, and compilers.
+- Enable agents to self-correct and learn from mistakes.
+
+### Framework Support
+
+Hide is designed to work with major agent development frameworks:
+
+- [Langchain](https://www.langchain.com/)
+- [Autogen](https://microsoft.github.io/autogen/)
+
