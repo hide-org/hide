@@ -1,5 +1,5 @@
 <div style="display: flex; justify-content: center;">
-  <object data="assets/logo.svg" type="image/svg+xml"></object>
+  <img src="assets/hide-quickstart.png" alt="Hide Quickstart"/>
 </div>
 
 Hide is a headless IDE for coding agents. It provides scalable development environments with comprehensive tools for enhanced code generation quality.
