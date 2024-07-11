@@ -1,4 +1,4 @@
-# :construction: Langchain Tutorial
+# Langchain Tutorial
 
 In this tutorial, we will use the Langchain framework to build a simple coding agent that can solve coding problems based on a given prompt. We will demonstrate how to use Hide to create a development environment, and how an agent can interact with it using the Hide toolkit. 
 
