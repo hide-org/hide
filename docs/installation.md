@@ -79,7 +79,7 @@ The client is responsible for interacting with the server. It is best used for c
 We provide a Python package containing the client and some pre-built toolkits:
 
 ```bash
-pip install hide
+pip install hide-py
 ```
 
 You can also implement your own client by calling the server's APIs directly (see [API Reference](api.md)).
