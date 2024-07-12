@@ -28,3 +28,9 @@ go.work
 
 # Documentation
 site/
+
+# MacOS
+.DS_Store
+
+# Pyenv
+.python-version

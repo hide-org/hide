@@ -3,8 +3,10 @@ site_url: https://hide.sh
 repo_url: https://github.com/artmoskvin/hide
 repo_name: artmoskvin/hide
 nav:
-  - Home: README.md
+  - Home: 
+    - README.md
   - Installation: installation.md
+  - Quickstart: quickstart.md
   - Usage: 
     - usage/index.md
     - Projects: usage/projects.md
