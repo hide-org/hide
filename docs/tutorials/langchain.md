@@ -46,7 +46,7 @@ This will start the server on `http://localhost:8080`.
 We will use Hide and the Langchain framework to build our agent. Let's install the necessary dependencies.
 
 ```bash
-pip install langchain hide
+pip install langchain hide-py
 ```
 
 ## Creating a Project
