@@ -6,16 +6,39 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 )
+
+const DefaultNumLines = 100
+const DefaultStartLine = 1
+const DefaultShowLineNumbers = false
 
 type File struct {
 	Path    string `json:"path"`
 	Content string `json:"content"`
 }
 
+type ReadProps struct {
+	ShowLineNumbers bool
+	StartLine       int
+	NumLines        int
+}
+
+type ReadPropsSetter func(*ReadProps)
+
+func NewReadProps(props ...ReadPropsSetter) ReadProps {
+	_props := ReadProps{ShowLineNumbers: DefaultShowLineNumbers, StartLine: DefaultStartLine, NumLines: DefaultNumLines}
+
+	for _, param := range props {
+		param(&_props)
+	}
+
+	return _props
+}
+
 type FileManager interface {
 	CreateFile(path string, content string) (File, error)
-	ReadFile(fileSystem fs.FS, path string) (File, error)
+	ReadFile(fileSystem fs.FS, path string, props ReadProps) (File, error)
 	UpdateFile(path string, content string) (File, error)
 	DeleteFile(path string) error
 	ListFiles(rootPath string) ([]File, error)
@@ -45,7 +68,7 @@ func (fm *FileManagerImpl) CreateFile(path string, content string) (File, error)
 	return File{Path: path, Content: content}, nil
 }
 
-func (fm *FileManagerImpl) ReadFile(fileSystem fs.FS, path string) (File, error) {
+func (fm *FileManagerImpl) ReadFile(fileSystem fs.FS, path string, props ReadProps) (File, error) {
 	log.Println("Reading file", path)
 	content, err := fs.ReadFile(fileSystem, path)
 
@@ -54,7 +77,37 @@ func (fm *FileManagerImpl) ReadFile(fileSystem fs.FS, path string) (File, error)
 		return File{}, fmt.Errorf("Failed to open file: %w", err)
 	}
 
-	return File{Path: path, Content: string(content)}, nil
+	lines := strings.Split(string(content), "\n")
+
+	if props.StartLine < 1 {
+		return File{}, fmt.Errorf("Start line must be greater than or equal to 1")
+	}
+
+	if props.NumLines < 0 {
+		return File{}, fmt.Errorf("Number of lines must be greater than or equal to 0")
+	}
+
+	endLine := props.StartLine + props.NumLines
+
+	// Convert to 0-based index for slice operations; endLine is exclusive
+	selectedLines := lines[props.StartLine-1 : endLine-1]
+
+	// Calculate the width needed for line numbers
+	lineNumberWidth := len(fmt.Sprintf("%d", endLine))
+
+	var result strings.Builder
+
+	for i, line := range selectedLines {
+		if props.ShowLineNumbers {
+			lineNumber := props.StartLine + i
+			result.WriteString(fmt.Sprintf("%*d:", lineNumberWidth, lineNumber))
+		}
+
+		result.WriteString(line)
+		result.WriteString("\n")
+	}
+
+	return File{Path: path, Content: result.String()}, nil
 }
 
 func (fm *FileManagerImpl) UpdateFile(path string, content string) (File, error) {
@@ -94,7 +147,7 @@ func (fm *FileManagerImpl) ListFiles(rootPath string) ([]File, error) {
 		}
 
 		if !info.IsDir() {
-			file, err := fm.ReadFile(os.DirFS(rootPath), relativePath)
+			file, err := fm.ReadFile(os.DirFS(rootPath), relativePath, NewReadProps())
 			if err != nil {
 				log.Printf("Error reading file %s: %s", path, err)
 				return fmt.Errorf("Error reading file %s: %w", path, err)
