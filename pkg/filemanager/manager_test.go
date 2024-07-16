@@ -144,6 +144,34 @@ func TestFileManagerImpl_ReadFile_Success(t *testing.T) {
 				Content: "",
 			},
 		},
+		{
+			name:     "If StartLine + NumLines > number of lines then show all lines",
+			fs:       files,
+			filePath: "test.txt",
+			props: func(props *filemanager.ReadProps) {
+				props.ShowLineNumbers = true
+				props.StartLine = 5
+				props.NumLines = 10
+			},
+			expected: filemanager.File{
+				Path:    "test.txt",
+				Content: " 5:line5\n 6:line6\n 7:line7\n 8:line8\n 9:line9\n10:line10\n",
+			},
+		},
+		{
+			name:     "Line numbers are padded with spaces",
+			fs:       files,
+			filePath: "test.txt",
+			props: func(props *filemanager.ReadProps) {
+				props.ShowLineNumbers = true
+				props.StartLine = 5
+				props.NumLines = 10
+			},
+			expected: filemanager.File{
+				Path:    "test.txt",
+				Content: " 5:line5\n 6:line6\n 7:line7\n 8:line8\n 9:line9\n10:line10\n",
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -178,19 +206,24 @@ func TestFileManagerImpl_ReadFile_Failure(t *testing.T) {
 			fs:       files,
 			filePath: "test.txt",
 			props: func(props *filemanager.ReadProps) {
-				props.ShowLineNumbers = true
 				props.StartLine = 0
-				props.NumLines = 1
 			},
 			expected: "Start line must be greater than or equal to 1",
+		},
+		{
+			name:     "StartLine > number of lines",
+			fs:       files,
+			filePath: "test.txt",
+			props: func(props *filemanager.ReadProps) {
+				props.StartLine = 11
+			},
+			expected: "Start line must be less than or equal to 10",
 		},
 		{
 			name:     "NumLines < 0",
 			fs:       files,
 			filePath: "test.txt",
 			props: func(props *filemanager.ReadProps) {
-				props.ShowLineNumbers = true
-				props.StartLine = 1
 				props.NumLines = -1
 			},
 			expected: "Number of lines must be greater than or equal to 0",

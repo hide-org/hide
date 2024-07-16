@@ -26,14 +26,14 @@ type ReadProps struct {
 
 type ReadPropsSetter func(*ReadProps)
 
-func NewReadProps(props ...ReadPropsSetter) ReadProps {
-	_props := ReadProps{ShowLineNumbers: DefaultShowLineNumbers, StartLine: DefaultStartLine, NumLines: DefaultNumLines}
+func NewReadProps(setters ...ReadPropsSetter) ReadProps {
+	props := ReadProps{ShowLineNumbers: DefaultShowLineNumbers, StartLine: DefaultStartLine, NumLines: DefaultNumLines}
 
-	for _, param := range props {
-		param(&_props)
+	for _, setter := range setters {
+		setter(&props)
 	}
 
-	return _props
+	return props
 }
 
 type FileManager interface {
@@ -83,14 +83,18 @@ func (fm *FileManagerImpl) ReadFile(fileSystem fs.FS, path string, props ReadPro
 		return File{}, fmt.Errorf("Start line must be greater than or equal to 1")
 	}
 
+	if props.StartLine > len(lines) {
+		return File{}, fmt.Errorf("Start line must be less than or equal to %d", len(lines))
+	}
+
 	if props.NumLines < 0 {
 		return File{}, fmt.Errorf("Number of lines must be greater than or equal to 0")
 	}
 
 	endLine := props.StartLine + props.NumLines
 
-	// Convert to 0-based index for slice operations; endLine is exclusive
-	selectedLines := lines[props.StartLine-1 : endLine-1]
+	// Convert to 0-based index for slice operations; limit endLine index; endLine is exclusive
+	selectedLines := lines[props.StartLine-1 : min(endLine-1, len(lines))]
 
 	// Calculate the width needed for line numbers
 	lineNumberWidth := len(fmt.Sprintf("%d", endLine))
