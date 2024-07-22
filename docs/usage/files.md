@@ -68,7 +68,33 @@ To read the contents of a specific file:
 
 This will return the contents of the file `example.txt` in your project's root directory.
 
-We are working on supporting different parameters for reading files, such as specifying a range of lines, or including the line numbers in the response. Stay tuned! :blush:
+Reading files supports different parameters such as specifying a range of lines, or including the line numbers in the response. To include the line numbers, set the `showLineNumbers` parameter to `true`:
+
+=== "curl"
+
+    ```bash
+    curl http://localhost:8080/projects/{project_id}/files/example.txt?showLineNumbers=true
+    ```
+
+=== "python"
+
+    ```python
+    # Coming soon
+    ```
+
+To specify a range of lines, set the `startLine` and `numLines` parameters:
+
+=== "curl"
+
+    ```bash
+    curl http://localhost:8080/projects/{project_id}/files/example.txt?startLine=10&numLines=20
+    ```
+
+=== "python"
+
+    ```python
+    # Coming soon
+    ```
 
 ### Updating a File
 
