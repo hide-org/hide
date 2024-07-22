@@ -22,12 +22,12 @@ hide_client = hide.Client()
 By default, the client will connect to the Hide server running on `http://localhost:8080`. If you have Hide running on a different host or port, you can specify it when creating the client:
 
 ```python
-hide_client = hide.Client(base_url="https://my-hide-server:8080")
+hide_client = hide.Client(base_url="https://my-hide-server:8081")
 ```
 
 ## Creating a Project
 
-A project is a containerized development environment for a specific codebase. Creating a project involves cloning the repository and setting up a devcontainer. We can do this by calling the `create_project` method on the client:
+A project is a containerized development environment for a specific codebase. Creating a project consists of cloning the repository and setting up a devcontainer. We can do this by calling the `create_project` method on the client and passing a URL of the project on GitHub:
 
 ```python
 project = hide_client.create_project(
@@ -35,7 +35,7 @@ project = hide_client.create_project(
 )
 ```
 
-The [Tiny Math Service](https://github.com/artmoskvin/tiny-math-service) is a simple Python service that performs basic mathematical operations. It has a devcontainer configuration file (`.devcontainer.json`) that is used to create a development environment for the project.
+Here, we use the [Tiny Math Service](https://github.com/artmoskvin/tiny-math-service) which is a simple Python service that performs basic mathematical operations. It has a devcontainer configuration file (`.devcontainer.json`) that is used to create a development environment for the project.
 
 !!! note
 
@@ -61,13 +61,13 @@ project = hide_client.create_project(
 )
 ```
 
-Creating a project can take some time. Under the hood, Hide clones the repository, pulls the image, and installs the project dependencies.
+Creating a project can take some time. Under the hood, Hide clones the repository, pulls or builds the image, starts the container and installs the project dependencies.
 
 ## Using the Client
 
 ### Running Tasks
 
-Having created a project, we can now interact with it using the Hide client. You could notice that the devcontainer configuration contains a `customizations` section that defines a custom task called `test`. We can use this task to run tests for our project:
+Having created a project, we can now start working with it. You could notice that the devcontainer [configuration](https://github.com/artmoskvin/tiny-math-service/blob/main/.devcontainer.json) for the [Tiny Math Service](https://github.com/artmoskvin/tiny-math-service) contains a `customizations` section that defines a custom task called `test`. We can use this task to run tests for our project:
 
 ```python
 result = hide_client.run_task(project.id, alias="test")
@@ -76,15 +76,50 @@ print(result.stdOut)
 
 The print statement will output the test results.
 
-Aliases are convenient when referring to a frequently used command. Task API also allows us to run arbitrary shell commands in the project root by providing the command in the `command` parameter:
+Aliases are convenient when referring to frequently used commands. Running tasks is powered by Task API which also allows us to run arbitrary shell commands by providing the `command` parameter:
 
 ```python
 result = hide_client.run_task(project.id, command="pwd")
 print(result.stdOut)
 ```
 
-This will print the path to the project root directory.
+The tasks are executed from the project root so the print statement will output the path to the project root directory.
 
-### Updating Files
+### Reading and Updating Files
 
-TBA
+We can also read and update files in the project. For example, we can read the `maths.py` file and add a new endpoint in it. First, let's read the file:
+
+```python
+result = hide_client.get_file(project.id, path="my_tiny_service/api/routers/maths.py")
+print(result.content)
+```
+
+This will print the content of the `maths.py` file. 
+
+Coding agents often update files by generating diffs. Therefore it can be important to include line numbers when reading files. With Hide, we can include line numbers by setting the `show_line_numbers` parameter to `True`:
+
+```python
+result = hide_client.get_file(
+    project.id, path="my_tiny_service/api/routers/maths.py", show_line_numbers=True
+)
+
+print(result.content)
+```
+
+This will print the content of the `maths.py` file with line numbers.
+
+By default, Hide will show the first 100 lines of the file. We can change this by setting the `start_line` and `num_lines` parameters:
+
+```python
+result = hide_client.get_file(
+    project.id,
+    path="my_tiny_service/api/routers/maths.py",
+    show_line_numbers=True,
+    start_line=10,
+    num_lines=20,
+)
+
+print(result.content)
+```
+
+This will print the content of the `maths.py` file with 20 lines starting from line 10.
