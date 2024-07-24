@@ -2,20 +2,70 @@ package handlers
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
 	"net/http"
 	"path/filepath"
 
-	"github.com/artmoskvin/hide/pkg/filemanager"
+	"github.com/artmoskvin/hide/pkg/files"
 	"github.com/artmoskvin/hide/pkg/project"
 )
 
-type UpdateFileRequest struct {
+type UpdateType string
+
+const (
+	Udiff     UpdateType = "udiff"
+	LineDiff  UpdateType = "linediff"
+	Overwrite UpdateType = "overwrite"
+)
+
+type UdiffRequest struct {
+	Patch string `json:"patch"`
+}
+
+type LineDiffRequest struct {
+	LineDiffs []files.LineDiffChunk `json:"lineDiffs"`
+}
+
+type OverwriteRequest struct {
 	Content string `json:"content"`
+}
+
+type UpdateFileRequest struct {
+	Type      UpdateType        `json:"type"`
+	Udiff     *UdiffRequest     `json:"udiff,omitempty"`
+	LineDiff  *LineDiffRequest  `json:"lineDiff,omitempty"`
+	Overwrite *OverwriteRequest `json:"overwrite,omitempty"`
+}
+
+func (r *UpdateFileRequest) Validate() error {
+	if r.Type == "" {
+		return errors.New("type must be provided")
+	}
+
+	switch r.Type {
+	case Udiff:
+		if r.Udiff == nil {
+			return errors.New("udiff must be provided")
+		}
+	case LineDiff:
+		if r.LineDiff == nil {
+			return errors.New("lineDiff must be provided")
+		}
+	case Overwrite:
+		if r.Overwrite == nil {
+			return errors.New("overwrite must be provided")
+		}
+	default:
+		return fmt.Errorf("invalid type: %s", r.Type)
+	}
+
+	return nil
 }
 
 type UpdateFileHandler struct {
 	Manager     project.Manager
-	FileManager filemanager.FileManager
+	FileManager files.FileManager
 }
 
 func (h UpdateFileHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -29,6 +79,11 @@ func (h UpdateFileHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if err := request.Validate(); err != nil {
+		http.Error(w, fmt.Sprintf("Invalid request: %s", err), http.StatusBadRequest)
+		return
+	}
+
 	project, err := h.Manager.GetProject(projectId)
 
 	if err != nil {
@@ -37,10 +92,33 @@ func (h UpdateFileHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	fullPath := filepath.Join(project.Path, filePath)
-	file, err := h.FileManager.UpdateFile(fullPath, request.Content)
 
-	if err != nil {
-		http.Error(w, "Failed to update file", http.StatusInternalServerError)
+	var file files.File
+
+	switch request.Type {
+	case Udiff:
+		updatedFile, err := h.FileManager.ApplyPatch(fullPath, request.Udiff.Patch)
+		if err != nil {
+			http.Error(w, "Failed to update file", http.StatusInternalServerError)
+			return
+		}
+		file = updatedFile
+	case LineDiff:
+		updatedFile, err := h.FileManager.UpdateLines(fullPath, request.LineDiff.LineDiffs)
+		if err != nil {
+			http.Error(w, "Failed to update file", http.StatusInternalServerError)
+			return
+		}
+		file = updatedFile
+	case Overwrite:
+		updatedFile, err := h.FileManager.UpdateFile(fullPath, request.Overwrite.Content)
+		if err != nil {
+			http.Error(w, "Failed to update file", http.StatusInternalServerError)
+			return
+		}
+		file = updatedFile
+	default:
+		http.Error(w, "Invalid request: type must be provided", http.StatusBadRequest)
 		return
 	}
 

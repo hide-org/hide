@@ -1,4 +1,4 @@
-package filemanager
+package files
 
 import (
 	"fmt"
@@ -7,6 +7,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/bluekeyes/go-gitdiff/gitdiff"
 )
 
 const DefaultNumLines = 100
@@ -42,6 +44,8 @@ type FileManager interface {
 	UpdateFile(path string, content string) (File, error)
 	DeleteFile(path string) error
 	ListFiles(rootPath string) ([]File, error)
+	ApplyPatch(path string, patch string) (File, error)
+	UpdateLines(path string, lineDiffs []LineDiffChunk) (File, error)
 }
 
 type FileManagerImpl struct{}
@@ -164,6 +168,40 @@ func (fm *FileManagerImpl) ListFiles(rootPath string) ([]File, error) {
 	})
 
 	return files, err
+}
+
+func (fm *FileManagerImpl) ApplyPatch(fileSystem fs.FS, path string, patch string) (File, error) {
+	log.Printf("Applying patch to %s:\n%s", path, patch)
+
+	content, err := fs.ReadFile(fileSystem, path)
+	if err != nil {
+		log.Printf("Failed to read file %s: %s", path, err)
+		return File{}, fmt.Errorf("Failed to read file %s: %w", path, err)
+	}
+
+	files, _, err := gitdiff.Parse(patch)
+
+	if err != nil {
+		log.Printf("Failed to parse patch: %s\n%s", err, patch)
+		return File{}, fmt.Errorf("Failed to parse patch: %w", err)
+	}
+
+	if len(files) == 0 {
+		log.Printf("No files changed in patch:\n%s", patch)
+		return File{}, fmt.Errorf("No files changed in patch")
+	}
+
+	if len(files) > 1 {
+		log.Printf("Multiple files changed in patch:\n%s", patch)
+		return File{}, fmt.Errorf("Patch cannot contain multiple files")
+	}
+
+	var output bytes.Buffer
+
+	if err := gitdiff.Apply(&output, content, files[0]); err != nil {
+		log.Printf("Failed to apply patch: %s", err)
+		return File{}, fmt.Errorf("Failed to apply patch to %s: %w\n%s", path, err, patch)
+	}
 }
 
 func fileExists(path string) bool {
