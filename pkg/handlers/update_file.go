@@ -24,7 +24,7 @@ type UdiffRequest struct {
 }
 
 type LineDiffRequest struct {
-	LineDiffs []files.LineDiffChunk `json:"lineDiffs"`
+	LineDiff files.LineDiffChunk `json:"lineDiff"`
 }
 
 type OverwriteRequest struct {
@@ -104,7 +104,7 @@ func (h UpdateFileHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		file = updatedFile
 	case LineDiff:
-		updatedFile, err := h.FileManager.UpdateLines(filePath, request.LineDiff.LineDiffs)
+		updatedFile, err := h.FileManager.UpdateLines(fileSystem, filePath, request.LineDiff.LineDiff)
 		if err != nil {
 			http.Error(w, "Failed to update file", http.StatusInternalServerError)
 			return

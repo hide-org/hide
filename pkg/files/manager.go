@@ -1,8 +1,10 @@
 package files
 
 import (
+	"bufio"
 	"bytes"
 	"fmt"
+	"io"
 	"io/fs"
 	"log"
 	"os"
@@ -47,7 +49,7 @@ type FileManager interface {
 	DeleteFile(path string) error
 	ListFiles(rootPath string) ([]File, error)
 	ApplyPatch(fileSystem afero.Fs, path string, patch string) (File, error)
-	UpdateLines(path string, lineDiffs []LineDiffChunk) (File, error)
+	UpdateLines(filesystem afero.Fs, path string, lineDiff LineDiffChunk) (File, error)
 }
 
 type FileManagerImpl struct{}
@@ -215,8 +217,41 @@ func (fm *FileManagerImpl) ApplyPatch(fileSystem afero.Fs, path string, patch st
 	return fm.readFile(fileSystem, path)
 }
 
-func (fm *FileManagerImpl) UpdateLines(path string, lineDiffs []LineDiffChunk) (File, error) {
-	return File{}, nil
+func (fm *FileManagerImpl) UpdateLines(filesystem afero.Fs, path string, lineDiff LineDiffChunk) (File, error) {
+	log.Printf("Updating lines in %s", path)
+
+	lines, err := readLinesFromFile(filesystem, path)
+
+	if err != nil {
+		log.Printf("Failed to read file %s: %s", path, err)
+		return File{}, fmt.Errorf("Failed to read file %s: %w", path, err)
+	}
+
+	if lineDiff.StartLine > len(lines) {
+		log.Printf("Start line must be less than or equal to %d", len(lines))
+		return File{}, fmt.Errorf("Start line must be less than or equal to %d", len(lines))
+	}
+
+	if lineDiff.EndLine > len(lines) {
+		log.Printf("End line must be less than or equal to %d", len(lines))
+		return File{}, fmt.Errorf("End line must be less than or equal to %d", len(lines))
+	}
+
+	newLines, err := readLinesFromString(lineDiff.Content)
+
+	if err != nil {
+		log.Printf("Failed to read lines from linediff content: %s\n%s", err, lineDiff.Content)
+		return File{}, fmt.Errorf("Failed to read lines from linediff content: %w", err)
+	}
+
+	lines = replaceSlice(lines, newLines, lineDiff.StartLine-1, lineDiff.EndLine)
+
+	if err := writeLines(filesystem, path, lines); err != nil {
+		log.Printf("Failed to write file %s when updating lines: %s", path, err)
+		return File{}, fmt.Errorf("Failed to write file %s: %w", path, err)
+	}
+
+	return fm.readFile(filesystem, path)
 }
 
 func (fm *FileManagerImpl) readFile(fileSystem afero.Fs, path string) (File, error) {
@@ -229,10 +264,65 @@ func (fm *FileManagerImpl) readFile(fileSystem afero.Fs, path string) (File, err
 	return File{Path: path, Content: string(content)}, nil
 }
 
+func (fm *FileManagerImpl) writeFile(fileSystem afero.Fs, path string, content string) error {
+	return afero.WriteFile(fileSystem, path, []byte(content), 0644)
+}
+
+func readLinesFromFile(fs afero.Fs, filename string) ([]string, error) {
+	file, err := fs.Open(filename)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	return readLines(file)
+}
+
+func readLinesFromString(content string) ([]string, error) {
+	return readLines(strings.NewReader(content))
+}
+
+func readLines(r io.Reader) ([]string, error) {
+	var lines []string
+	scanner := bufio.NewScanner(r)
+	for scanner.Scan() {
+		lines = append(lines, scanner.Text())
+	}
+	return lines, scanner.Err()
+}
+
+func writeLines(fs afero.Fs, filename string, lines []string) error {
+	file, err := fs.Create(filename)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	writer := bufio.NewWriter(file)
+	for _, line := range lines {
+		_, err := writer.WriteString(line + "\n")
+		if err != nil {
+			return err
+		}
+	}
+	return writer.Flush()
+}
+
 func fileExists(path string) bool {
 	info, err := os.Stat(path)
 	if os.IsNotExist(err) {
 		return false
 	}
 	return !info.IsDir()
+}
+
+func replaceSlice(original []string, replacement []string, start, end int) []string {
+	newLength := len(original) - (end - start) + len(replacement)
+	result := make([]string, newLength)
+
+	copy(result, original[:start])
+	copy(result[start:], replacement)
+	copy(result[start+len(replacement):], original[end:])
+
+	return result
 }

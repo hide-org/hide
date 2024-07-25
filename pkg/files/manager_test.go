@@ -254,9 +254,6 @@ func TestFileManagerImpl_ReadFile_Failure(t *testing.T) {
 }
 
 func TestFileManagerImpl_ApplyPatch_Success(t *testing.T) {
-	filesystem := afero.NewMemMapFs()
-	afero.WriteFile(filesystem, "test.txt", []byte("line1\nline2\nline3\nline4\nline5\nline6\nline7\nline8\nline9\nline10\n"), 0644)
-
 	tests := []struct {
 		name     string
 		patch    string
@@ -289,6 +286,8 @@ func TestFileManagerImpl_ApplyPatch_Success(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			filesystem := afero.NewMemMapFs()
+			afero.WriteFile(filesystem, "test.txt", []byte("line1\nline2\nline3\nline4\nline5\nline6\nline7\nline8\nline9\nline10\n"), 0644)
 			fm := files.NewFileManager()
 			actual, err := fm.ApplyPatch(filesystem, "test.txt", tt.patch)
 			if err != nil {
@@ -303,9 +302,6 @@ func TestFileManagerImpl_ApplyPatch_Success(t *testing.T) {
 }
 
 func TestFileManagerImpl_ApplyPatch_Failure(t *testing.T) {
-	fileSystem := afero.NewMemMapFs()
-	afero.WriteFile(fileSystem, "test.txt", []byte("line1\nline2\nline3\n"), 0644)
-
 	tests := []struct {
 		name          string
 		file          string
@@ -356,6 +352,8 @@ func TestFileManagerImpl_ApplyPatch_Failure(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			fileSystem := afero.NewMemMapFs()
+			afero.WriteFile(fileSystem, "test.txt", []byte("line1\nline2\nline3\n"), 0644)
 			fm := files.NewFileManager()
 			_, err := fm.ApplyPatch(fileSystem, tt.file, tt.patch)
 			if err == nil {
@@ -364,6 +362,110 @@ func TestFileManagerImpl_ApplyPatch_Failure(t *testing.T) {
 
 			if !strings.Contains(strings.ToLower(err.Error()), tt.expectedError) {
 				t.Errorf("Expected error to contain '%s', got %s", tt.expectedError, err.Error())
+			}
+		})
+	}
+}
+
+func TestFileManagerImpl_UpdateLines_Success(t *testing.T) {
+	tests := []struct {
+		name     string
+		lineDiff files.LineDiffChunk
+		expected files.File
+	}{
+		{
+			name: "Update 1 line",
+			lineDiff: files.LineDiffChunk{
+				StartLine: 1,
+				EndLine:   1,
+				Content:   "line11",
+			},
+			expected: files.File{
+				Path:    "test.txt",
+				Content: "line11\nline2\nline3\n",
+			},
+		},
+		{
+			name: "Update multiple lines",
+			lineDiff: files.LineDiffChunk{
+				StartLine: 1,
+				EndLine:   2,
+				Content:   "line11\nline12\n",
+			},
+			expected: files.File{
+				Path:    "test.txt",
+				Content: "line11\nline12\nline3\n",
+			},
+		},
+		{
+			name: "Add multiple lines at the end",
+			lineDiff: files.LineDiffChunk{
+				StartLine: 3,
+				EndLine:   3,
+				Content:   "line3\nline11\nline12\n",
+			},
+			expected: files.File{
+				Path:    "test.txt",
+				Content: "line1\nline2\nline3\nline11\nline12\n",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fm := files.NewFileManager()
+			filesystem := afero.NewMemMapFs()
+			afero.WriteFile(filesystem, "test.txt", []byte("line1\nline2\nline3\n"), 0644)
+			actual, err := fm.UpdateLines(filesystem, "test.txt", tt.lineDiff)
+			if err != nil {
+				t.Fatalf("Unexpected error: %v", err)
+			}
+
+			if actual != tt.expected {
+				t.Errorf("Expected %+v, got %+v", tt.expected, actual)
+			}
+		})
+	}
+}
+
+func TestFileManagerImpl_UpdateLines_Failure(t *testing.T) {
+	tests := []struct {
+		name     string
+		lineDiff files.LineDiffChunk
+		expected string
+	}{
+		{
+			name: "Start line > number of lines",
+			lineDiff: files.LineDiffChunk{
+				StartLine: 11,
+				EndLine:   10,
+				Content:   "line11",
+			},
+			expected: "Start line must be less than or equal to 3",
+		},
+		{
+			name: "End line > number of lines",
+			lineDiff: files.LineDiffChunk{
+				StartLine: 1,
+				EndLine:   11,
+				Content:   "line11",
+			},
+			expected: "End line must be less than or equal to 3",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			filesystem := afero.NewMemMapFs()
+			afero.WriteFile(filesystem, "test.txt", []byte("line1\nline2\nline3\n"), 0644)
+			fm := files.NewFileManager()
+			_, err := fm.UpdateLines(filesystem, "test.txt", tt.lineDiff)
+			if err == nil {
+				t.Fatalf("Expected error, got nil")
+			}
+
+			if !strings.Contains(err.Error(), tt.expected) {
+				t.Errorf("Expected error to contain '%s', got %s", tt.expected, err.Error())
 			}
 		})
 	}

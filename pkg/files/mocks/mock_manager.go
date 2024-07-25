@@ -15,7 +15,7 @@ type MockFileManager struct {
 	DeleteFileFunc  func(path string) error
 	ListFilesFunc   func(rootPath string) ([]files.File, error)
 	ApplyPatchFunc  func(fileSystem afero.Fs, path string, patch string) (files.File, error)
-	UpdateLinesFunc func(path string, lineDiffs []files.LineDiffChunk) (files.File, error)
+	UpdateLinesFunc func(filesystem afero.Fs, path string, lineDiff files.LineDiffChunk) (files.File, error)
 }
 
 func (m *MockFileManager) CreateFile(path string, content string) (files.File, error) {
@@ -42,6 +42,6 @@ func (m *MockFileManager) ApplyPatch(fileSystem afero.Fs, path string, patch str
 	return m.ApplyPatchFunc(fileSystem, path, patch)
 }
 
-func (m *MockFileManager) UpdateLines(path string, lineDiffs []files.LineDiffChunk) (files.File, error) {
-	return m.UpdateLinesFunc(path, lineDiffs)
+func (m *MockFileManager) UpdateLines(filesystem afero.Fs, path string, lineDiff files.LineDiffChunk) (files.File, error) {
+	return m.UpdateLinesFunc(filesystem, path, lineDiff)
 }
