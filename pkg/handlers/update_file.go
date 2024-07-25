@@ -5,10 +5,10 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"path/filepath"
 
 	"github.com/artmoskvin/hide/pkg/files"
 	"github.com/artmoskvin/hide/pkg/project"
+	"github.com/spf13/afero"
 )
 
 type UpdateType string
@@ -91,27 +91,27 @@ func (h UpdateFileHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fullPath := filepath.Join(project.Path, filePath)
+	fileSystem := afero.NewBasePathFs(afero.NewOsFs(), project.Path)
 
 	var file files.File
 
 	switch request.Type {
 	case Udiff:
-		updatedFile, err := h.FileManager.ApplyPatch(fullPath, request.Udiff.Patch)
+		updatedFile, err := h.FileManager.ApplyPatch(fileSystem, filePath, request.Udiff.Patch)
 		if err != nil {
 			http.Error(w, "Failed to update file", http.StatusInternalServerError)
 			return
 		}
 		file = updatedFile
 	case LineDiff:
-		updatedFile, err := h.FileManager.UpdateLines(fullPath, request.LineDiff.LineDiffs)
+		updatedFile, err := h.FileManager.UpdateLines(filePath, request.LineDiff.LineDiffs)
 		if err != nil {
 			http.Error(w, "Failed to update file", http.StatusInternalServerError)
 			return
 		}
 		file = updatedFile
 	case Overwrite:
-		updatedFile, err := h.FileManager.UpdateFile(fullPath, request.Overwrite.Content)
+		updatedFile, err := h.FileManager.UpdateFile(filePath, request.Overwrite.Content)
 		if err != nil {
 			http.Error(w, "Failed to update file", http.StatusInternalServerError)
 			return

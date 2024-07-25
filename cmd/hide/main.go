@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 
 	"github.com/artmoskvin/hide/pkg/devcontainer"
-	"github.com/artmoskvin/hide/pkg/filemanager"
+	"github.com/artmoskvin/hide/pkg/files"
 	"github.com/artmoskvin/hide/pkg/handlers"
 	"github.com/artmoskvin/hide/pkg/project"
 	"github.com/artmoskvin/hide/pkg/util"
@@ -66,7 +66,7 @@ func main() {
 	projectsDir := filepath.Join(home, ProjectsDir)
 
 	projectManager := project.NewProjectManager(containerRunner, projectStore, projectsDir)
-	fileManager := filemanager.NewFileManager()
+	fileManager := files.NewFileManager()
 	createProjectHandler := handlers.CreateProjectHandler{Manager: projectManager}
 	deleteProjectHandler := handlers.DeleteProjectHandler{Manager: projectManager}
 	createTaskHandler := handlers.CreateTaskHandler{Manager: projectManager}

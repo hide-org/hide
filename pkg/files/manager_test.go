@@ -7,6 +7,7 @@ import (
 	"testing/fstest"
 
 	"github.com/artmoskvin/hide/pkg/files"
+	"github.com/spf13/afero"
 )
 
 func TestNewReadProps(t *testing.T) {
@@ -91,7 +92,7 @@ func TestNewReadProps(t *testing.T) {
 }
 
 func TestFileManagerImpl_ReadFile_Success(t *testing.T) {
-	files := fstest.MapFS{
+	filesystem := fstest.MapFS{
 		"test.txt": {Data: []byte("line1\nline2\nline3\nline4\nline5\nline6\nline7\nline8\nline9\nline10")},
 	}
 
@@ -104,7 +105,7 @@ func TestFileManagerImpl_ReadFile_Success(t *testing.T) {
 	}{
 		{
 			name:     "ShowLineNumbers = true",
-			fs:       files,
+			fs:       filesystem,
 			filePath: "test.txt",
 			props: func(props *files.ReadProps) {
 				props.ShowLineNumbers = true
@@ -118,7 +119,7 @@ func TestFileManagerImpl_ReadFile_Success(t *testing.T) {
 		},
 		{
 			name:     "ShowLineNumbers = false",
-			fs:       files,
+			fs:       filesystem,
 			filePath: "test.txt",
 			props: func(props *files.ReadProps) {
 				props.ShowLineNumbers = false
@@ -132,7 +133,7 @@ func TestFileManagerImpl_ReadFile_Success(t *testing.T) {
 		},
 		{
 			name:     "NumLines = 0",
-			fs:       files,
+			fs:       filesystem,
 			filePath: "test.txt",
 			props: func(props *files.ReadProps) {
 				props.ShowLineNumbers = true
@@ -146,7 +147,7 @@ func TestFileManagerImpl_ReadFile_Success(t *testing.T) {
 		},
 		{
 			name:     "If StartLine + NumLines > number of lines then show all lines",
-			fs:       files,
+			fs:       filesystem,
 			filePath: "test.txt",
 			props: func(props *files.ReadProps) {
 				props.ShowLineNumbers = true
@@ -160,7 +161,7 @@ func TestFileManagerImpl_ReadFile_Success(t *testing.T) {
 		},
 		{
 			name:     "Line numbers are padded with spaces",
-			fs:       files,
+			fs:       filesystem,
 			filePath: "test.txt",
 			props: func(props *files.ReadProps) {
 				props.ShowLineNumbers = true
@@ -190,7 +191,7 @@ func TestFileManagerImpl_ReadFile_Success(t *testing.T) {
 }
 
 func TestFileManagerImpl_ReadFile_Failure(t *testing.T) {
-	files := fstest.MapFS{
+	filesystem := fstest.MapFS{
 		"test.txt": {Data: []byte("line1\nline2\nline3\nline4\nline5\nline6\nline7\nline8\nline9\nline10")},
 	}
 
@@ -203,7 +204,7 @@ func TestFileManagerImpl_ReadFile_Failure(t *testing.T) {
 	}{
 		{
 			name:     "StartLine < 1",
-			fs:       files,
+			fs:       filesystem,
 			filePath: "test.txt",
 			props: func(props *files.ReadProps) {
 				props.StartLine = 0
@@ -212,7 +213,7 @@ func TestFileManagerImpl_ReadFile_Failure(t *testing.T) {
 		},
 		{
 			name:     "StartLine > number of lines",
-			fs:       files,
+			fs:       filesystem,
 			filePath: "test.txt",
 			props: func(props *files.ReadProps) {
 				props.StartLine = 11
@@ -221,7 +222,7 @@ func TestFileManagerImpl_ReadFile_Failure(t *testing.T) {
 		},
 		{
 			name:     "NumLines < 0",
-			fs:       files,
+			fs:       filesystem,
 			filePath: "test.txt",
 			props: func(props *files.ReadProps) {
 				props.NumLines = -1
@@ -247,6 +248,122 @@ func TestFileManagerImpl_ReadFile_Failure(t *testing.T) {
 
 			if !strings.Contains(err.Error(), tt.expected) {
 				t.Errorf("Expected error to contain '%s', got %s", tt.expected, err.Error())
+			}
+		})
+	}
+}
+
+func TestFileManagerImpl_ApplyPatch_Success(t *testing.T) {
+	filesystem := afero.NewMemMapFs()
+	afero.WriteFile(filesystem, "test.txt", []byte("line1\nline2\nline3\nline4\nline5\nline6\nline7\nline8\nline9\nline10\n"), 0644)
+
+	tests := []struct {
+		name     string
+		patch    string
+		expected files.File
+	}{
+		{
+			name: "Apply patch to file",
+			patch: `--- test.txt
++++ test.txt
+@@ -1,10 +1,9 @@
+ line1
+-line2
++line20
+ line3
+-line4
++line40
+ line5
+-line6
+ line7
+ line8
+-line9
+ line10
++line11`,
+			expected: files.File{
+				Path:    "test.txt",
+				Content: "line1\nline20\nline3\nline40\nline5\nline7\nline8\nline10\nline11",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fm := files.NewFileManager()
+			actual, err := fm.ApplyPatch(filesystem, "test.txt", tt.patch)
+			if err != nil {
+				t.Fatalf("Unexpected error: %v", err)
+			}
+
+			if actual != tt.expected {
+				t.Errorf("Expected %+v, got %+v", tt.expected, actual)
+			}
+		})
+	}
+}
+
+func TestFileManagerImpl_ApplyPatch_Failure(t *testing.T) {
+	fileSystem := afero.NewMemMapFs()
+	afero.WriteFile(fileSystem, "test.txt", []byte("line1\nline2\nline3\n"), 0644)
+
+	tests := []struct {
+		name          string
+		file          string
+		patch         string
+		expectedError string
+	}{
+		{
+			name:          "File not found",
+			file:          "not-found.txt",
+			patch:         "",
+			expectedError: "failed to read file",
+		},
+		{
+			name: "Patch with multiple files",
+			patch: `--- file1
++++ file1
+@@ -1,3 +1,3 @@
+ line1
+-line2
++line20
+ line3
+--- file2
++++ file2
+@@ -1,3 +1,3 @@
+ line1
+-line2
++line20
+ line3
+`,
+			expectedError: "multiple files",
+		},
+		{
+			name:          "Patch with no files",
+			patch:         "",
+			expectedError: "no files changed in patch",
+		},
+		{
+			name: "Patch cannot be applied (no newline at end of file)",
+			patch: `--- test.txt
++++ test.txt
+@@ -1,3 +1,3 @@
+ line1
+-line2
++line20
+ line3`,
+			expectedError: "failed to apply patch",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fm := files.NewFileManager()
+			_, err := fm.ApplyPatch(fileSystem, tt.file, tt.patch)
+			if err == nil {
+				t.Fatalf("Expected error, got nil")
+			}
+
+			if !strings.Contains(strings.ToLower(err.Error()), tt.expectedError) {
+				t.Errorf("Expected error to contain '%s', got %s", tt.expectedError, err.Error())
 			}
 		})
 	}

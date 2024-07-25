@@ -1,6 +1,7 @@
 package files
 
 import (
+	"bytes"
 	"fmt"
 	"io/fs"
 	"log"
@@ -9,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/bluekeyes/go-gitdiff/gitdiff"
+	"github.com/spf13/afero"
 )
 
 const DefaultNumLines = 100
@@ -44,7 +46,7 @@ type FileManager interface {
 	UpdateFile(path string, content string) (File, error)
 	DeleteFile(path string) error
 	ListFiles(rootPath string) ([]File, error)
-	ApplyPatch(path string, patch string) (File, error)
+	ApplyPatch(fileSystem afero.Fs, path string, patch string) (File, error)
 	UpdateLines(path string, lineDiffs []LineDiffChunk) (File, error)
 }
 
@@ -59,12 +61,12 @@ func (fm *FileManagerImpl) CreateFile(path string, content string) (File, error)
 
 	dir := filepath.Dir(path)
 
-	if err := os.MkdirAll(dir, os.ModePerm); err != nil {
+	if err := os.MkdirAll(dir, 0755); err != nil {
 		log.Printf("Failed to create directory %s: %s", dir, err)
 		return File{}, fmt.Errorf("Failed to create directory %s: %w", dir, err)
 	}
 
-	if err := os.WriteFile(path, []byte(content), os.ModePerm); err != nil {
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
 		log.Printf("Failed to create file %s: %s", path, err)
 		return File{}, fmt.Errorf("Failed to create file %s: %w", path, err)
 	}
@@ -170,16 +172,16 @@ func (fm *FileManagerImpl) ListFiles(rootPath string) ([]File, error) {
 	return files, err
 }
 
-func (fm *FileManagerImpl) ApplyPatch(fileSystem fs.FS, path string, patch string) (File, error) {
+func (fm *FileManagerImpl) ApplyPatch(fileSystem afero.Fs, path string, patch string) (File, error) {
 	log.Printf("Applying patch to %s:\n%s", path, patch)
 
-	content, err := fs.ReadFile(fileSystem, path)
+	file, err := fm.readFile(fileSystem, path)
 	if err != nil {
 		log.Printf("Failed to read file %s: %s", path, err)
 		return File{}, fmt.Errorf("Failed to read file %s: %w", path, err)
 	}
 
-	files, _, err := gitdiff.Parse(patch)
+	files, _, err := gitdiff.Parse(strings.NewReader(patch))
 
 	if err != nil {
 		log.Printf("Failed to parse patch: %s\n%s", err, patch)
@@ -198,10 +200,33 @@ func (fm *FileManagerImpl) ApplyPatch(fileSystem fs.FS, path string, patch strin
 
 	var output bytes.Buffer
 
-	if err := gitdiff.Apply(&output, content, files[0]); err != nil {
+	if err := gitdiff.Apply(&output, strings.NewReader(file.Content), files[0]); err != nil {
 		log.Printf("Failed to apply patch: %s", err)
 		return File{}, fmt.Errorf("Failed to apply patch to %s: %w\n%s", path, err, patch)
 	}
+
+	if err := afero.WriteFile(fileSystem, path, output.Bytes(), 0644); err != nil {
+		log.Printf("Failed to write file %s after applying patch: %s", path, err)
+		return File{}, fmt.Errorf("Failed to write file %s after applying patch: %w", path, err)
+	}
+
+	log.Printf("Applied patch to %s", path)
+
+	return fm.readFile(fileSystem, path)
+}
+
+func (fm *FileManagerImpl) UpdateLines(path string, lineDiffs []LineDiffChunk) (File, error) {
+	return File{}, nil
+}
+
+func (fm *FileManagerImpl) readFile(fileSystem afero.Fs, path string) (File, error) {
+	content, err := afero.ReadFile(fileSystem, path)
+
+	if err != nil {
+		return File{}, err
+	}
+
+	return File{Path: path, Content: string(content)}, nil
 }
 
 func fileExists(path string) bool {

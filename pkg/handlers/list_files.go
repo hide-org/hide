@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/artmoskvin/hide/pkg/filemanager"
+	"github.com/artmoskvin/hide/pkg/files"
 	"github.com/artmoskvin/hide/pkg/project"
 )
 
@@ -14,7 +14,7 @@ type FileResponse struct {
 
 type ListFilesHandler struct {
 	ProjectManager project.Manager
-	FileManager    filemanager.FileManager
+	FileManager    files.FileManager
 }
 
 func (h ListFilesHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
