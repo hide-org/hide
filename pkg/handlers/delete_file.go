@@ -4,13 +4,13 @@ import (
 	"net/http"
 	"path/filepath"
 
-	"github.com/artmoskvin/hide/pkg/filemanager"
+	"github.com/artmoskvin/hide/pkg/files"
 	"github.com/artmoskvin/hide/pkg/project"
 )
 
 type DeleteFileHandler struct {
 	Manager     project.Manager
-	FileManager filemanager.FileManager
+	FileManager files.FileManager
 }
 
 func (h DeleteFileHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {

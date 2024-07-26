@@ -8,13 +8,13 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/artmoskvin/hide/pkg/filemanager"
+	"github.com/artmoskvin/hide/pkg/files"
 	"github.com/artmoskvin/hide/pkg/project"
 )
 
 type ReadFileHandler struct {
 	Manager     project.Manager
-	FileManager filemanager.FileManager
+	FileManager files.FileManager
 }
 
 func (h ReadFileHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -22,21 +22,21 @@ func (h ReadFileHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	filePath := r.PathValue("path")
 	queryParams := r.URL.Query()
 
-	showLineNumbers, err := parseBoolQueryParam(queryParams, "showLineNumbers", filemanager.DefaultShowLineNumbers)
+	showLineNumbers, err := parseBoolQueryParam(queryParams, "showLineNumbers", files.DefaultShowLineNumbers)
 
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	startLine, err := parseIntQueryParam(queryParams, "startLine", filemanager.DefaultStartLine)
+	startLine, err := parseIntQueryParam(queryParams, "startLine", files.DefaultStartLine)
 
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	numLines, err := parseIntQueryParam(queryParams, "numLines", filemanager.DefaultNumLines)
+	numLines, err := parseIntQueryParam(queryParams, "numLines", files.DefaultNumLines)
 
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -50,8 +50,8 @@ func (h ReadFileHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	file, err := h.FileManager.ReadFile(os.DirFS(project.Path), filePath, filemanager.NewReadProps(
-		func(props *filemanager.ReadProps) {
+	file, err := h.FileManager.ReadFile(os.DirFS(project.Path), filePath, files.NewReadProps(
+		func(props *files.ReadProps) {
 			props.ShowLineNumbers = showLineNumbers
 			props.StartLine = startLine
 			props.NumLines = numLines
