@@ -236,10 +236,6 @@ To delete a specific file:
 
 This will delete the file `example.txt` in your project's root directory.
 
-### :construction: Applying Diffs
-
-Coming soon
-
 ## Error Handling
 
 The API uses standard HTTP status codes to indicate the success or failure of requests:

@@ -70,7 +70,11 @@ Creating a project can take some time. Under the hood, Hide clones the repositor
 Having created a project, we can now start working with it. You could notice that the devcontainer [configuration](https://github.com/artmoskvin/tiny-math-service/blob/main/.devcontainer.json) for the [Tiny Math Service](https://github.com/artmoskvin/tiny-math-service) contains a `customizations` section that defines a custom task called `test`. We can use this task to run tests for our project:
 
 ```python
-result = hide_client.run_task(project.id, alias="test")
+result = hide_client.run_task(
+    project_id=project.id, 
+    alias="test"
+)
+
 print(result.stdOut)
 ```
 
@@ -79,7 +83,11 @@ The print statement will output the test results.
 Aliases are convenient when referring to frequently used commands. Running tasks is powered by Task API which also allows us to run arbitrary shell commands by providing the `command` parameter:
 
 ```python
-result = hide_client.run_task(project.id, command="pwd")
+result = hide_client.run_task(
+    project_id=project.id, 
+    command="pwd"
+)
+
 print(result.stdOut)
 ```
 
@@ -90,7 +98,11 @@ The tasks are executed from the project root so the print statement will output 
 We can also read and update files in the project. For example, we can read the `maths.py` file and add a new endpoint in it. First, let's read the file:
 
 ```python
-result = hide_client.get_file(project.id, path="my_tiny_service/api/routers/maths.py")
+result = hide_client.get_file(
+    project_id=project.id,
+    path="my_tiny_service/api/routers/maths.py"
+)
+
 print(result.content)
 ```
 
@@ -100,7 +112,9 @@ Coding agents often update files by adding/replacing lines or by applying unifie
 
 ```python
 result = hide_client.get_file(
-    project.id, path="my_tiny_service/api/routers/maths.py", show_line_numbers=True
+    project_id=project.id,
+    path="my_tiny_service/api/routers/maths.py", 
+    show_line_numbers=True
 )
 
 print(result.content)
@@ -112,7 +126,7 @@ By default, Hide returns the first 100 lines of the file. We can change this by 
 
 ```python
 result = hide_client.get_file(
-    project.id,
+    project_id=project.id,
     path="my_tiny_service/api/routers/maths.py",
     show_line_numbers=True,
     start_line=10,
