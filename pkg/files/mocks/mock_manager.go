@@ -11,7 +11,7 @@ import (
 type MockFileManager struct {
 	CreateFileFunc  func(path string, content string) (files.File, error)
 	ReadFileFunc    func(fileSystem fs.FS, path string, props files.ReadProps) (files.File, error)
-	UpdateFileFunc  func(path string, content string) (files.File, error)
+	UpdateFileFunc  func(fileSystem afero.Fs, path string, content string) (files.File, error)
 	DeleteFileFunc  func(path string) error
 	ListFilesFunc   func(rootPath string) ([]files.File, error)
 	ApplyPatchFunc  func(fileSystem afero.Fs, path string, patch string) (files.File, error)
@@ -26,8 +26,8 @@ func (m *MockFileManager) ReadFile(fileSystem fs.FS, path string, props files.Re
 	return m.ReadFileFunc(fileSystem, path, props)
 }
 
-func (m *MockFileManager) UpdateFile(path string, content string) (files.File, error) {
-	return m.UpdateFileFunc(path, content)
+func (m *MockFileManager) UpdateFile(fileSystem afero.Fs, path string, content string) (files.File, error) {
+	return m.UpdateFileFunc(fileSystem, path, content)
 }
 
 func (m *MockFileManager) DeleteFile(path string) error {

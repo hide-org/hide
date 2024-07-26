@@ -470,3 +470,62 @@ func TestFileManagerImpl_UpdateLines_Failure(t *testing.T) {
 		})
 	}
 }
+
+func TestUpdateFile_Success(t *testing.T) {
+	tests := []struct {
+		name     string
+		content  string
+		expected files.File
+	}{
+		{
+			name:     "Update file",
+			content:  "line1\nline2\nline3\n",
+			expected: files.File{Path: "test.txt", Content: "line1\nline2\nline3\n"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			filesystem := afero.NewMemMapFs()
+			afero.WriteFile(filesystem, "test.txt", []byte("line11\nline12\n"), 0644)
+			fm := files.NewFileManager()
+			actual, err := fm.UpdateFile(filesystem, "test.txt", tt.content)
+			if err != nil {
+				t.Fatalf("Unexpected error: %v", err)
+			}
+
+			if actual != tt.expected {
+				t.Errorf("Expected %+v, got %+v", tt.expected, actual)
+			}
+		})
+	}
+}
+
+func TestUpdateFile_Failure(t *testing.T) {
+	tests := []struct {
+		name     string
+		content  string
+		expected string
+	}{
+		{
+			name:     "File not found",
+			content:  "whatever",
+			expected: "file test.txt does not exist",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			filesystem := afero.NewMemMapFs()
+			fm := files.NewFileManager()
+			_, err := fm.UpdateFile(filesystem, "test.txt", tt.content)
+			if err == nil {
+				t.Fatalf("Expected error, got nil")
+			}
+
+			if !strings.Contains(strings.ToLower(err.Error()), tt.expected) {
+				t.Errorf("Expected error to contain '%s', got %s", tt.expected, err.Error())
+			}
+		})
+	}
+}

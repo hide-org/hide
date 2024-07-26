@@ -111,7 +111,7 @@ func (h UpdateFileHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		file = updatedFile
 	case Overwrite:
-		updatedFile, err := h.FileManager.UpdateFile(filePath, request.Overwrite.Content)
+		updatedFile, err := h.FileManager.UpdateFile(fileSystem, filePath, request.Overwrite.Content)
 		if err != nil {
 			http.Error(w, "Failed to update file", http.StatusInternalServerError)
 			return

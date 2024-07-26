@@ -45,7 +45,7 @@ func NewReadProps(setters ...ReadPropsSetter) ReadProps {
 type FileManager interface {
 	CreateFile(path string, content string) (File, error)
 	ReadFile(fileSystem fs.FS, path string, props ReadProps) (File, error)
-	UpdateFile(path string, content string) (File, error)
+	UpdateFile(fileSystem afero.Fs, path string, content string) (File, error)
 	DeleteFile(path string) error
 	ListFiles(rootPath string) ([]File, error)
 	ApplyPatch(fileSystem afero.Fs, path string, patch string) (File, error)
@@ -122,15 +122,27 @@ func (fm *FileManagerImpl) ReadFile(fileSystem fs.FS, path string, props ReadPro
 	return File{Path: path, Content: result.String()}, nil
 }
 
-func (fm *FileManagerImpl) UpdateFile(path string, content string) (File, error) {
+func (fm *FileManagerImpl) UpdateFile(fileSystem afero.Fs, path string, content string) (File, error) {
 	log.Println("Updating file", path)
 
-	if !fileExists(path) {
+	exists, err := fileExists(fileSystem, path)
+
+	if err != nil {
+		log.Printf("Failed to check if file %s exists: %s", path, err)
+		return File{}, fmt.Errorf("Failed to check if file %s exists: %w", path, err)
+	}
+
+	if !exists {
 		log.Printf("File %s does not exist", path)
 		return File{}, fmt.Errorf("File %s does not exist", path)
 	}
 
-	return fm.CreateFile(path, content)
+	if err := writeFile(fileSystem, path, content); err != nil {
+		log.Printf("Failed to write file %s: %s", path, err)
+		return File{}, fmt.Errorf("Failed to write file %s: %w", path, err)
+	}
+
+	return readFile(fileSystem, path)
 }
 
 func (fm *FileManagerImpl) DeleteFile(path string) error {
@@ -177,7 +189,7 @@ func (fm *FileManagerImpl) ListFiles(rootPath string) ([]File, error) {
 func (fm *FileManagerImpl) ApplyPatch(fileSystem afero.Fs, path string, patch string) (File, error) {
 	log.Printf("Applying patch to %s:\n%s", path, patch)
 
-	file, err := fm.readFile(fileSystem, path)
+	file, err := readFile(fileSystem, path)
 	if err != nil {
 		log.Printf("Failed to read file %s: %s", path, err)
 		return File{}, fmt.Errorf("Failed to read file %s: %w", path, err)
@@ -214,7 +226,7 @@ func (fm *FileManagerImpl) ApplyPatch(fileSystem afero.Fs, path string, patch st
 
 	log.Printf("Applied patch to %s", path)
 
-	return fm.readFile(fileSystem, path)
+	return readFile(fileSystem, path)
 }
 
 func (fm *FileManagerImpl) UpdateLines(filesystem afero.Fs, path string, lineDiff LineDiffChunk) (File, error) {
@@ -251,10 +263,10 @@ func (fm *FileManagerImpl) UpdateLines(filesystem afero.Fs, path string, lineDif
 		return File{}, fmt.Errorf("Failed to write file %s: %w", path, err)
 	}
 
-	return fm.readFile(filesystem, path)
+	return readFile(filesystem, path)
 }
 
-func (fm *FileManagerImpl) readFile(fileSystem afero.Fs, path string) (File, error) {
+func readFile(fileSystem afero.Fs, path string) (File, error) {
 	content, err := afero.ReadFile(fileSystem, path)
 
 	if err != nil {
@@ -264,7 +276,7 @@ func (fm *FileManagerImpl) readFile(fileSystem afero.Fs, path string) (File, err
 	return File{Path: path, Content: string(content)}, nil
 }
 
-func (fm *FileManagerImpl) writeFile(fileSystem afero.Fs, path string, content string) error {
+func writeFile(fileSystem afero.Fs, path string, content string) error {
 	return afero.WriteFile(fileSystem, path, []byte(content), 0644)
 }
 
@@ -308,12 +320,8 @@ func writeLines(fs afero.Fs, filename string, lines []string) error {
 	return writer.Flush()
 }
 
-func fileExists(path string) bool {
-	info, err := os.Stat(path)
-	if os.IsNotExist(err) {
-		return false
-	}
-	return !info.IsDir()
+func fileExists(fileSystem afero.Fs, path string) (bool, error) {
+	return afero.Exists(fileSystem, path)
 }
 
 func replaceSlice(original []string, replacement []string, start, end int) []string {
