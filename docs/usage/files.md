@@ -98,23 +98,125 @@ To specify a range of lines, set the `startLine` and `numLines` parameters:
 
 ### Updating a File
 
-To update the contents of an existing file:
+Updating files can be done in three ways: by replacing the entire file, by updating lines, or by applying unified diffs. We will look at each of these in the next sections.
 
-=== "curl"
+#### Replacing the entire file
 
-    ```bash
-    curl -X PUT http://localhost:8080/projects/{project_id}/files/example.txt \
-         -H "Content-Type: application/json" \
-         -d '{"content": "Updated content!"}'
-    ```
+To replace the entire file, we can use the update type `overwrite` and provide the new content as the `content` parameter:
 
 === "python"
 
     ```python
-    # Coming soon
+    from hide.model import FileUpdateType, OverwriteUpdate
+
+    result = hide_client.update_file(
+        project_id="my-project",
+        path="path/to/file.py",
+        type=FileUpdateType.OVERWRITE,
+        update=OverwriteUpdate(
+            content="def hello_world():\n    print('Hello, World!')\n"
+        )
+    )
     ```
 
-This will update the contents of the file `example.txt` in your project's root directory to `Updated content!`. This API call will effectively overwrite the existing file.
+=== "curl"
+
+    ```bash
+    curl -X PUT http://localhost:8080/projects/my-project/files/path/to/file.py \
+         -H "Content-Type: application/json" \
+         -d '{
+            "type": "overwrite",
+            "overwrite": {
+                "content": "def hello_world():\n    print('Hello, World!')\n"
+            }
+        }'
+    ```
+
+This will replace the entire file with the new content.
+
+#### Updating lines
+
+To update lines, we can use the update type `linediff` and provide the line diff as the `lineDiff` parameter:
+
+=== "python"
+
+    ```python
+    from hide.model import FileUpdateType, LineDiffUpdate
+
+    result = hide_client.update_file(
+        project_id="my-project",
+        path="path/to/file.py",
+        type=FileUpdateType.LINEDIFF,
+        update=LineDiffUpdate(
+            start_line=1,
+            end_line=2,
+            content="def hello_world():\n    print('Hello, World!')\n"
+        ),
+    )
+    ```
+
+=== "curl"
+
+    ```bash
+    curl -X PUT http://localhost:8080/projects/my-project/files/path/to/file.py \
+         -H "Content-Type: application/json" \
+         -d '{
+            "type": "linediff",
+            "lineDiff": {
+                "startLine": 1,
+                "endLine": 2,
+                "content": "def hello_world():\n    print('Hello, World!')\n"
+            }
+        }'
+    ```
+
+This will update the lines from line 1 to 3 with the new content.
+
+#### Applying unified diffs
+
+To apply unified diffs, we can use the update type `udiff` and provide the patch as the `patch` parameter:
+
+=== "python"
+
+    ```python
+    from hide.model import FileUpdateType, UdiffUpdate
+
+    result = hide_client.update_file(
+        project_id="my-project",
+        path="path/to/file.py",
+        type=FileUpdateType.UDIFF,
+        udiff=UdiffUpdate(
+            patch="""--- path/to/file.py
+    +++ path/to/file.py
+    @@ -1,2 +1,2 @@
+     def hello_world():
+    -    print('Hello, World!')
+    +    print('Hello, World!!!')
+    """
+        )
+    )
+    ```
+
+=== "curl"
+
+    ```bash
+    curl -X PUT http://localhost:8080/projects/my-project/files/path/to/file.py \
+         -H "Content-Type: application/json" \
+         -d '{
+            "type": "udiff",
+            "udiff": {
+                "patch": """--- path/to/file.py
+        +++ path/to/file.py
+        @@ -1,2 +1,2 @@
+         def hello_world():
+        -    print('Hello, World!')
+        +    print('Hello, World!!!')
+        """
+            }
+        }'
+    ```
+
+This will apply the unified diff to the file and update the lines accordingly.
 
 ### Deleting a File
 

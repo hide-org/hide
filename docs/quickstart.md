@@ -13,7 +13,7 @@ To interact with the Hide server, we need to create a client. We can do this by 
 ```python
 import hide
 from hide.devcontainer.model import ImageDevContainer
-from hide.model import Repository
+from hide.model import FileUpdateType, UdiffUpdate, Repository
 from hide.toolkit import Toolkit
 
 hide_client = hide.Client()
@@ -96,7 +96,7 @@ print(result.content)
 
 This will print the content of the `maths.py` file. 
 
-Coding agents often update files by generating diffs. Therefore it can be important to include line numbers when reading files. With Hide, we can include line numbers by setting the `show_line_numbers` parameter to `True`:
+Coding agents often update files by adding/replacing lines or by applying unified diffs. Therefore it can be important to include line numbers when reading files. With Hide, we can include line numbers when reading files by setting the `show_line_numbers` parameter to `True`:
 
 ```python
 result = hide_client.get_file(
@@ -108,7 +108,7 @@ print(result.content)
 
 This will print the content of the `maths.py` file with line numbers.
 
-By default, Hide will show the first 100 lines of the file. We can change this by setting the `start_line` and `num_lines` parameters:
+By default, Hide returns the first 100 lines of the file. We can change this by setting the `start_line` and `num_lines` parameters:
 
 ```python
 result = hide_client.get_file(
@@ -116,10 +116,52 @@ result = hide_client.get_file(
     path="my_tiny_service/api/routers/maths.py",
     show_line_numbers=True,
     start_line=10,
-    num_lines=20,
+    num_lines=200,
 )
 
 print(result.content)
 ```
 
-This will print the content of the `maths.py` file with 20 lines starting from line 10.
+This will print the content of the `maths.py` file with 200 lines starting from line 10.
+
+Updating files can be done in three ways: by replacing the entire file, by updating lines, or by applying unified diffs. For this quickstart we will use the unified diff option:
+
+```python
+
+patch = """\
+--- a/my_tiny_service/api/routers/maths.py
++++ b/my_tiny_service/api/routers/maths.py
+@@ -113,3 +113,17 @@
+             status_code=starlette.status.HTTP_400_BAD_REQUEST,
+             detail="Division by zero is not allowed",
+         ) from e
++
++
++@router.post(
++    "/exp",
++    summary="Calculate the exponent of two numbers",
++    response_model=MathsResult,
++)
++def exp(maths_input: MathsIn) -> MathsResult:
++    \"\"\"Calculates the exponent of two whole numbers.\"\"\"
++    return MathsResult(
++        **maths_input.dict(),
++        operation="exp",
++        result=maths_input.number1 ** maths_input.number2,
++    )
+"""
+
+result = hide_client.update_file(
+    project_id=project.id, 
+    path='my_tiny_service/api/routers/maths.py',
+    type=FileUpdateType.UDIFF,
+    update=UdiffUpdate(patch=patch)
+)
+
+print(result.content)
+```
+
+This will apply the unified diff to the file and return the updated content.
+
+For more information on all the available update types and their parameters, see the [Files API](usage/files.md#updating-a-file) documentation.
+

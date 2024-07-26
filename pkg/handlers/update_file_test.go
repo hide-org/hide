@@ -41,11 +41,9 @@ func TestUpdateFileHandler_Success(t *testing.T) {
 			payload: handlers.UpdateFileRequest{
 				Type: handlers.LineDiff,
 				LineDiff: &handlers.LineDiffRequest{
-					LineDiff: files.LineDiffChunk{
-						StartLine: 1,
-						EndLine:   3,
-						Content:   "line11\nline12\n",
-					},
+					StartLine: 1,
+					EndLine:   3,
+					Content:   "line11\nline12\n",
 				},
 			},
 			expected: files.File{
@@ -160,11 +158,9 @@ func TestUpdateFileHandler_RespondsWithBadRequest_IfRequestIsInvalid(t *testing.
 			payload: handlers.UpdateFileRequest{
 				Type: handlers.Udiff,
 				LineDiff: &handlers.LineDiffRequest{
-					LineDiff: files.LineDiffChunk{
-						StartLine: 1,
-						EndLine:   3,
-						Content:   "line11\nline12\n",
-					},
+					StartLine: 1,
+					EndLine:   3,
+					Content:   "line11\nline12\n",
 				},
 			},
 			message: "udiff must be provided",

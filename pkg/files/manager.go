@@ -256,6 +256,7 @@ func (fm *FileManagerImpl) UpdateLines(filesystem afero.Fs, path string, lineDif
 		return File{}, fmt.Errorf("Failed to read lines from linediff content: %w", err)
 	}
 
+	// slicing is 0-based so we need to subtract 1 from the start line number; end line is exclusive so remains the same
 	lines = replaceSlice(lines, newLines, lineDiff.StartLine-1, lineDiff.EndLine)
 
 	if err := writeLines(filesystem, path, lines); err != nil {

@@ -24,7 +24,9 @@ type UdiffRequest struct {
 }
 
 type LineDiffRequest struct {
-	LineDiff files.LineDiffChunk `json:"lineDiff"`
+	StartLine int    `json:"startLine"`
+	EndLine   int    `json:"endLine"`
+	Content   string `json:"content"`
 }
 
 type OverwriteRequest struct {
@@ -34,7 +36,7 @@ type OverwriteRequest struct {
 type UpdateFileRequest struct {
 	Type      UpdateType        `json:"type"`
 	Udiff     *UdiffRequest     `json:"udiff,omitempty"`
-	LineDiff  *LineDiffRequest  `json:"lineDiff,omitempty"`
+	LineDiff  *LineDiffRequest  `json:"linediff,omitempty"`
 	Overwrite *OverwriteRequest `json:"overwrite,omitempty"`
 }
 
@@ -104,7 +106,8 @@ func (h UpdateFileHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		file = updatedFile
 	case LineDiff:
-		updatedFile, err := h.FileManager.UpdateLines(fileSystem, filePath, request.LineDiff.LineDiff)
+		lineDiff := request.LineDiff
+		updatedFile, err := h.FileManager.UpdateLines(fileSystem, filePath, files.LineDiffChunk{StartLine: lineDiff.StartLine, EndLine: lineDiff.EndLine, Content: lineDiff.Content})
 		if err != nil {
 			http.Error(w, "Failed to update file", http.StatusInternalServerError)
 			return
