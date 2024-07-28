@@ -17,12 +17,20 @@ import (
 	"github.com/docker/docker/client"
 )
 
-const ProjectsDir = "hide-projects"
-const DefaultDotEnvPath = ".env"
+const (
+	ProjectsDir       = "hide-projects"
+	DefaultDotEnvPath = ".env"
+)
 
 func main() {
 	envPath := flag.String("env", DefaultDotEnvPath, "path to the .env file")
+	debug := flag.Bool("debug", false, "run service in a debug mode")
 	flag.Parse()
+
+	if *debug {
+		log.Printf("TODO: implement loggier in debug mode")
+		// TODO: set logger
+	}
 
 	_, err := os.Stat(*envPath)
 
@@ -49,7 +57,6 @@ func main() {
 
 	mux := http.NewServeMux()
 	dockerClient, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
-
 	if err != nil {
 		panic(err)
 	}
@@ -58,7 +65,6 @@ func main() {
 	containerRunner := devcontainer.NewDockerRunner(dockerClient, util.NewExecutorImpl(), context, devcontainer.DockerRunnerConfig{Username: dockerUser, Password: dockerToken})
 	projectStore := project.NewInMemoryStore(make(map[string]*project.Project))
 	home, err := os.UserHomeDir()
-
 	if err != nil {
 		panic(err)
 	}
