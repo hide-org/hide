@@ -12,6 +12,7 @@ import (
 	"github.com/artmoskvin/hide/pkg/files"
 	files_mocks "github.com/artmoskvin/hide/pkg/files/mocks"
 	"github.com/artmoskvin/hide/pkg/handlers"
+	"github.com/artmoskvin/hide/pkg/model"
 	"github.com/artmoskvin/hide/pkg/project"
 	project_mocks "github.com/artmoskvin/hide/pkg/project/mocks"
 	"github.com/spf13/afero"
@@ -21,7 +22,7 @@ func TestUpdateFileHandler_Success(t *testing.T) {
 	tests := []struct {
 		name     string
 		payload  handlers.UpdateFileRequest
-		expected files.File
+		expected model.File
 	}{
 		{
 			name: "Update file with udiff",
@@ -31,7 +32,7 @@ func TestUpdateFileHandler_Success(t *testing.T) {
 					Patch: "--- test.txt\n+++ test.txt\n@@ -1,3 +1,3 @@\n line1\n-line2\n+line20\n line3\n",
 				},
 			},
-			expected: files.File{
+			expected: model.File{
 				Path:    "test.txt",
 				Content: "line1\nline20\nline3\n",
 			},
@@ -46,7 +47,7 @@ func TestUpdateFileHandler_Success(t *testing.T) {
 					Content:   "line11\nline12\n",
 				},
 			},
-			expected: files.File{
+			expected: model.File{
 				Path:    "test.txt",
 				Content: "line11\nline12\nline3\n",
 			},
@@ -59,7 +60,7 @@ func TestUpdateFileHandler_Success(t *testing.T) {
 					Content: "line1\nline2\nline3\n",
 				},
 			},
-			expected: files.File{
+			expected: model.File{
 				Path:    "test.txt",
 				Content: "line1\nline2\nline3\n",
 			},
@@ -75,13 +76,13 @@ func TestUpdateFileHandler_Success(t *testing.T) {
 			}
 
 			mockFileManager := &files_mocks.MockFileManager{
-				ApplyPatchFunc: func(fileSystem afero.Fs, path string, patch string) (files.File, error) {
+				ApplyPatchFunc: func(fileSystem afero.Fs, path string, patch string) (model.File, error) {
 					return tt.expected, nil
 				},
-				UpdateLinesFunc: func(filesystem afero.Fs, path string, lineDiff files.LineDiffChunk) (files.File, error) {
+				UpdateLinesFunc: func(filesystem afero.Fs, path string, lineDiff files.LineDiffChunk) (model.File, error) {
 					return tt.expected, nil
 				},
-				UpdateFileFunc: func(fileSystem afero.Fs, path string, content string) (files.File, error) {
+				UpdateFileFunc: func(fileSystem afero.Fs, path string, content string) (model.File, error) {
 					return tt.expected, nil
 				},
 			}
@@ -97,12 +98,12 @@ func TestUpdateFileHandler_Success(t *testing.T) {
 				t.Errorf("Expected status %d, got %d", http.StatusOK, response.Code)
 			}
 
-			var actual files.File
+			var actual model.File
 			if err := json.NewDecoder(response.Body).Decode(&actual); err != nil {
 				t.Fatalf("Failed to decode response: %v", err)
 			}
 
-			if actual != tt.expected {
+			if !actual.Equals(&tt.expected) {
 				t.Errorf("Expected file %+v, got %+v", tt.expected, actual)
 			}
 		})
@@ -219,8 +220,8 @@ func TestUpdateFileHandler_RespondsWithInternalServerError_IfFileManagerFails(t 
 	}
 
 	mockFileManager := &files_mocks.MockFileManager{
-		ApplyPatchFunc: func(fileSystem afero.Fs, path string, patch string) (files.File, error) {
-			return files.File{}, errors.New("file manager error")
+		ApplyPatchFunc: func(fileSystem afero.Fs, path string, patch string) (model.File, error) {
+			return model.File{}, errors.New("file manager error")
 		},
 	}
 

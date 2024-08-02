@@ -11,6 +11,7 @@ import (
 	"github.com/artmoskvin/hide/pkg/files"
 	files_mocks "github.com/artmoskvin/hide/pkg/files/mocks"
 	"github.com/artmoskvin/hide/pkg/handlers"
+	"github.com/artmoskvin/hide/pkg/model"
 	"github.com/artmoskvin/hide/pkg/project"
 	project_mocks "github.com/artmoskvin/hide/pkg/project/mocks"
 )
@@ -19,12 +20,12 @@ func TestReadFileHandler_Success(t *testing.T) {
 	tests := []struct {
 		name         string
 		query        string
-		expectedFile files.File
+		expectedFile model.File
 	}{
 		{
 			name:  "Read file with default params",
 			query: "",
-			expectedFile: files.File{
+			expectedFile: model.File{
 				Path:    "test.txt",
 				Content: "line1\nline2\nline3\n",
 			},
@@ -32,7 +33,7 @@ func TestReadFileHandler_Success(t *testing.T) {
 		{
 			name:  "Read file with showLineNumbers=true",
 			query: "showLineNumbers=true",
-			expectedFile: files.File{
+			expectedFile: model.File{
 				Path:    "test.txt",
 				Content: "1:line1\n2:line2\n3:line3\n",
 			},
@@ -40,7 +41,7 @@ func TestReadFileHandler_Success(t *testing.T) {
 		{
 			name:  "Read file with startLine=2",
 			query: "startLine=2",
-			expectedFile: files.File{
+			expectedFile: model.File{
 				Path:    "test.txt",
 				Content: "2:line2\n3:line3\n",
 			},
@@ -48,7 +49,7 @@ func TestReadFileHandler_Success(t *testing.T) {
 		{
 			name:  "Read file with numLines=2",
 			query: "numLines=2",
-			expectedFile: files.File{
+			expectedFile: model.File{
 				Path:    "test.txt",
 				Content: "line1\nline2\n",
 			},
@@ -64,7 +65,7 @@ func TestReadFileHandler_Success(t *testing.T) {
 			}
 
 			mockFileManager := &files_mocks.MockFileManager{
-				ReadFileFunc: func(fileSystem fs.FS, path string, props files.ReadProps) (files.File, error) {
+				ReadFileFunc: func(fileSystem fs.FS, path string, props files.ReadProps) (model.File, error) {
 					return tt.expectedFile, nil
 				},
 			}
@@ -80,12 +81,12 @@ func TestReadFileHandler_Success(t *testing.T) {
 				t.Errorf("Expected status 200, got %d", response.Code)
 			}
 
-			var respFile files.File
+			var respFile model.File
 			if err := json.NewDecoder(response.Body).Decode(&respFile); err != nil {
 				t.Fatalf("Failed to decode response: %v", err)
 			}
 
-			if respFile != tt.expectedFile {
+			if !respFile.Equals(&tt.expectedFile) {
 				t.Errorf("Expected file %+v, got %+v", tt.expectedFile, respFile)
 			}
 		})
@@ -168,8 +169,8 @@ func TestReadFileHandler_Fails_WhenReadFileFails(t *testing.T) {
 		}
 
 		mockFileManager := &files_mocks.MockFileManager{
-			ReadFileFunc: func(fileSystem fs.FS, path string, props files.ReadProps) (files.File, error) {
-				return files.File{}, errors.New("file not found")
+			ReadFileFunc: func(fileSystem fs.FS, path string, props files.ReadProps) (model.File, error) {
+				return model.File{}, errors.New("file not found")
 			},
 		}
 
