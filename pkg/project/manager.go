@@ -1,18 +1,24 @@
 package project
 
 import (
-	"errors"
 	"fmt"
 	"io/fs"
 	"log"
 	"os"
 	"os/exec"
 	"path"
+	"path/filepath"
+	"time"
 
 	"github.com/artmoskvin/hide/pkg/devcontainer"
+	"github.com/artmoskvin/hide/pkg/files"
+	"github.com/artmoskvin/hide/pkg/languageserver"
+	"github.com/artmoskvin/hide/pkg/model"
 	"github.com/artmoskvin/hide/pkg/result"
 	"github.com/artmoskvin/hide/pkg/util"
 )
+
+const MaxDiagnosticsDelay = time.Second * 1
 
 type Repository struct {
 	Url    string  `json:"url"`
@@ -24,44 +30,6 @@ type CreateProjectRequest struct {
 	DevContainer *devcontainer.Config `json:"devcontainer,omitempty"`
 }
 
-type Config struct {
-	DevContainerConfig devcontainer.Config `json:"devContainerConfig"`
-}
-
-type ProjectId = string
-
-type Project struct {
-	Id          ProjectId `json:"id"`
-	Path        string    `json:"path"`
-	Config      Config    `json:"config"`
-	containerId string
-}
-
-func NewProject(id ProjectId, path string, config Config, containerId string) Project {
-	return Project{Id: id, Path: path, Config: config, containerId: containerId}
-}
-
-func (project *Project) FindTaskByAlias(alias string) (devcontainer.Task, error) {
-	if project.Config.DevContainerConfig.Customizations.Hide == nil {
-		return devcontainer.Task{}, errors.New("task not found")
-	}
-
-	for _, task := range project.Config.DevContainerConfig.Customizations.Hide.Tasks {
-		if task.Alias == alias {
-			return task, nil
-		}
-	}
-	return devcontainer.Task{}, errors.New("task not found")
-}
-
-func (project *Project) GetTasks() []devcontainer.Task {
-	if project.Config.DevContainerConfig.Customizations.Hide == nil {
-		return []devcontainer.Task{}
-	}
-
-	return project.Config.DevContainerConfig.Customizations.Hide.Tasks
-}
-
 type TaskResult struct {
 	StdOut   string `json:"stdOut"`
 	StdErr   string `json:"stdErr"`
@@ -69,27 +37,30 @@ type TaskResult struct {
 }
 
 type Manager interface {
-	CreateProject(request CreateProjectRequest) <-chan result.Result[Project]
-	GetProject(projectId ProjectId) (Project, error)
-	GetProjects() ([]*Project, error)
-	DeleteProject(projectId ProjectId) <-chan result.Empty
-	ResolveTaskAlias(projectId ProjectId, alias string) (devcontainer.Task, error)
-	CreateTask(projectId ProjectId, command string) (TaskResult, error)
+	CreateProject(request CreateProjectRequest) <-chan result.Result[model.Project]
+	GetProject(projectId model.ProjectId) (model.Project, error)
+	GetProjects() ([]*model.Project, error)
+	DeleteProject(projectId model.ProjectId) <-chan result.Empty
+	ResolveTaskAlias(projectId model.ProjectId, alias string) (devcontainer.Task, error)
+	CreateTask(projectId model.ProjectId, command string) (TaskResult, error)
 	Cleanup() error
+	CreateFile(projectId, path, content string) (model.File, error)
 }
 
 type ManagerImpl struct {
 	DevContainerRunner devcontainer.Runner
 	Store              Store
 	ProjectsRoot       string
+	fileManager        files.FileManager
+	lspService         languageserver.Service
 }
 
-func NewProjectManager(devContainerRunner devcontainer.Runner, projectStore Store, projectsRoot string) Manager {
-	return ManagerImpl{DevContainerRunner: devContainerRunner, Store: projectStore, ProjectsRoot: projectsRoot}
+func NewProjectManager(devContainerRunner devcontainer.Runner, projectStore Store, projectsRoot string, fileManager files.FileManager, lspService languageserver.Service) Manager {
+	return ManagerImpl{DevContainerRunner: devContainerRunner, Store: projectStore, ProjectsRoot: projectsRoot, fileManager: fileManager, lspService: lspService}
 }
 
-func (pm ManagerImpl) CreateProject(request CreateProjectRequest) <-chan result.Result[Project] {
-	c := make(chan result.Result[Project])
+func (pm ManagerImpl) CreateProject(request CreateProjectRequest) <-chan result.Result[model.Project] {
+	c := make(chan result.Result[model.Project])
 
 	go func() {
 		log.Printf("Creating project for repo %s", request.Repository.Url)
@@ -99,14 +70,14 @@ func (pm ManagerImpl) CreateProject(request CreateProjectRequest) <-chan result.
 
 		if err := pm.createProjectDir(projectPath); err != nil {
 			log.Printf("Failed to create project directory: %s", err)
-			c <- result.Failure[Project](fmt.Errorf("Failed to create project directory: %w", err))
+			c <- result.Failure[model.Project](fmt.Errorf("Failed to create project directory: %w", err))
 			return
 		}
 
 		if r := <-cloneGitRepo(request.Repository, projectPath); r.IsFailure() {
 			log.Printf("Failed to clone git repo: %s", r.Error)
 			removeProjectDir(projectPath)
-			c <- result.Failure[Project](fmt.Errorf("Failed to clone git repo: %w", r.Error))
+			c <- result.Failure[model.Project](fmt.Errorf("Failed to clone git repo: %w", r.Error))
 			return
 		}
 
@@ -120,7 +91,7 @@ func (pm ManagerImpl) CreateProject(request CreateProjectRequest) <-chan result.
 			if err != nil {
 				log.Printf("Failed to get devcontainer config from repository %s: %s", request.Repository.Url, err)
 				removeProjectDir(projectPath)
-				c <- result.Failure[Project](fmt.Errorf("Failed to read devcontainer.json: %w", err))
+				c <- result.Failure[model.Project](fmt.Errorf("Failed to read devcontainer.json: %w", err))
 				return
 			}
 
@@ -132,16 +103,16 @@ func (pm ManagerImpl) CreateProject(request CreateProjectRequest) <-chan result.
 		if err != nil {
 			log.Println("Failed to launch devcontainer:", err)
 			removeProjectDir(projectPath)
-			c <- result.Failure[Project](fmt.Errorf("Failed to launch devcontainer: %w", err))
+			c <- result.Failure[model.Project](fmt.Errorf("Failed to launch devcontainer: %w", err))
 			return
 		}
 
-		project := Project{Id: projectId, Path: projectPath, Config: Config{DevContainerConfig: devContainerConfig}, containerId: containerId}
+		project := model.Project{Id: projectId, Path: projectPath, Config: model.Config{DevContainerConfig: devContainerConfig}, ContainerId: containerId}
 
 		if err := pm.Store.CreateProject(&project); err != nil {
 			log.Printf("Failed to save project: %s", err)
 			removeProjectDir(projectPath)
-			c <- result.Failure[Project](fmt.Errorf("Failed to save project: %w", err))
+			c <- result.Failure[model.Project](fmt.Errorf("Failed to save project: %w", err))
 			return
 		}
 
@@ -153,14 +124,14 @@ func (pm ManagerImpl) CreateProject(request CreateProjectRequest) <-chan result.
 	return c
 }
 
-func (pm ManagerImpl) GetProject(projectId string) (Project, error) {
+func (pm ManagerImpl) GetProject(projectId string) (model.Project, error) {
 	log.Printf("Getting project %s", projectId)
 
 	project, err := pm.Store.GetProject(projectId)
 
 	if err != nil {
 		log.Printf("Project with id %s not found", projectId)
-		return Project{}, fmt.Errorf("Project with id %s not found", projectId)
+		return model.Project{}, fmt.Errorf("Project with id %s not found", projectId)
 	}
 
 	log.Printf("Got project %+v", project)
@@ -168,7 +139,7 @@ func (pm ManagerImpl) GetProject(projectId string) (Project, error) {
 	return *project, nil
 }
 
-func (pm ManagerImpl) GetProjects() ([]*Project, error) {
+func (pm ManagerImpl) GetProjects() ([]*model.Project, error) {
 	log.Printf("Getting projects")
 
 	projects, err := pm.Store.GetProjects()
@@ -197,8 +168,8 @@ func (pm ManagerImpl) DeleteProject(projectId string) <-chan result.Empty {
 			return
 		}
 
-		if err := pm.DevContainerRunner.Stop(project.containerId); err != nil {
-			log.Printf("Failed to stop container %s: %s", project.containerId, err)
+		if err := pm.DevContainerRunner.Stop(project.ContainerId); err != nil {
+			log.Printf("Failed to stop container %s: %s", project.ContainerId, err)
 			c <- result.EmptyFailure(fmt.Errorf("Failed to stop container: %w", err))
 			return
 		}
@@ -249,10 +220,10 @@ func (pm ManagerImpl) CreateTask(projectId string, command string) (TaskResult, 
 		return TaskResult{}, fmt.Errorf("Project with id %s not found", projectId)
 	}
 
-	execResult, err := pm.DevContainerRunner.Exec(project.containerId, []string{"/bin/bash", "-c", command})
+	execResult, err := pm.DevContainerRunner.Exec(project.ContainerId, []string{"/bin/bash", "-c", command})
 
 	if err != nil {
-		log.Printf("Failed to execute command '%s' in container %s: %s", command, project.containerId, err)
+		log.Printf("Failed to execute command '%s' in container %s: %s", command, project.ContainerId, err)
 		return TaskResult{}, fmt.Errorf("Failed to execute command: %w", err)
 	}
 
@@ -273,12 +244,54 @@ func (pm ManagerImpl) Cleanup() error {
 
 	for _, project := range projects {
 		log.Printf("Cleaning up project %s", project.Id)
-		pm.DevContainerRunner.Stop(project.containerId)
+		pm.DevContainerRunner.Stop(project.ContainerId)
 	}
 
 	log.Printf("Cleaned up projects")
 
 	return nil
+}
+
+func (pm ManagerImpl) CreateFile(projectId, path, content string) (model.File, error) {
+	log.Printf("Creating file %s in project %s", path, projectId)
+
+	project, err := pm.GetProject(projectId)
+
+	if err != nil {
+		log.Printf("Project with id %s not found", projectId)
+		return model.File{}, fmt.Errorf("Project with id %s not found", projectId)
+	}
+
+	fullPath := filepath.Join(project.Path, path)
+	file, err := pm.fileManager.CreateFile(fullPath, content)
+
+	if err != nil {
+		log.Printf("Failed to create file %s in project %s: %s", path, projectId, err)
+		return model.File{}, fmt.Errorf("Failed to create file %s in project %s: %w", path, projectId, err)
+	}
+
+	if err := pm.lspService.NotifyDidOpen(project, file); err != nil {
+		log.Printf("Failed to notify didOpen for file %s in project %s: %s", path, projectId, err)
+		return model.File{}, fmt.Errorf("Failed to notify didOpen for file %s in project %s: %w", path, projectId, err)
+	}
+
+	// wait for diagnostics
+	time.Sleep(MaxDiagnosticsDelay)
+
+	// Debug
+	log.Printf("Getting diagnostics for file %s in project %s", path, projectId)
+
+	diagnostics := pm.lspService.GetDiagnostics(projectId, file)
+
+	// Debug
+	log.Printf("Got diagnostics for file %s in project %s: %+v", path, projectId, diagnostics)
+
+	if diagnostics != nil {
+		file.Diagnostics = diagnostics
+		return file, nil
+	}
+
+	return file, nil
 }
 
 func (pm ManagerImpl) createProjectDir(path string) error {

@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/artmoskvin/hide/pkg/handlers"
+	"github.com/artmoskvin/hide/pkg/model"
 	"github.com/artmoskvin/hide/pkg/project"
 	"github.com/artmoskvin/hide/pkg/project/mocks"
 	"github.com/artmoskvin/hide/pkg/result"
@@ -19,12 +20,12 @@ const repoUrl = "https://github.com/example/repo.git"
 
 func TestCreateProjectHandler_Success(t *testing.T) {
 	// Expected project
-	expectedProject := project.Project{Id: "123", Path: "/test/path"}
+	expectedProject := model.Project{Id: "123", Path: "/test/path"}
 
 	// Setup
 	mockManager := &mocks.MockProjectManager{
-		CreateProjectFunc: func(req project.CreateProjectRequest) <-chan result.Result[project.Project] {
-			ch := make(chan result.Result[project.Project], 1)
+		CreateProjectFunc: func(req project.CreateProjectRequest) <-chan result.Result[model.Project] {
+			ch := make(chan result.Result[model.Project], 1)
 			ch <- result.Success(expectedProject)
 			return ch
 		},
@@ -45,7 +46,7 @@ func TestCreateProjectHandler_Success(t *testing.T) {
 		t.Errorf("Expected status %d, got %d", http.StatusCreated, response.Code)
 	}
 
-	var respProject project.Project
+	var respProject model.Project
 	if err := json.NewDecoder(response.Body).Decode(&respProject); err != nil {
 		t.Fatalf("Failed to decode response: %v", err)
 	}
@@ -58,9 +59,9 @@ func TestCreateProjectHandler_Success(t *testing.T) {
 func TestCreateProjectHandler_Failure(t *testing.T) {
 	// Setup
 	mockManager := &mocks.MockProjectManager{
-		CreateProjectFunc: func(req project.CreateProjectRequest) <-chan result.Result[project.Project] {
-			ch := make(chan result.Result[project.Project], 1)
-			ch <- result.Failure[project.Project](errors.New("Test error"))
+		CreateProjectFunc: func(req project.CreateProjectRequest) <-chan result.Result[model.Project] {
+			ch := make(chan result.Result[model.Project], 1)
+			ch <- result.Failure[model.Project](errors.New("Test error"))
 			return ch
 		},
 	}

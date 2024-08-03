@@ -12,7 +12,6 @@ import (
 	files_mocks "github.com/artmoskvin/hide/pkg/files/mocks"
 	"github.com/artmoskvin/hide/pkg/handlers"
 	"github.com/artmoskvin/hide/pkg/model"
-	"github.com/artmoskvin/hide/pkg/project"
 	project_mocks "github.com/artmoskvin/hide/pkg/project/mocks"
 )
 
@@ -59,8 +58,8 @@ func TestReadFileHandler_Success(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mockManager := &project_mocks.MockProjectManager{
-				GetProjectFunc: func(projectId string) (project.Project, error) {
-					return project.Project{}, nil
+				GetProjectFunc: func(projectId string) (model.Project, error) {
+					return model.Project{}, nil
 				},
 			}
 
@@ -119,8 +118,8 @@ func TestReadFileHandler_Fails_WithInvalidQueryParams(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mockManager := &project_mocks.MockProjectManager{
-				GetProjectFunc: func(projectId string) (project.Project, error) {
-					return project.Project{}, nil
+				GetProjectFunc: func(projectId string) (model.Project, error) {
+					return model.Project{}, nil
 				},
 			}
 
@@ -142,8 +141,8 @@ func TestReadFileHandler_Fails_WithInvalidQueryParams(t *testing.T) {
 func TestReadFileHandler_Fails_WhenProjectNotFound(t *testing.T) {
 	t.Run("Read file with invalid project ID", func(t *testing.T) {
 		mockManager := &project_mocks.MockProjectManager{
-			GetProjectFunc: func(projectId string) (project.Project, error) {
-				return project.Project{}, errors.New("project not found")
+			GetProjectFunc: func(projectId string) (model.Project, error) {
+				return model.Project{}, errors.New("project not found")
 			},
 		}
 
@@ -163,8 +162,8 @@ func TestReadFileHandler_Fails_WhenProjectNotFound(t *testing.T) {
 func TestReadFileHandler_Fails_WhenReadFileFails(t *testing.T) {
 	t.Run("Read file with invalid file path", func(t *testing.T) {
 		mockManager := &project_mocks.MockProjectManager{
-			GetProjectFunc: func(projectId string) (project.Project, error) {
-				return project.Project{}, nil
+			GetProjectFunc: func(projectId string) (model.Project, error) {
+				return model.Project{}, nil
 			},
 		}
 

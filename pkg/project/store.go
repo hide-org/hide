@@ -1,24 +1,28 @@
 package project
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/artmoskvin/hide/pkg/model"
+)
 
 type Store interface {
-	GetProject(id string) (*Project, error)
-	GetProjects() ([]*Project, error)
-	CreateProject(project *Project) error
-	UpdateProject(project *Project) error
+	GetProject(id string) (*model.Project, error)
+	GetProjects() ([]*model.Project, error)
+	CreateProject(project *model.Project) error
+	UpdateProject(project *model.Project) error
 	DeleteProject(id string) error
 }
 
 type InMemoryStore struct {
-	projects map[string]*Project
+	projects map[string]*model.Project
 }
 
-func NewInMemoryStore(store map[string]*Project) *InMemoryStore {
+func NewInMemoryStore(store map[string]*model.Project) *InMemoryStore {
 	return &InMemoryStore{projects: store}
 }
 
-func (s *InMemoryStore) GetProject(id string) (*Project, error) {
+func (s *InMemoryStore) GetProject(id string) (*model.Project, error) {
 	project, ok := s.projects[id]
 
 	if !ok {
@@ -28,8 +32,8 @@ func (s *InMemoryStore) GetProject(id string) (*Project, error) {
 	return project, nil
 }
 
-func (s *InMemoryStore) GetProjects() ([]*Project, error) {
-	projects := make([]*Project, 0, len(s.projects))
+func (s *InMemoryStore) GetProjects() ([]*model.Project, error) {
+	projects := make([]*model.Project, 0, len(s.projects))
 
 	for _, project := range s.projects {
 		projects = append(projects, project)
@@ -38,7 +42,7 @@ func (s *InMemoryStore) GetProjects() ([]*Project, error) {
 	return projects, nil
 }
 
-func (s *InMemoryStore) CreateProject(project *Project) error {
+func (s *InMemoryStore) CreateProject(project *model.Project) error {
 	if _, ok := s.projects[project.Id]; ok {
 		return fmt.Errorf("project with id %s already exists", project.Id)
 	}
@@ -48,7 +52,7 @@ func (s *InMemoryStore) CreateProject(project *Project) error {
 	return nil
 }
 
-func (s *InMemoryStore) UpdateProject(project *Project) error {
+func (s *InMemoryStore) UpdateProject(project *model.Project) error {
 	if _, ok := s.projects[project.Id]; !ok {
 		return fmt.Errorf("project with id %s not found", project.Id)
 	}

@@ -11,12 +11,15 @@ import (
 	"github.com/artmoskvin/hide/pkg/devcontainer"
 	"github.com/artmoskvin/hide/pkg/files"
 	"github.com/artmoskvin/hide/pkg/handlers"
+	"github.com/artmoskvin/hide/pkg/languageserver"
+	"github.com/artmoskvin/hide/pkg/model"
 	"github.com/artmoskvin/hide/pkg/project"
 	"github.com/artmoskvin/hide/pkg/util"
 	"github.com/docker/docker/client"
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+	protocol "github.com/tliron/glsp/protocol_3_16"
 )
 
 const (
@@ -65,7 +68,7 @@ func main() {
 
 	context := context.Background()
 	containerRunner := devcontainer.NewDockerRunner(dockerClient, util.NewExecutorImpl(), context, devcontainer.DockerRunnerConfig{Username: dockerUser, Password: dockerToken})
-	projectStore := project.NewInMemoryStore(make(map[string]*project.Project))
+	projectStore := project.NewInMemoryStore(make(map[string]*model.Project))
 	home, err := os.UserHomeDir()
 	if err != nil {
 		log.Fatal().Err(err).Msg("User's home directory is not set")
@@ -73,8 +76,10 @@ func main() {
 
 	projectsDir := filepath.Join(home, ProjectsDir)
 
-	projectManager := project.NewProjectManager(containerRunner, projectStore, projectsDir)
+	languageDetector := languageserver.NewLanguageDetector()
+	lspService := languageserver.NewService(lspClientFactoryMethod, languageDetector)
 	fileManager := files.NewFileManager()
+	projectManager := project.NewProjectManager(containerRunner, projectStore, projectsDir, fileManager, lspService)
 	createProjectHandler := handlers.CreateProjectHandler{Manager: projectManager}
 	deleteProjectHandler := handlers.DeleteProjectHandler{Manager: projectManager}
 	createTaskHandler := handlers.CreateTaskHandler{Manager: projectManager}
@@ -113,4 +118,65 @@ func setupLogger(debug bool) {
 	if debug {
 		zerolog.SetGlobalLevel(zerolog.DebugLevel)
 	}
+}
+
+func lspClientFactoryMethod(languageId, projectRoot string, diagnosticsChannel chan protocol.PublishDiagnosticsParams) languageserver.Client {
+	ctx := context.Background()
+
+	// Define the lsp server executable based on the languageId (currently only "go" is supported)
+	lspServerExecutable := "gopls"
+
+	// Start the language server
+	process, err := languageserver.NewProcess(lspServerExecutable)
+	if err != nil {
+		log.Fatalf("Failed to create language server process: %s", err)
+	}
+
+	if err := process.Start(); err != nil {
+		log.Fatalf("Failed to start language server: %s", err)
+	}
+
+	// TODO: fix me
+	// defer process.Stop()
+
+	// Create a client for the language server
+	client := languageserver.NewClient(ctx, process.ReadWriteCloser(), diagnosticsChannel)
+
+	// Initialize the language server
+	root := languageserver.PathToURI(projectRoot)
+	_, err = client.Initialize(context.Background(), protocol.InitializeParams{
+		RootURI: &root,
+		Capabilities: protocol.ClientCapabilities{
+			TextDocument: &protocol.TextDocumentClientCapabilities{
+				Synchronization: &protocol.TextDocumentSyncClientCapabilities{
+					DynamicRegistration: boolPointer(true),
+				},
+			},
+		},
+		// WorkspaceFolders: []protocol.WorkspaceFolder{
+		// 	{
+		// 		URI:  root,
+		// 		Name: "hide",
+		// 	},
+		// },
+	})
+
+	if err != nil {
+		log.Fatalf("Failed to initialize language server: %s", err)
+	}
+
+	// Debug
+	log.Printf("Initialized language server for project ??? (languageId: %s)", languageId)
+
+	// if opt, ok := initResult.Capabilities.TextDocumentSync.(protocol.TextDocumentSyncOptions); ok {
+	// 	log.Printf("Support open/close file: %t", *opt.OpenClose)
+	// 	log.Printf("Support change notifications: %v", *opt.Change)
+	// }
+
+	// Notify that initialized
+	if err := client.NotifyInitialized(ctx); err != nil {
+		log.Fatalf("Failed to notify initialized: %s", err)
+	}
+
+	return client
 }
