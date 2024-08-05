@@ -78,7 +78,7 @@ func main() {
 
 	languageDetector := languageserver.NewLanguageDetector()
 	lspService := languageserver.NewService(lspClientFactoryMethod, languageDetector)
-	fileManager := files.NewFileManager()
+	fileManager := files.NewLanguageServerAwareFileManager(files.NewFileManager(), lspService)
 	projectManager := project.NewProjectManager(containerRunner, projectStore, projectsDir, fileManager, lspService)
 	createProjectHandler := handlers.CreateProjectHandler{Manager: projectManager}
 	deleteProjectHandler := handlers.DeleteProjectHandler{Manager: projectManager}
@@ -179,4 +179,8 @@ func lspClientFactoryMethod(languageId, projectRoot string, diagnosticsChannel c
 	}
 
 	return client
+}
+
+func boolPointer(b bool) *bool {
+	return &b
 }

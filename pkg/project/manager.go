@@ -1,13 +1,13 @@
 package project
 
 import (
+	"context"
 	"fmt"
 	"io/fs"
 	"log"
 	"os"
 	"os/exec"
 	"path"
-	"path/filepath"
 	"time"
 
 	"github.com/artmoskvin/hide/pkg/devcontainer"
@@ -16,6 +16,7 @@ import (
 	"github.com/artmoskvin/hide/pkg/model"
 	"github.com/artmoskvin/hide/pkg/result"
 	"github.com/artmoskvin/hide/pkg/util"
+	"github.com/spf13/afero"
 )
 
 const MaxDiagnosticsDelay = time.Second * 1
@@ -44,7 +45,9 @@ type Manager interface {
 	ResolveTaskAlias(projectId model.ProjectId, alias string) (devcontainer.Task, error)
 	CreateTask(projectId model.ProjectId, command string) (TaskResult, error)
 	Cleanup() error
-	CreateFile(projectId, path, content string) (model.File, error)
+	CreateFile(ctx context.Context, projectId, path, content string) (model.File, error)
+	ReadFile(ctx context.Context, projectId, path string, props files.ReadProps) (model.File, error)
+	UpdateFile(ctx context.Context, projectId, path, content string) (model.File, error)
 }
 
 type ManagerImpl struct {
@@ -125,16 +128,12 @@ func (pm ManagerImpl) CreateProject(request CreateProjectRequest) <-chan result.
 }
 
 func (pm ManagerImpl) GetProject(projectId string) (model.Project, error) {
-	log.Printf("Getting project %s", projectId)
-
 	project, err := pm.Store.GetProject(projectId)
 
 	if err != nil {
 		log.Printf("Project with id %s not found", projectId)
 		return model.Project{}, fmt.Errorf("Project with id %s not found", projectId)
 	}
-
-	log.Printf("Got project %+v", project)
 
 	return *project, nil
 }
@@ -252,7 +251,7 @@ func (pm ManagerImpl) Cleanup() error {
 	return nil
 }
 
-func (pm ManagerImpl) CreateFile(projectId, path, content string) (model.File, error) {
+func (pm ManagerImpl) CreateFile(ctx context.Context, projectId, path, content string) (model.File, error) {
 	log.Printf("Creating file %s in project %s", path, projectId)
 
 	project, err := pm.GetProject(projectId)
@@ -262,36 +261,27 @@ func (pm ManagerImpl) CreateFile(projectId, path, content string) (model.File, e
 		return model.File{}, fmt.Errorf("Project with id %s not found", projectId)
 	}
 
-	fullPath := filepath.Join(project.Path, path)
-	file, err := pm.fileManager.CreateFile(fullPath, content)
+	return pm.fileManager.CreateFile(model.NewContextWithProject(ctx, &project), afero.NewBasePathFs(afero.NewOsFs(), project.Path), path, content)
+}
+
+func (pm ManagerImpl) ReadFile(ctx context.Context, projectId, path string, props files.ReadProps) (model.File, error) {
+	project, err := pm.GetProject(projectId)
 
 	if err != nil {
-		log.Printf("Failed to create file %s in project %s: %s", path, projectId, err)
-		return model.File{}, fmt.Errorf("Failed to create file %s in project %s: %w", path, projectId, err)
+		return model.File{}, fmt.Errorf("Project with id %s not found", projectId)
 	}
 
-	if err := pm.lspService.NotifyDidOpen(project, file); err != nil {
-		log.Printf("Failed to notify didOpen for file %s in project %s: %s", path, projectId, err)
-		return model.File{}, fmt.Errorf("Failed to notify didOpen for file %s in project %s: %w", path, projectId, err)
+	return pm.fileManager.ReadFile(model.NewContextWithProject(ctx, &project), afero.NewBasePathFs(afero.NewOsFs(), project.Path), path, props)
+}
+
+func (pm ManagerImpl) UpdateFile(ctx context.Context, projectId, path, content string) (model.File, error) {
+	project, err := pm.GetProject(projectId)
+
+	if err != nil {
+		return model.File{}, fmt.Errorf("Project with id %s not found", projectId)
 	}
 
-	// wait for diagnostics
-	time.Sleep(MaxDiagnosticsDelay)
-
-	// Debug
-	log.Printf("Getting diagnostics for file %s in project %s", path, projectId)
-
-	diagnostics := pm.lspService.GetDiagnostics(projectId, file)
-
-	// Debug
-	log.Printf("Got diagnostics for file %s in project %s: %+v", path, projectId, diagnostics)
-
-	if diagnostics != nil {
-		file.Diagnostics = diagnostics
-		return file, nil
-	}
-
-	return file, nil
+	return pm.fileManager.UpdateFile(model.NewContextWithProject(ctx, &project), afero.NewBasePathFs(afero.NewOsFs(), project.Path), path, content)
 }
 
 func (pm ManagerImpl) createProjectDir(path string) error {

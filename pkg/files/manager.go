@@ -6,7 +6,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/fs"
 	"log"
 	"os"
 	"path/filepath"
@@ -17,7 +16,6 @@ import (
 	"github.com/artmoskvin/hide/pkg/model"
 	"github.com/bluekeyes/go-gitdiff/gitdiff"
 	"github.com/spf13/afero"
-	protocol "github.com/tliron/glsp/protocol_3_16"
 )
 
 const DefaultNumLines = 100
@@ -44,11 +42,11 @@ func NewReadProps(setters ...ReadPropsSetter) ReadProps {
 }
 
 type FileManager interface {
-	CreateFile(path string, content string) (model.File, error)
-	ReadFile(fileSystem fs.FS, path string, props ReadProps) (model.File, error)
-	UpdateFile(fileSystem afero.Fs, path string, content string) (model.File, error)
+	CreateFile(ctx context.Context, fs afero.Fs, path, content string) (model.File, error)
+	ReadFile(ctx context.Context, fs afero.Fs, path string, props ReadProps) (model.File, error)
+	UpdateFile(ctx context.Context, fs afero.Fs, path, content string) (model.File, error)
 	DeleteFile(path string) error
-	ListFiles(rootPath string) ([]model.File, error)
+	ListFiles(ctx context.Context, fs afero.Fs) ([]model.File, error)
 	ApplyPatch(fileSystem afero.Fs, path string, patch string) (model.File, error)
 	UpdateLines(filesystem afero.Fs, path string, lineDiff LineDiffChunk) (model.File, error)
 }
@@ -59,17 +57,18 @@ func NewFileManager() FileManager {
 	return &FileManagerImpl{}
 }
 
-func (fm *FileManagerImpl) CreateFile(path string, content string) (model.File, error) {
+func (fm *FileManagerImpl) CreateFile(ctx context.Context, fs afero.Fs, path, content string) (model.File, error) {
+	// Debug
 	log.Println("Creating file", path)
 
 	dir := filepath.Dir(path)
 
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	if err := fs.MkdirAll(dir, 0755); err != nil {
 		log.Printf("Failed to create directory %s: %s", dir, err)
 		return model.File{}, fmt.Errorf("Failed to create directory %s: %w", dir, err)
 	}
 
-	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+	if err := writeFile(fs, path, content); err != nil {
 		log.Printf("Failed to create file %s: %s", path, err)
 		return model.File{}, fmt.Errorf("Failed to create file %s: %w", path, err)
 	}
@@ -77,16 +76,18 @@ func (fm *FileManagerImpl) CreateFile(path string, content string) (model.File, 
 	return model.File{Path: path, Content: content}, nil
 }
 
-func (fm *FileManagerImpl) ReadFile(fileSystem fs.FS, path string, props ReadProps) (model.File, error) {
+func (fm *FileManagerImpl) ReadFile(ctx context.Context, fs afero.Fs, path string, props ReadProps) (model.File, error) {
+	// Debug
 	log.Println("Reading file", path)
-	content, err := fs.ReadFile(fileSystem, path)
+
+	content, err := readFile(fs, path)
 
 	if err != nil {
 		log.Printf("Failed to open file %s: %s", path, err)
 		return model.File{}, fmt.Errorf("Failed to open file: %w", err)
 	}
 
-	lines := strings.Split(string(content), "\n")
+	lines := strings.Split(content.Content, "\n")
 
 	if props.StartLine < 1 {
 		return model.File{}, fmt.Errorf("Start line must be greater than or equal to 1")
@@ -123,10 +124,10 @@ func (fm *FileManagerImpl) ReadFile(fileSystem fs.FS, path string, props ReadPro
 	return model.File{Path: path, Content: result.String()}, nil
 }
 
-func (fm *FileManagerImpl) UpdateFile(fileSystem afero.Fs, path string, content string) (model.File, error) {
+func (fm *FileManagerImpl) UpdateFile(ctx context.Context, fs afero.Fs, path, content string) (model.File, error) {
 	log.Println("Updating file", path)
 
-	exists, err := fileExists(fileSystem, path)
+	exists, err := fileExists(fs, path)
 
 	if err != nil {
 		log.Printf("Failed to check if file %s exists: %s", path, err)
@@ -134,16 +135,16 @@ func (fm *FileManagerImpl) UpdateFile(fileSystem afero.Fs, path string, content 
 	}
 
 	if !exists {
-		log.Printf("model.File %s does not exist", path)
+		log.Printf("File %s does not exist", path)
 		return model.File{}, fmt.Errorf("File %s does not exist", path)
 	}
 
-	if err := writeFile(fileSystem, path, content); err != nil {
+	if err := writeFile(fs, path, content); err != nil {
 		log.Printf("Failed to write file %s: %s", path, err)
 		return model.File{}, fmt.Errorf("Failed to write file %s: %w", path, err)
 	}
 
-	return readFile(fileSystem, path)
+	return readFile(fs, path)
 }
 
 func (fm *FileManagerImpl) DeleteFile(path string) error {
@@ -154,25 +155,25 @@ func (fm *FileManagerImpl) DeleteFile(path string) error {
 	return nil
 }
 
-func (fm *FileManagerImpl) ListFiles(rootPath string) ([]model.File, error) {
-	log.Println("Listing files in", rootPath)
+func (fm *FileManagerImpl) ListFiles(ctx context.Context, fs afero.Fs) ([]model.File, error) {
+	log.Println("Listing files")
 
 	var files []model.File
 
-	err := filepath.Walk(rootPath, func(path string, info os.FileInfo, err error) error {
+	rootPath := "/"
+	err := afero.Walk(fs, rootPath, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
-			log.Printf("Error walking directory %s on path %s: %s", rootPath, path, err)
-			return fmt.Errorf("Error walking directory %s on path %s: %w", rootPath, path, err)
+			log.Printf("Error walking file tree on path %s: %s", path, err)
+			return fmt.Errorf("Error walking file tree on path %s: %w", path, err)
 		}
 
-		relativePath, err := filepath.Rel(rootPath, path)
 		if err != nil {
 			log.Printf("Error getting relative path from %s to %s: %s", rootPath, path, err)
 			return fmt.Errorf("Error getting relative path from %s to %s: %w", rootPath, path, err)
 		}
 
 		if !info.IsDir() {
-			file, err := fm.ReadFile(os.DirFS(rootPath), relativePath, NewReadProps())
+			file, err := readFile(fs, path)
 			if err != nil {
 				log.Printf("Error reading file %s: %s", path, err)
 				return fmt.Errorf("Error reading file %s: %w", path, err)
@@ -338,73 +339,132 @@ func replaceSlice(original []string, replacement []string, start, end int) []str
 }
 
 type LanguageServerAwareFileManager struct {
-	delegate             FileManager
-	languageServerClient languageserver.Client
-	languageDetector     languageserver.LanguageDetector
-	diagnostics          map[string][]protocol.Diagnostic
+	delegate   FileManager
+	lspService languageserver.Service
 }
 
-func NewLanguageServerAwareFileManager(delegate FileManager, languageServerClient languageserver.Client, diagnosticsChannel chan protocol.PublishDiagnosticsParams, languageDetector languageserver.LanguageDetector) LanguageServerAwareFileManager {
-	fm := LanguageServerAwareFileManager{
-		delegate:             delegate,
-		languageServerClient: languageServerClient,
-		languageDetector:     languageDetector,
-		diagnostics:          make(map[string][]protocol.Diagnostic)}
-
-	go fm.listenForDiagnostics(diagnosticsChannel)
-	return fm
+// ApplyPatch implements FileManager.
+func (fsm LanguageServerAwareFileManager) ApplyPatch(fileSystem afero.Fs, path string, patch string) (model.File, error) {
+	panic("unimplemented")
 }
 
-func (fsm *LanguageServerAwareFileManager) CreateFile(path string, content string) (model.File, error) {
-	// TODO: do we need to send workspace/willCreateFiles and workspace/didCreateFiles?
-	file, err := fsm.delegate.CreateFile(path, content)
-	if err != nil {
-		return file, err
+// CreateFile implements FileManager.
+func (fsm LanguageServerAwareFileManager) CreateFile(ctx context.Context, fs afero.Fs, path string, content string) (model.File, error) {
+	project, ok := model.ProjectFromContext(ctx)
+
+	if !ok {
+		// Error
+		log.Println("Project not found in context")
+		return model.File{}, fmt.Errorf("Project not found in context")
 	}
 
-	// TODO: fix me
-	uri := pathToURI(path)
-
-	err = fsm.languageServerClient.NotifyDidOpen(
-		context.Background(),
-		protocol.DidOpenTextDocumentParams{
-			TextDocument: protocol.TextDocumentItem{
-				URI:        uri,
-				LanguageID: fsm.languageDetector.DetectLanguage(file),
-				Version:    1,
-				Text:       content}})
+	file, err := fsm.delegate.CreateFile(ctx, fs, path, content)
 
 	if err != nil {
-		return file, err
+		// Error
+		log.Printf("Failed to create file %s in project %s: %s", path, project.Id, err)
+		return model.File{}, fmt.Errorf("Failed to create file %s in project %s: %w", path, project.Id, err)
+	}
+
+	if err := fsm.lspService.NotifyDidOpen(ctx, file); err != nil {
+		// Error
+		log.Printf("Failed to notify didOpen for file %s in project %s: %s", path, project.Id, err)
+		return model.File{}, fmt.Errorf("Failed to notify didOpen for file %s in project %s: %w", path, project.Id, err)
 	}
 
 	// wait for diagnostics
 	time.Sleep(MaxDiagnosticsDelay)
 
-	if diagnostics, ok := fsm.diagnostics[uri]; ok {
+	if diagnostics := fsm.lspService.GetDiagnostics(ctx, file); diagnostics != nil {
+		// Debug
+		log.Printf("Got diagnostics for file %s in project %s: %+v", path, project.Id, diagnostics)
+
 		file.Diagnostics = diagnostics
 		return file, nil
+	}
+
+	// Debug
+	log.Printf("No diagnostics for file %s in project %s", path, project.Id)
+
+	return file, nil
+}
+
+// DeleteFile implements FileManager.
+func (fsm LanguageServerAwareFileManager) DeleteFile(path string) error {
+	return fsm.delegate.DeleteFile(path)
+}
+
+// ListFiles implements FileManager.
+func (fsm LanguageServerAwareFileManager) ListFiles(ctx context.Context, fs afero.Fs) ([]model.File, error) {
+	return fsm.delegate.ListFiles(ctx, fs)
+}
+
+// ReadFile implements FileManager.
+func (fsm LanguageServerAwareFileManager) ReadFile(ctx context.Context, fs afero.Fs, path string, props ReadProps) (model.File, error) {
+	file, err := fsm.delegate.ReadFile(ctx, fs, path, props)
+
+	if err != nil {
+		// Error
+		log.Printf("Failed to read file %s: %s", path, err)
+		return model.File{}, fmt.Errorf("Failed to read file %s: %w", path, err)
+	}
+
+	if err := fsm.lspService.NotifyDidOpen(context.Background(), file); err != nil {
+		// Error
+		log.Printf("Failed to notify didOpen for file %s: %s", path, err)
+		return model.File{}, fmt.Errorf("Failed to notify didOpen for file %s: %w", path, err)
+	}
+
+	// TODO: do we need to wait for diagnostics?
+
+	if diagnostics := fsm.lspService.GetDiagnostics(context.Background(), file); diagnostics != nil {
+		// Debug
+		log.Printf("Got diagnostics for file %s: %+v", path, diagnostics)
+
+		file.Diagnostics = diagnostics
 	}
 
 	return file, nil
 }
 
-func (fsm *LanguageServerAwareFileManager) listenForDiagnostics(channel chan protocol.PublishDiagnosticsParams) {
-	for {
-		select {
-		case diagnostics := <-channel:
-			log.Printf("Received diagnostics for %s", diagnostics.URI)
+// UpdateFile implements FileManager.
+func (fsm LanguageServerAwareFileManager) UpdateFile(ctx context.Context, fs afero.Fs, path, content string) (model.File, error) {
+	file, err := fsm.delegate.UpdateFile(ctx, fs, path, content)
 
-			if documentDiagnostics, ok := fsm.diagnostics[diagnostics.URI]; ok {
-				documentDiagnostics = append(documentDiagnostics, diagnostics.Diagnostics...)
-				fsm.diagnostics[diagnostics.URI] = documentDiagnostics
-			} else {
-				fsm.diagnostics[diagnostics.URI] = diagnostics.Diagnostics
-			}
-		}
+	if err != nil {
+		// Error
+		log.Printf("Failed to update file %s: %s", path, err)
+		return model.File{}, fmt.Errorf("Failed to update file %s: %w", path, err)
 	}
+
+	// TODO: should we NotifyDidOpen first, then update and then notifyDidChange?
+	if err := fsm.lspService.NotifyDidOpen(ctx, file); err != nil {
+		// Error
+		log.Printf("Failed to notify didOpen for file %s: %s", path, err)
+		return model.File{}, fmt.Errorf("Failed to notify didOpen for file %s: %w", path, err)
+	}
+
+	// Wait for diagnostics
+	time.Sleep(MaxDiagnosticsDelay)
+
+	if diagnostics := fsm.lspService.GetDiagnostics(ctx, file); diagnostics != nil {
+		// Debug
+		log.Printf("Got diagnostics for file %s: %+v", path, diagnostics)
+
+		file.Diagnostics = diagnostics
+	}
+
+	return file, err
 }
 
-func pathToURI(path string) protocol.DocumentUri {
-	return protocol.DocumentUri("file://" + path)
+// UpdateLines implements FileManager.
+func (fsm LanguageServerAwareFileManager) UpdateLines(filesystem afero.Fs, path string, lineDiff LineDiffChunk) (model.File, error) {
+	return fsm.delegate.UpdateLines(filesystem, path, lineDiff)
+}
+
+func NewLanguageServerAwareFileManager(delegate FileManager, lspService languageserver.Service) FileManager {
+	return LanguageServerAwareFileManager{
+		delegate:   delegate,
+		lspService: lspService,
+	}
 }

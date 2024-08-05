@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"io"
-	"log"
 
 	"github.com/sourcegraph/jsonrpc2"
 
@@ -43,9 +42,7 @@ type ClientImpl struct {
 func NewClient(ctx context.Context, rwc io.ReadWriteCloser, diagnosticsChannel chan protocol.PublishDiagnosticsParams) Client {
 	handler := &lspHandler{
 		diagnosticsHandler: func(params protocol.PublishDiagnosticsParams) {
-			log.Printf("Received diagnostics for %s: %+v", params.URI, params.Diagnostics)
 			diagnosticsChannel <- params
-			log.Printf("Sent diagnostics for %s", params.URI)
 		},
 	}
 	conn := NewConnection(ctx, rwc, jsonrpc2.HandlerWithError(handler.Handle))

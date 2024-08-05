@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"os"
 	"strconv"
 
 	"github.com/artmoskvin/hide/pkg/files"
@@ -43,14 +42,7 @@ func (h ReadFileHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	project, err := h.Manager.GetProject(projectId)
-
-	if err != nil {
-		http.Error(w, "Project not found", http.StatusNotFound)
-		return
-	}
-
-	file, err := h.FileManager.ReadFile(os.DirFS(project.Path), filePath, files.NewReadProps(
+	file, err := h.Manager.ReadFile(r.Context(), projectId, filePath, files.NewReadProps(
 		func(props *files.ReadProps) {
 			props.ShowLineNumbers = showLineNumbers
 			props.StartLine = startLine

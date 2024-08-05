@@ -1,6 +1,7 @@
 package model
 
 import (
+	"context"
 	"errors"
 
 	"github.com/artmoskvin/hide/pkg/devcontainer"
@@ -62,4 +63,21 @@ func (project *Project) GetTasks() []devcontainer.Task {
 	}
 
 	return project.Config.DevContainerConfig.Customizations.Hide.Tasks
+}
+
+// unexported key type for Project; prevents collisions with keys defined in other packages
+type key int
+
+// allocated key for Project
+var projectKey key
+
+// NewContextWithProject returns a new context with the project set
+func NewContextWithProject(ctx context.Context, project *Project) context.Context {
+	return context.WithValue(ctx, projectKey, project)
+}
+
+// ProjectFromContext returns the project from the context
+func ProjectFromContext(ctx context.Context) (*Project, bool) {
+	project, ok := ctx.Value(projectKey).(*Project)
+	return project, ok
 }

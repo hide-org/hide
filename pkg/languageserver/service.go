@@ -2,7 +2,9 @@ package languageserver
 
 import (
 	"context"
+	"fmt"
 	"log"
+	"path/filepath"
 
 	"github.com/artmoskvin/hide/pkg/model"
 	protocol "github.com/tliron/glsp/protocol_3_16"
@@ -11,12 +13,12 @@ import (
 type Service interface {
 	Initialize(ctx context.Context, params protocol.InitializeParams) (protocol.InitializeResult, error)
 	NotifyInitialized(ctx context.Context) error
-	NotifyDidOpen(project model.Project, file model.File) error
+	NotifyDidOpen(ctx context.Context, file model.File) error
 	NotifyDidChange(ctx context.Context, params protocol.DidChangeTextDocumentParams) error
 	NotifyDidChangeWorkspaceFolders(ctx context.Context, params protocol.DidChangeWorkspaceFoldersParams) error
 	// TODO: check if any LSP server supports this
 	// PullDiagnostics(ctx context.Context, params DocumentDiagnosticParams) (DocumentDiagnosticReport, error)
-	GetDiagnostics(projectId ProjectId, file model.File) []protocol.Diagnostic
+	GetDiagnostics(ctx context.Context, file model.File) []protocol.Diagnostic
 }
 
 type ProjectId = string
@@ -48,14 +50,22 @@ func (s *ServiceImpl) NotifyDidChangeWorkspaceFolders(ctx context.Context, param
 }
 
 // NotifyDidOpen implements Service.
-func (s *ServiceImpl) NotifyDidOpen(project model.Project, file model.File) error {
-	languageId := s.languageDetector.DetectLanguage(file)
-	client := s.getOrCreateLspClient(project, languageId)
-	uri := PathToURI(file.Path)
+func (s *ServiceImpl) NotifyDidOpen(ctx context.Context, file model.File) error {
+	project, ok := model.ProjectFromContext(ctx)
 
-	err := client.NotifyDidOpen(context.Background(), protocol.DidOpenTextDocumentParams{
+	if !ok {
+		// Error
+		log.Println("Project not found in context")
+		return fmt.Errorf("Project not found in context")
+	}
+
+	languageId := s.languageDetector.DetectLanguage(file)
+	client := s.getOrCreateLspClient(*project, languageId)
+	fullPath := filepath.Join(project.Path, file.Path)
+
+	err := client.NotifyDidOpen(ctx, protocol.DidOpenTextDocumentParams{
 		TextDocument: protocol.TextDocumentItem{
-			URI:        uri,
+			URI:        PathToURI(fullPath),
 			LanguageID: languageId,
 			Version:    1,
 			Text:       file.Content,
@@ -70,9 +80,17 @@ func (s *ServiceImpl) NotifyInitialized(ctx context.Context) error {
 	panic("unimplemented")
 }
 
-func (s *ServiceImpl) GetDiagnostics(projectId ProjectId, file model.File) []protocol.Diagnostic {
-	uri := PathToURI(file.Path)
-	if diagnostics, ok := s.lspDiagnostics[projectId]; ok {
+func (s *ServiceImpl) GetDiagnostics(ctx context.Context, file model.File) []protocol.Diagnostic {
+	project, ok := model.ProjectFromContext(ctx)
+
+	if !ok {
+		// Error
+		log.Println("Project not found in context")
+		return nil
+	}
+
+	uri := PathToURI(filepath.Join(project.Path, file.Path))
+	if diagnostics, ok := s.lspDiagnostics[project.Id]; ok {
 		return diagnostics[uri]
 	}
 
@@ -104,23 +122,19 @@ func (s *ServiceImpl) listenForDiagnostics(projectId ProjectId, channel chan pro
 		case diagnostics := <-channel:
 			// Debug
 			log.Printf("Received diagnostics for %s in project %s", diagnostics.URI, projectId)
+			log.Printf("Diagnostics: %+v", diagnostics.Diagnostics)
 
-			if projectDiagnostics, ok := s.lspDiagnostics[projectId]; ok {
-				var documentDiagnostics []protocol.Diagnostic
-
-				if documentDiagnostics, ok := projectDiagnostics[diagnostics.URI]; ok {
-					documentDiagnostics = append(documentDiagnostics, diagnostics.Diagnostics...)
-				} else {
-					documentDiagnostics = diagnostics.Diagnostics
-				}
-
-				projectDiagnostics[projectId] = documentDiagnostics
-			} else {
-				s.lspDiagnostics[projectId] = make(map[protocol.DocumentUri][]protocol.Diagnostic)
-				s.lspDiagnostics[projectId][diagnostics.URI] = diagnostics.Diagnostics
-			}
+			s.updateDiagnostics(projectId, diagnostics)
 		}
 	}
+}
+
+func (s *ServiceImpl) updateDiagnostics(projectId ProjectId, diagnostics protocol.PublishDiagnosticsParams) {
+	if _, ok := s.lspDiagnostics[projectId]; !ok {
+		s.lspDiagnostics[projectId] = make(map[protocol.DocumentUri][]protocol.Diagnostic)
+	}
+
+	s.lspDiagnostics[projectId][diagnostics.URI] = diagnostics.Diagnostics
 }
 
 func PathToURI(path string) protocol.DocumentUri {
