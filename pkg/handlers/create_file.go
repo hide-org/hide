@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"context"
 	"encoding/json"
 	"net/http"
 
@@ -28,16 +27,7 @@ func (h CreateFileHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// project, err := h.Manager.GetProject(projectId)
-	//
-	// if err != nil {
-	// 	http.Error(w, "Project not found", http.StatusNotFound)
-	// 	return
-	// }
-	//
-	// fullPath := filepath.Join(project.Path, request.Path)
-	// file, err := h.FileManager.CreateFile(fullPath, request.Content)
-	file, err := h.Manager.CreateFile(context.Background(), projectId, request.Path, request.Content)
+	file, err := h.Manager.CreateFile(r.Context(), projectId, request.Path, request.Content)
 
 	if err != nil {
 		http.Error(w, "Failed to create file", http.StatusInternalServerError)

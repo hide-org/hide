@@ -67,8 +67,8 @@ func (r *UpdateFileRequest) Validate() error {
 }
 
 type UpdateFileHandler struct {
-	Manager     project.Manager
-	FileManager files.FileManager
+	ProjectManager project.Manager
+	FileManager    files.FileManager
 }
 
 func (h UpdateFileHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -87,20 +87,20 @@ func (h UpdateFileHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	project, err := h.Manager.GetProject(projectId)
+	project, err := h.ProjectManager.GetProject(projectId)
 
 	if err != nil {
 		http.Error(w, "Project not found", http.StatusNotFound)
 		return
 	}
 
-	fileSystem := afero.NewBasePathFs(afero.NewOsFs(), project.Path)
+	fs := afero.NewBasePathFs(afero.NewOsFs(), project.Path)
 
 	var file model.File
 
 	switch request.Type {
 	case Udiff:
-		updatedFile, err := h.FileManager.ApplyPatch(fileSystem, filePath, request.Udiff.Patch)
+		updatedFile, err := h.FileManager.ApplyPatch(r.Context(), fs, filePath, request.Udiff.Patch)
 		if err != nil {
 			http.Error(w, "Failed to update file", http.StatusInternalServerError)
 			return
@@ -108,14 +108,14 @@ func (h UpdateFileHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		file = updatedFile
 	case LineDiff:
 		lineDiff := request.LineDiff
-		updatedFile, err := h.FileManager.UpdateLines(fileSystem, filePath, files.LineDiffChunk{StartLine: lineDiff.StartLine, EndLine: lineDiff.EndLine, Content: lineDiff.Content})
+		updatedFile, err := h.FileManager.UpdateLines(r.Context(), fs, filePath, files.LineDiffChunk{StartLine: lineDiff.StartLine, EndLine: lineDiff.EndLine, Content: lineDiff.Content})
 		if err != nil {
 			http.Error(w, "Failed to update file", http.StatusInternalServerError)
 			return
 		}
 		file = updatedFile
 	case Overwrite:
-		updatedFile, err := h.Manager.UpdateFile(r.Context(), projectId, filePath, request.Overwrite.Content)
+		updatedFile, err := h.ProjectManager.UpdateFile(r.Context(), projectId, filePath, request.Overwrite.Content)
 		if err != nil {
 			http.Error(w, "Failed to update file", http.StatusInternalServerError)
 			return

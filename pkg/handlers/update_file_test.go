@@ -86,7 +86,7 @@ func TestUpdateFileHandler_Success(t *testing.T) {
 				},
 			}
 
-			handler := handlers.UpdateFileHandler{Manager: mockManager, FileManager: mockFileManager}
+			handler := handlers.UpdateFileHandler{ProjectManager: mockManager, FileManager: mockFileManager}
 			payload, _ := json.Marshal(tt.payload)
 			request, _ := http.NewRequest("PUT", "/projects/123/files/test.txt", bytes.NewBuffer(payload))
 			response := httptest.NewRecorder()
@@ -113,7 +113,7 @@ func TestUpdateFileHandler_RespondsWithBadRequest_IfRequestIsUnparsable(t *testi
 	mockManager := &project_mocks.MockProjectManager{}
 	mockFileManager := &files_mocks.MockFileManager{}
 
-	handler := handlers.UpdateFileHandler{Manager: mockManager, FileManager: mockFileManager}
+	handler := handlers.UpdateFileHandler{ProjectManager: mockManager, FileManager: mockFileManager}
 	request, _ := http.NewRequest("PUT", "/projects/123/files/test.txt", bytes.NewBuffer([]byte("invalid json")))
 	response := httptest.NewRecorder()
 
@@ -192,7 +192,7 @@ func TestUpdateFileHandler_RespondsWithBadRequest_IfRequestIsInvalid(t *testing.
 			mockManager := &project_mocks.MockProjectManager{}
 			mockFileManager := &files_mocks.MockFileManager{}
 
-			handler := handlers.UpdateFileHandler{Manager: mockManager, FileManager: mockFileManager}
+			handler := handlers.UpdateFileHandler{ProjectManager: mockManager, FileManager: mockFileManager}
 
 			body, _ := json.Marshal(tt.payload)
 			request, _ := http.NewRequest("PUT", "/projects/123/files/test.txt", bytes.NewBuffer(body))
@@ -231,7 +231,7 @@ func TestUpdateFileHandler_RespondsWithInternalServerError_IfFileManagerFails(t 
 		},
 	})
 
-	handler := handlers.UpdateFileHandler{Manager: mockManager, FileManager: mockFileManager}
+	handler := handlers.UpdateFileHandler{ProjectManager: mockManager, FileManager: mockFileManager}
 	request, _ := http.NewRequest("PUT", "/projects/123/files/test.txt", bytes.NewBuffer(body))
 	response := httptest.NewRecorder()
 
@@ -262,7 +262,7 @@ func TestUpdateFileHandler_RespondsWithNotFound_IfProjectNotFound(t *testing.T) 
 		},
 	})
 
-	handler := handlers.UpdateFileHandler{Manager: mockManager, FileManager: mockFileManager}
+	handler := handlers.UpdateFileHandler{ProjectManager: mockManager, FileManager: mockFileManager}
 	request, _ := http.NewRequest("PUT", "/projects/123/files/test.txt", bytes.NewBuffer(body))
 	response := httptest.NewRecorder()
 

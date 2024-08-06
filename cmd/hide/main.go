@@ -89,7 +89,7 @@ func main() {
 	listTasksHandler := handlers.ListTasksHandler{Manager: projectManager}
 	createFileHandler := handlers.CreateFileHandler{Manager: projectManager, FileManager: fileManager}
 	readFileHandler := handlers.ReadFileHandler{Manager: projectManager, FileManager: fileManager}
-	updateFileHandler := handlers.UpdateFileHandler{Manager: projectManager, FileManager: fileManager}
+	updateFileHandler := handlers.UpdateFileHandler{ProjectManager: projectManager, FileManager: fileManager}
 	deleteFileHandler := handlers.DeleteFileHandler{Manager: projectManager, FileManager: fileManager}
 	listFilesHandler := handlers.ListFilesHandler{ProjectManager: projectManager, FileManager: fileManager}
 
