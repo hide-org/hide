@@ -4,7 +4,6 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -15,28 +14,39 @@ import (
 	"github.com/artmoskvin/hide/pkg/project"
 	"github.com/artmoskvin/hide/pkg/util"
 	"github.com/docker/docker/client"
+
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 )
 
-const ProjectsDir = "hide-projects"
-const DefaultDotEnvPath = ".env"
+const (
+	ProjectsDir       = "hide-projects"
+	DefaultDotEnvPath = ".env"
+)
 
 func main() {
+	fmt.Print(Splash)
+
 	envPath := flag.String("env", DefaultDotEnvPath, "path to the .env file")
+	debug := flag.Bool("debug", false, "run service in a debug mode")
 	flag.Parse()
+
+	setupLogger(*debug)
 
 	_, err := os.Stat(*envPath)
 
 	if os.IsNotExist(err) {
-		log.Printf("Debug: Environment file %s does not exist.", *envPath)
+		log.Debug().Msg(fmt.Sprintf("Environment file %s does not exist.", *envPath))
 	}
 
 	if err == nil {
+		// NOTE: can use filepath.Split()
 		dotEnvDir := filepath.Dir(*envPath)
 		dotEnvFile := filepath.Base(*envPath)
 
 		err := util.LoadEnv(os.DirFS(dotEnvDir), dotEnvFile)
 		if err != nil {
-			log.Printf("Warning: Cannot load environment variables from %s: %s", *envPath, err)
+			log.Error().Err(err).Msg(fmt.Sprintf("Cannot load environment variables from %s", *envPath))
 		}
 	}
 
@@ -44,23 +54,21 @@ func main() {
 	dockerToken := os.Getenv("DOCKER_TOKEN")
 
 	if dockerUser == "" || dockerToken == "" {
-		log.Println("Warning: DOCKER_USER and DOCKER_TOKEN environment variables are empty. This might cause problems when pulling images from Docker Hub.")
+		log.Warn().Msg("DOCKER_USER or DOCKER_TOKEN environment variables are empty. This might cause problems when pulling images from Docker Hub.")
 	}
 
 	mux := http.NewServeMux()
 	dockerClient, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
-
 	if err != nil {
-		panic(err)
+		log.Fatal().Err(err).Msg("Cannot initialize docker client")
 	}
 
 	context := context.Background()
 	containerRunner := devcontainer.NewDockerRunner(dockerClient, util.NewExecutorImpl(), context, devcontainer.DockerRunnerConfig{Username: dockerUser, Password: dockerToken})
 	projectStore := project.NewInMemoryStore(make(map[string]*project.Project))
 	home, err := os.UserHomeDir()
-
 	if err != nil {
-		panic(err)
+		log.Fatal().Err(err).Msg("User's home directory is not set")
 	}
 
 	projectsDir := filepath.Join(home, ProjectsDir)
@@ -87,13 +95,22 @@ func main() {
 	mux.Handle("PUT /projects/{id}/files/{path...}", updateFileHandler)
 	mux.Handle("DELETE /projects/{id}/files/{path...}", deleteFileHandler)
 
+	// TODO: make configurable
 	port := ":8080"
 
-	fmt.Print(Splash)
-	log.Printf("Server started on %s\n", port)
+	log.Info().Msg(fmt.Sprintf("Server started on %s\n", port))
 
 	if err := http.ListenAndServe(port, mux); err != nil {
-		fmt.Println("Error starting server")
-		panic(err)
+		log.Fatal().Err(err).Str("port", port).Msg("Failed to start server")
+	}
+}
+
+func setupLogger(debug bool) {
+	output := zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: zerolog.TimeFormatUnix, NoColor: false}
+	log.Logger = log.Output(output)
+
+	zerolog.SetGlobalLevel(zerolog.InfoLevel)
+	if debug {
+		zerolog.SetGlobalLevel(zerolog.DebugLevel)
 	}
 }
