@@ -3,7 +3,6 @@ package languageserver
 import (
 	"context"
 	"encoding/json"
-	"io"
 
 	"github.com/sourcegraph/jsonrpc2"
 
@@ -30,23 +29,25 @@ type Client interface {
 	Initialize(ctx context.Context, params protocol.InitializeParams) (protocol.InitializeResult, error)
 	NotifyInitialized(ctx context.Context) error
 	NotifyDidOpen(ctx context.Context, params protocol.DidOpenTextDocumentParams) error
-	NotifyDidChange(ctx context.Context, params protocol.DidChangeTextDocumentParams) error
-	NotifyDidChangeWorkspaceFolders(ctx context.Context, params protocol.DidChangeWorkspaceFoldersParams) error
+	NotifyDidClose(ctx context.Context, params protocol.DidCloseTextDocumentParams) error
 	// TODO: check if any LSP server supports this
 	// PullDiagnostics(ctx context.Context, params DocumentDiagnosticParams) (DocumentDiagnosticReport, error)
+	StopServer() error
 }
 type ClientImpl struct {
-	conn Connection
+	conn               Connection
+	server             Process
+	diagnosticsChannel chan protocol.PublishDiagnosticsParams
 }
 
-func NewClient(ctx context.Context, rwc io.ReadWriteCloser, diagnosticsChannel chan protocol.PublishDiagnosticsParams) Client {
+func NewClient(ctx context.Context, server Process, diagnosticsChannel chan protocol.PublishDiagnosticsParams) Client {
 	handler := &lspHandler{
 		diagnosticsHandler: func(params protocol.PublishDiagnosticsParams) {
 			diagnosticsChannel <- params
 		},
 	}
-	conn := NewConnection(ctx, rwc, jsonrpc2.HandlerWithError(handler.Handle))
-	return &ClientImpl{conn: conn}
+	conn := NewConnection(ctx, server.ReadWriteCloser(), jsonrpc2.HandlerWithError(handler.Handle))
+	return &ClientImpl{conn: conn, server: server, diagnosticsChannel: diagnosticsChannel}
 }
 
 func (c *ClientImpl) Initialize(ctx context.Context, params protocol.InitializeParams) (protocol.InitializeResult, error) {
@@ -63,12 +64,8 @@ func (c *ClientImpl) NotifyDidOpen(ctx context.Context, params protocol.DidOpenT
 	return c.conn.Notify(ctx, "textDocument/didOpen", params)
 }
 
-func (c *ClientImpl) NotifyDidChange(ctx context.Context, params protocol.DidChangeTextDocumentParams) error {
-	return c.conn.Notify(ctx, "textDocument/didChange", params)
-}
-
-func (c *ClientImpl) NotifyDidChangeWorkspaceFolders(ctx context.Context, params protocol.DidChangeWorkspaceFoldersParams) error {
-	return c.conn.Notify(ctx, "workspace/didChangeWorkspaceFolders", params)
+func (c *ClientImpl) NotifyDidClose(ctx context.Context, params protocol.DidCloseTextDocumentParams) error {
+	return c.conn.Notify(ctx, "textDocument/didClose", params)
 }
 
 // func (c *ClientImpl) PullDiagnostics(ctx context.Context, params DocumentDiagnosticParams) (DocumentDiagnosticReport, error) {
@@ -76,3 +73,7 @@ func (c *ClientImpl) NotifyDidChangeWorkspaceFolders(ctx context.Context, params
 // 	err := c.conn.Call(ctx, "textDocument/diagnostic", params, &result)
 // 	return result, err
 // }
+
+func (c *ClientImpl) StopServer() error {
+	return c.server.Stop()
+}

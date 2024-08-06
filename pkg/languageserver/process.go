@@ -55,6 +55,9 @@ func (p *ProcessImpl) Start() error {
 }
 
 func (p *ProcessImpl) Stop() error {
+	if p.cmd.Process == nil {
+		return nil
+	}
 	return p.cmd.Process.Kill()
 }
 

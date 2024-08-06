@@ -1,5 +1,8 @@
 .SILENT:
 
+debug:
+	go run ./cmd/hide -debug
+
 run:
 	go run ./cmd/hide
 

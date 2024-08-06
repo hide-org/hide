@@ -11,14 +11,12 @@ import (
 )
 
 type Service interface {
-	Initialize(ctx context.Context, params protocol.InitializeParams) (protocol.InitializeResult, error)
-	NotifyInitialized(ctx context.Context) error
 	NotifyDidOpen(ctx context.Context, file model.File) error
-	NotifyDidChange(ctx context.Context, params protocol.DidChangeTextDocumentParams) error
-	NotifyDidChangeWorkspaceFolders(ctx context.Context, params protocol.DidChangeWorkspaceFoldersParams) error
+	NotifyDidClose(ctx context.Context, file model.File) error
 	// TODO: check if any LSP server supports this
 	// PullDiagnostics(ctx context.Context, params DocumentDiagnosticParams) (DocumentDiagnosticReport, error)
 	GetDiagnostics(ctx context.Context, file model.File) []protocol.Diagnostic
+	StopClient(ctx context.Context, file model.File) error
 }
 
 type ProjectId = string
@@ -34,19 +32,25 @@ type ServiceImpl struct {
 	languageDetector       LanguageDetector
 }
 
-// Initialize implements Service.
-func (s *ServiceImpl) Initialize(ctx context.Context, params protocol.InitializeParams) (protocol.InitializeResult, error) {
-	panic("unimplemented")
-}
+// NotifyDidClose implements Service.
+func (s *ServiceImpl) NotifyDidClose(ctx context.Context, file model.File) error {
+	project, ok := model.ProjectFromContext(ctx)
 
-// NotifyDidChange implements Service.
-func (s *ServiceImpl) NotifyDidChange(ctx context.Context, params protocol.DidChangeTextDocumentParams) error {
-	panic("unimplemented")
-}
+	if !ok {
+		// Error
+		log.Println("Project not found in context")
+		return fmt.Errorf("Project not found in context")
+	}
 
-// NotifyDidChangeWorkspaceFolders implements Service.
-func (s *ServiceImpl) NotifyDidChangeWorkspaceFolders(ctx context.Context, params protocol.DidChangeWorkspaceFoldersParams) error {
-	panic("unimplemented")
+	languageId := s.languageDetector.DetectLanguage(file)
+	client := s.getOrCreateLspClient(*project, languageId)
+	err := client.NotifyDidClose(ctx, protocol.DidCloseTextDocumentParams{
+		TextDocument: protocol.TextDocumentIdentifier{
+			URI: PathToURI(file.Path),
+		},
+	})
+
+	return err
 }
 
 // NotifyDidOpen implements Service.
@@ -75,11 +79,6 @@ func (s *ServiceImpl) NotifyDidOpen(ctx context.Context, file model.File) error 
 	return err
 }
 
-// NotifyInitialized implements Service.
-func (s *ServiceImpl) NotifyInitialized(ctx context.Context) error {
-	panic("unimplemented")
-}
-
 func (s *ServiceImpl) GetDiagnostics(ctx context.Context, file model.File) []protocol.Diagnostic {
 	project, ok := model.ProjectFromContext(ctx)
 
@@ -93,6 +92,34 @@ func (s *ServiceImpl) GetDiagnostics(ctx context.Context, file model.File) []pro
 	if diagnostics, ok := s.lspDiagnostics[project.Id]; ok {
 		return diagnostics[uri]
 	}
+
+	return nil
+}
+
+func (s *ServiceImpl) StopClient(ctx context.Context, file model.File) error {
+	project, ok := model.ProjectFromContext(ctx)
+
+	if !ok {
+		// Error
+		log.Println("Project not found in context")
+		return fmt.Errorf("Project not found in context")
+	}
+
+	languageId := s.languageDetector.DetectLanguage(file)
+
+	if _, ok := s.lspClients[project.Id]; !ok {
+		return nil
+	}
+
+	if _, ok := s.lspClients[project.Id][languageId]; !ok {
+		return nil
+	}
+
+	if err := s.lspClients[project.Id][languageId].StopServer(); err != nil {
+		return err
+	}
+
+	delete(s.lspClients[project.Id], languageId)
 
 	return nil
 }

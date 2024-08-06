@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/artmoskvin/hide/pkg/devcontainer"
 	"github.com/artmoskvin/hide/pkg/files"
@@ -15,10 +16,12 @@ import (
 	"github.com/artmoskvin/hide/pkg/model"
 	"github.com/artmoskvin/hide/pkg/project"
 	"github.com/artmoskvin/hide/pkg/util"
+
 	"github.com/docker/docker/client"
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+
 	protocol "github.com/tliron/glsp/protocol_3_16"
 )
 
@@ -39,7 +42,7 @@ func main() {
 	_, err := os.Stat(*envPath)
 
 	if os.IsNotExist(err) {
-		log.Debug().Msg(fmt.Sprintf("Environment file %s does not exist.", *envPath))
+		log.Debug().Msgf("Environment file %s does not exist.", *envPath)
 	}
 
 	if err == nil {
@@ -49,7 +52,7 @@ func main() {
 
 		err := util.LoadEnv(os.DirFS(dotEnvDir), dotEnvFile)
 		if err != nil {
-			log.Error().Err(err).Msg(fmt.Sprintf("Cannot load environment variables from %s", *envPath))
+			log.Error().Err(err).Msgf("Cannot load environment variables from %s", *envPath)
 		}
 	}
 
@@ -103,7 +106,7 @@ func main() {
 	// TODO: make configurable
 	port := ":8080"
 
-	log.Info().Msg(fmt.Sprintf("Server started on %s\n", port))
+	log.Info().Msgf("Server started on %s\n", port)
 
 	if err := http.ListenAndServe(port, mux); err != nil {
 		log.Fatal().Err(err).Str("port", port).Msg("Failed to start server")
@@ -111,8 +114,9 @@ func main() {
 }
 
 func setupLogger(debug bool) {
-	output := zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: zerolog.TimeFormatUnix, NoColor: false}
-	log.Logger = log.Output(output)
+	zerolog.TimeFieldFormat = zerolog.TimeFormatUnixMs
+	output := zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: time.RFC3339Nano}
+	log.Logger = log.Output(output).With().Caller().Logger()
 
 	zerolog.SetGlobalLevel(zerolog.InfoLevel)
 	if debug {
@@ -129,11 +133,11 @@ func lspClientFactoryMethod(languageId, projectRoot string, diagnosticsChannel c
 	// Start the language server
 	process, err := languageserver.NewProcess(lspServerExecutable)
 	if err != nil {
-		log.Fatalf("Failed to create language server process: %s", err)
+		log.Fatal().Err(err).Msg("Failed to create language server process")
 	}
 
 	if err := process.Start(); err != nil {
-		log.Fatalf("Failed to start language server: %s", err)
+		log.Fatal().Err(err).Msg("Failed to start language server")
 	}
 
 	// TODO: fix me
@@ -162,11 +166,11 @@ func lspClientFactoryMethod(languageId, projectRoot string, diagnosticsChannel c
 	})
 
 	if err != nil {
-		log.Fatalf("Failed to initialize language server: %s", err)
+		log.Fatal().Err(err).Msg("Failed to initialize language server")
 	}
 
 	// Debug
-	log.Printf("Initialized language server for project ??? (languageId: %s)", languageId)
+	log.Debug().Str("languageId", languageId).Msg("Initialized language server")
 
 	// if opt, ok := initResult.Capabilities.TextDocumentSync.(protocol.TextDocumentSyncOptions); ok {
 	// 	log.Printf("Support open/close file: %t", *opt.OpenClose)
@@ -175,7 +179,7 @@ func lspClientFactoryMethod(languageId, projectRoot string, diagnosticsChannel c
 
 	// Notify that initialized
 	if err := client.NotifyInitialized(ctx); err != nil {
-		log.Fatalf("Failed to notify initialized: %s", err)
+		log.Fatal().Err(err).Msg("Failed to notify initialized")
 	}
 
 	return client

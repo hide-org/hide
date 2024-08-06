@@ -6,7 +6,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -15,6 +14,7 @@ import (
 	"github.com/artmoskvin/hide/pkg/languageserver"
 	"github.com/artmoskvin/hide/pkg/model"
 	"github.com/bluekeyes/go-gitdiff/gitdiff"
+	"github.com/rs/zerolog/log"
 	"github.com/spf13/afero"
 )
 
@@ -45,10 +45,10 @@ type FileManager interface {
 	CreateFile(ctx context.Context, fs afero.Fs, path, content string) (model.File, error)
 	ReadFile(ctx context.Context, fs afero.Fs, path string, props ReadProps) (model.File, error)
 	UpdateFile(ctx context.Context, fs afero.Fs, path, content string) (model.File, error)
-	DeleteFile(path string) error
+	DeleteFile(ctx context.Context, fs afero.Fs, path string) error
 	ListFiles(ctx context.Context, fs afero.Fs) ([]model.File, error)
-	ApplyPatch(fileSystem afero.Fs, path string, patch string) (model.File, error)
-	UpdateLines(filesystem afero.Fs, path string, lineDiff LineDiffChunk) (model.File, error)
+	ApplyPatch(ctx context.Context, fs afero.Fs, path string, patch string) (model.File, error)
+	UpdateLines(ctx context.Context, fs afero.Fs, path string, lineDiff LineDiffChunk) (model.File, error)
 }
 
 type FileManagerImpl struct{}
@@ -58,18 +58,17 @@ func NewFileManager() FileManager {
 }
 
 func (fm *FileManagerImpl) CreateFile(ctx context.Context, fs afero.Fs, path, content string) (model.File, error) {
-	// Debug
-	log.Println("Creating file", path)
+	log.Debug().Msgf("Creating file %s", path)
 
 	dir := filepath.Dir(path)
 
 	if err := fs.MkdirAll(dir, 0755); err != nil {
-		log.Printf("Failed to create directory %s: %s", dir, err)
+		log.Error().Err(err).Msgf("Failed to create directory %s", dir)
 		return model.File{}, fmt.Errorf("Failed to create directory %s: %w", dir, err)
 	}
 
 	if err := writeFile(fs, path, content); err != nil {
-		log.Printf("Failed to create file %s: %s", path, err)
+		log.Error().Err(err).Msgf("Failed to create file %s", path)
 		return model.File{}, fmt.Errorf("Failed to create file %s: %w", path, err)
 	}
 
@@ -77,13 +76,12 @@ func (fm *FileManagerImpl) CreateFile(ctx context.Context, fs afero.Fs, path, co
 }
 
 func (fm *FileManagerImpl) ReadFile(ctx context.Context, fs afero.Fs, path string, props ReadProps) (model.File, error) {
-	// Debug
-	log.Println("Reading file", path)
+	log.Debug().Msgf("Reading file %s", path)
 
 	content, err := readFile(fs, path)
 
 	if err != nil {
-		log.Printf("Failed to open file %s: %s", path, err)
+		log.Error().Err(err).Msgf("Failed to open file %s", path)
 		return model.File{}, fmt.Errorf("Failed to open file: %w", err)
 	}
 
@@ -125,57 +123,48 @@ func (fm *FileManagerImpl) ReadFile(ctx context.Context, fs afero.Fs, path strin
 }
 
 func (fm *FileManagerImpl) UpdateFile(ctx context.Context, fs afero.Fs, path, content string) (model.File, error) {
-	log.Println("Updating file", path)
+	log.Debug().Msgf("Updating file %s", path)
 
 	exists, err := fileExists(fs, path)
 
 	if err != nil {
-		log.Printf("Failed to check if file %s exists: %s", path, err)
+		log.Error().Err(err).Msgf("Failed to check if file %s exists", path)
 		return model.File{}, fmt.Errorf("Failed to check if file %s exists: %w", path, err)
 	}
 
 	if !exists {
-		log.Printf("File %s does not exist", path)
+		log.Error().Msgf("File %s does not exist", path)
 		return model.File{}, fmt.Errorf("File %s does not exist", path)
 	}
 
 	if err := writeFile(fs, path, content); err != nil {
-		log.Printf("Failed to write file %s: %s", path, err)
+		log.Error().Err(err).Msgf("Failed to write file %s", path)
 		return model.File{}, fmt.Errorf("Failed to write file %s: %w", path, err)
 	}
 
 	return readFile(fs, path)
 }
 
-func (fm *FileManagerImpl) DeleteFile(path string) error {
-	if err := os.Remove(path); err != nil {
-		return fmt.Errorf("Failed to delete file: %w", err)
-	}
-
-	return nil
+func (fm *FileManagerImpl) DeleteFile(ctx context.Context, fs afero.Fs, path string) error {
+	return fs.Remove(path)
 }
 
 func (fm *FileManagerImpl) ListFiles(ctx context.Context, fs afero.Fs) ([]model.File, error) {
-	log.Println("Listing files")
+	log.Debug().Msg("Listing files")
 
 	var files []model.File
 
 	rootPath := "/"
 	err := afero.Walk(fs, rootPath, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
-			log.Printf("Error walking file tree on path %s: %s", path, err)
+			log.Error().Err(err).Msgf("Error walking file tree on path %s", path)
 			return fmt.Errorf("Error walking file tree on path %s: %w", path, err)
-		}
-
-		if err != nil {
-			log.Printf("Error getting relative path from %s to %s: %s", rootPath, path, err)
-			return fmt.Errorf("Error getting relative path from %s to %s: %w", rootPath, path, err)
 		}
 
 		if !info.IsDir() {
 			file, err := readFile(fs, path)
 			if err != nil {
-				log.Printf("Error reading file %s: %s", path, err)
+				log.Error().Err(err).Msgf("Error reading file %s", path)
 				return fmt.Errorf("Error reading file %s: %w", path, err)
 			}
 
@@ -188,89 +177,89 @@ func (fm *FileManagerImpl) ListFiles(ctx context.Context, fs afero.Fs) ([]model.
 	return files, err
 }
 
-func (fm *FileManagerImpl) ApplyPatch(fileSystem afero.Fs, path string, patch string) (model.File, error) {
-	log.Printf("Applying patch to %s:\n%s", path, patch)
+func (fm *FileManagerImpl) ApplyPatch(ctx context.Context, fs afero.Fs, path string, patch string) (model.File, error) {
+	log.Debug().Msgf("Applying patch to %s:\n%s", path, patch)
 
-	file, err := readFile(fileSystem, path)
+	file, err := readFile(fs, path)
 	if err != nil {
-		log.Printf("Failed to read file %s: %s", path, err)
+		log.Error().Err(err).Msgf("Failed to read file %s", path)
 		return model.File{}, fmt.Errorf("Failed to read file %s: %w", path, err)
 	}
 
 	files, _, err := gitdiff.Parse(strings.NewReader(patch))
 
 	if err != nil {
-		log.Printf("Failed to parse patch: %s\n%s", err, patch)
+		log.Error().Err(err).Msgf("Failed to parse patch: %s\n%s", patch, err)
 		return model.File{}, fmt.Errorf("Failed to parse patch: %w", err)
 	}
 
 	if len(files) == 0 {
-		log.Printf("No files changed in patch:\n%s", patch)
+		log.Error().Msgf("No files changed in patch:\n%s", patch)
 		return model.File{}, fmt.Errorf("No files changed in patch")
 	}
 
 	if len(files) > 1 {
-		log.Printf("Multiple files changed in patch:\n%s", patch)
+		log.Error().Msgf("Multiple files changed in patch:\n%s", patch)
 		return model.File{}, fmt.Errorf("Patch cannot contain multiple files")
 	}
 
 	var output bytes.Buffer
 
 	if err := gitdiff.Apply(&output, strings.NewReader(file.Content), files[0]); err != nil {
-		log.Printf("Failed to apply patch: %s", err)
+		log.Error().Err(err).Msgf("Failed to apply patch to %s", path)
 		return model.File{}, fmt.Errorf("Failed to apply patch to %s: %w\n%s", path, err, patch)
 	}
 
-	if err := afero.WriteFile(fileSystem, path, output.Bytes(), 0644); err != nil {
-		log.Printf("Failed to write file %s after applying patch: %s", path, err)
+	if err := afero.WriteFile(fs, path, output.Bytes(), 0644); err != nil {
+		log.Error().Err(err).Msgf("Failed to write file %s after applying patch", path)
 		return model.File{}, fmt.Errorf("Failed to write file %s after applying patch: %w", path, err)
 	}
 
-	log.Printf("Applied patch to %s", path)
+	log.Debug().Msgf("Applied patch to %s", path)
 
-	return readFile(fileSystem, path)
+	return readFile(fs, path)
 }
 
-func (fm *FileManagerImpl) UpdateLines(filesystem afero.Fs, path string, lineDiff LineDiffChunk) (model.File, error) {
-	log.Printf("Updating lines in %s", path)
+func (fm *FileManagerImpl) UpdateLines(ctx context.Context, fs afero.Fs, path string, lineDiff LineDiffChunk) (model.File, error) {
+	log.Debug().Msgf("Updating lines in %s", path)
 
-	lines, err := readLinesFromFile(filesystem, path)
+	lines, err := readLinesFromFile(fs, path)
 
 	if err != nil {
-		log.Printf("Failed to read file %s: %s", path, err)
+		log.Error().Err(err).Msgf("Failed to read file %s", path)
 		return model.File{}, fmt.Errorf("Failed to read file %s: %w", path, err)
 	}
 
 	if lineDiff.StartLine > len(lines) {
-		log.Printf("Start line must be less than or equal to %d", len(lines))
+		log.Error().Msgf("Start line must be less than or equal to %d", len(lines))
 		return model.File{}, fmt.Errorf("Start line must be less than or equal to %d", len(lines))
 	}
 
 	if lineDiff.EndLine > len(lines) {
-		log.Printf("End line must be less than or equal to %d", len(lines))
+		log.Error().Msgf("End line must be less than or equal to %d", len(lines))
 		return model.File{}, fmt.Errorf("End line must be less than or equal to %d", len(lines))
 	}
 
 	newLines, err := readLinesFromString(lineDiff.Content)
 
 	if err != nil {
-		log.Printf("Failed to read lines from linediff content: %s\n%s", err, lineDiff.Content)
+		log.Error().Err(err).Msgf("Failed to read lines from linediff content: %s\n%s", lineDiff.Content, err)
 		return model.File{}, fmt.Errorf("Failed to read lines from linediff content: %w", err)
 	}
 
 	// slicing is 0-based so we need to subtract 1 from the start line number; end line is exclusive so remains the same
 	lines = replaceSlice(lines, newLines, lineDiff.StartLine-1, lineDiff.EndLine)
 
-	if err := writeLines(filesystem, path, lines); err != nil {
-		log.Printf("Failed to write file %s when updating lines: %s", path, err)
+	if err := writeLines(fs, path, lines); err != nil {
+		log.Error().Err(err).Msgf("Failed to write file %s when updating lines", path)
 		return model.File{}, fmt.Errorf("Failed to write file %s: %w", path, err)
 	}
 
-	return readFile(filesystem, path)
+	return readFile(fs, path)
 }
 
-func readFile(fileSystem afero.Fs, path string) (model.File, error) {
-	content, err := afero.ReadFile(fileSystem, path)
+func readFile(fs afero.Fs, path string) (model.File, error) {
+	content, err := afero.ReadFile(fs, path)
 
 	if err != nil {
 		return model.File{}, err
@@ -279,8 +268,8 @@ func readFile(fileSystem afero.Fs, path string) (model.File, error) {
 	return model.File{Path: path, Content: string(content)}, nil
 }
 
-func writeFile(fileSystem afero.Fs, path string, content string) error {
-	return afero.WriteFile(fileSystem, path, []byte(content), 0644)
+func writeFile(fs afero.Fs, path string, content string) error {
+	return afero.WriteFile(fs, path, []byte(content), 0644)
 }
 
 func readLinesFromFile(fs afero.Fs, filename string) ([]string, error) {
@@ -323,8 +312,8 @@ func writeLines(fs afero.Fs, filename string, lines []string) error {
 	return writer.Flush()
 }
 
-func fileExists(fileSystem afero.Fs, path string) (bool, error) {
-	return afero.Exists(fileSystem, path)
+func fileExists(fs afero.Fs, path string) (bool, error) {
+	return afero.Exists(fs, path)
 }
 
 func replaceSlice(original []string, replacement []string, start, end int) []string {
@@ -344,8 +333,31 @@ type LanguageServerAwareFileManager struct {
 }
 
 // ApplyPatch implements FileManager.
-func (fsm LanguageServerAwareFileManager) ApplyPatch(fileSystem afero.Fs, path string, patch string) (model.File, error) {
-	panic("unimplemented")
+func (fsm LanguageServerAwareFileManager) ApplyPatch(ctx context.Context, fs afero.Fs, path, patch string) (model.File, error) {
+	file, err := fsm.delegate.ApplyPatch(ctx, fs, path, patch)
+
+	if err != nil {
+		return file, err
+	}
+
+	if err := fsm.lspService.NotifyDidOpen(ctx, file); err != nil {
+		log.Error().Err(err).Msgf("Failed to notify didOpen while applying patch to %s", path)
+		return model.File{}, fmt.Errorf("Failed to notify didOpen while applying patch to %s: %w", path, err)
+	}
+
+	// wait for diagnostics
+	time.Sleep(MaxDiagnosticsDelay)
+
+	if diagnostics := fsm.lspService.GetDiagnostics(ctx, file); diagnostics != nil {
+		file.Diagnostics = diagnostics
+	}
+
+	if err := fsm.lspService.NotifyDidClose(ctx, file); err != nil {
+		log.Error().Err(err).Msgf("Failed to notify didClose while applying patch to %s", path)
+		return model.File{}, fmt.Errorf("Failed to notify didClose while applying patch to %s: %w", path, err)
+	}
+
+	return file, nil
 }
 
 // CreateFile implements FileManager.
@@ -353,50 +365,73 @@ func (fsm LanguageServerAwareFileManager) CreateFile(ctx context.Context, fs afe
 	project, ok := model.ProjectFromContext(ctx)
 
 	if !ok {
-		// Error
-		log.Println("Project not found in context")
+		log.Error().Msg("Project not found in context")
 		return model.File{}, fmt.Errorf("Project not found in context")
 	}
 
 	file, err := fsm.delegate.CreateFile(ctx, fs, path, content)
 
 	if err != nil {
-		// Error
-		log.Printf("Failed to create file %s in project %s: %s", path, project.Id, err)
-		return model.File{}, fmt.Errorf("Failed to create file %s in project %s: %w", path, project.Id, err)
+		return file, err
 	}
 
 	if err := fsm.lspService.NotifyDidOpen(ctx, file); err != nil {
-		// Error
-		log.Printf("Failed to notify didOpen for file %s in project %s: %s", path, project.Id, err)
-		return model.File{}, fmt.Errorf("Failed to notify didOpen for file %s in project %s: %w", path, project.Id, err)
+		log.Error().Err(err).Msgf("Failed to notify didOpen while creating file %s in project %s", path, project.Id)
+		return model.File{}, fmt.Errorf("Failed to notify didOpen while creating file %s in project %s: %w", path, project.Id, err)
 	}
 
 	// wait for diagnostics
 	time.Sleep(MaxDiagnosticsDelay)
 
 	if diagnostics := fsm.lspService.GetDiagnostics(ctx, file); diagnostics != nil {
-		// Debug
-		log.Printf("Got diagnostics for file %s in project %s: %+v", path, project.Id, diagnostics)
-
 		file.Diagnostics = diagnostics
 		return file, nil
 	}
 
 	// Debug
-	log.Printf("No diagnostics for file %s in project %s", path, project.Id)
+	log.Debug().Msgf("No diagnostics for file %s in project %s", path, project.Id)
+
+	if err := fsm.lspService.NotifyDidClose(ctx, file); err != nil {
+		log.Error().Err(err).Msgf("Failed to notify didClose while creating file %s in project %s", path, project.Id)
+		return model.File{}, fmt.Errorf("Failed to notify didClose while creating file %s in project %s: %w", path, project.Id, err)
+	}
 
 	return file, nil
 }
 
 // DeleteFile implements FileManager.
-func (fsm LanguageServerAwareFileManager) DeleteFile(path string) error {
-	return fsm.delegate.DeleteFile(path)
+func (fsm LanguageServerAwareFileManager) DeleteFile(ctx context.Context, fs afero.Fs, path string) error {
+	return fsm.delegate.DeleteFile(ctx, fs, path)
 }
 
 // ListFiles implements FileManager.
 func (fsm LanguageServerAwareFileManager) ListFiles(ctx context.Context, fs afero.Fs) ([]model.File, error) {
-	return fsm.delegate.ListFiles(ctx, fs)
+	files, err := fsm.delegate.ListFiles(ctx, fs)
+
+	if err != nil {
+		return files, err
+	}
+
+	for _, file := range files {
+		if err := fsm.lspService.NotifyDidOpen(ctx, file); err != nil {
+			log.Error().Err(err).Msgf("Failed to notify didOpen for file %s while listing files", file.Path)
+			return nil, fmt.Errorf("Failed to notify didOpen for file %s while listing files: %w", file.Path, err)
+		}
+
+		// wait for diagnostics
+		time.Sleep(MaxDiagnosticsDelay)
+
+		if diagnostics := fsm.lspService.GetDiagnostics(ctx, file); diagnostics != nil {
+			file.Diagnostics = diagnostics
+		}
+
+		if err := fsm.lspService.NotifyDidClose(ctx, file); err != nil {
+			log.Error().Err(err).Msgf("Failed to notify didClose for file %s while listing files", file.Path)
+			return nil, fmt.Errorf("Failed to notify didClose for file %s while listing files: %w", file.Path, err)
+		}
+	}
+
+	return files, err
 }
 
 // ReadFile implements FileManager.
@@ -404,24 +439,24 @@ func (fsm LanguageServerAwareFileManager) ReadFile(ctx context.Context, fs afero
 	file, err := fsm.delegate.ReadFile(ctx, fs, path, props)
 
 	if err != nil {
-		// Error
-		log.Printf("Failed to read file %s: %s", path, err)
-		return model.File{}, fmt.Errorf("Failed to read file %s: %w", path, err)
+		return file, err
 	}
 
-	if err := fsm.lspService.NotifyDidOpen(context.Background(), file); err != nil {
-		// Error
-		log.Printf("Failed to notify didOpen for file %s: %s", path, err)
-		return model.File{}, fmt.Errorf("Failed to notify didOpen for file %s: %w", path, err)
+	if err := fsm.lspService.NotifyDidOpen(ctx, file); err != nil {
+		log.Error().Err(err).Msgf("Failed to notify didOpen while reading file %s", path)
+		return model.File{}, fmt.Errorf("Failed to notify didOpen while reading file %s: %w", path, err)
 	}
 
-	// TODO: do we need to wait for diagnostics?
+	// wait for diagnostics
+	time.Sleep(MaxDiagnosticsDelay)
 
-	if diagnostics := fsm.lspService.GetDiagnostics(context.Background(), file); diagnostics != nil {
-		// Debug
-		log.Printf("Got diagnostics for file %s: %+v", path, diagnostics)
-
+	if diagnostics := fsm.lspService.GetDiagnostics(ctx, file); diagnostics != nil {
 		file.Diagnostics = diagnostics
+	}
+
+	if err := fsm.lspService.NotifyDidClose(ctx, file); err != nil {
+		log.Error().Err(err).Msgf("Failed to notify didClose while reading file %s", path)
+		return model.File{}, fmt.Errorf("Failed to notify didClose while reading file %s: %w", path, err)
 	}
 
 	return file, nil
@@ -432,34 +467,55 @@ func (fsm LanguageServerAwareFileManager) UpdateFile(ctx context.Context, fs afe
 	file, err := fsm.delegate.UpdateFile(ctx, fs, path, content)
 
 	if err != nil {
-		// Error
-		log.Printf("Failed to update file %s: %s", path, err)
-		return model.File{}, fmt.Errorf("Failed to update file %s: %w", path, err)
+		return file, err
 	}
 
-	// TODO: should we NotifyDidOpen first, then update and then notifyDidChange?
 	if err := fsm.lspService.NotifyDidOpen(ctx, file); err != nil {
-		// Error
-		log.Printf("Failed to notify didOpen for file %s: %s", path, err)
-		return model.File{}, fmt.Errorf("Failed to notify didOpen for file %s: %w", path, err)
+		log.Error().Err(err).Msgf("Failed to notify didOpen while updating file %s", path)
+		return model.File{}, fmt.Errorf("Failed to notify didOpen while updating file %s: %w", path, err)
 	}
 
 	// Wait for diagnostics
 	time.Sleep(MaxDiagnosticsDelay)
 
 	if diagnostics := fsm.lspService.GetDiagnostics(ctx, file); diagnostics != nil {
-		// Debug
-		log.Printf("Got diagnostics for file %s: %+v", path, diagnostics)
-
 		file.Diagnostics = diagnostics
+	}
+
+	if err := fsm.lspService.NotifyDidClose(ctx, file); err != nil {
+		log.Error().Err(err).Msgf("Failed to notify didClose while updating file %s", path)
+		return model.File{}, fmt.Errorf("Failed to notify didClose while updating file %s: %w", path, err)
 	}
 
 	return file, err
 }
 
 // UpdateLines implements FileManager.
-func (fsm LanguageServerAwareFileManager) UpdateLines(filesystem afero.Fs, path string, lineDiff LineDiffChunk) (model.File, error) {
-	return fsm.delegate.UpdateLines(filesystem, path, lineDiff)
+func (fsm LanguageServerAwareFileManager) UpdateLines(ctx context.Context, fs afero.Fs, path string, lineDiff LineDiffChunk) (model.File, error) {
+	file, err := fsm.delegate.UpdateLines(ctx, fs, path, lineDiff)
+
+	if err != nil {
+		return file, err
+	}
+
+	if err := fsm.lspService.NotifyDidOpen(ctx, file); err != nil {
+		log.Error().Err(err).Msgf("Failed to notify didOpen while updating lines in file %s", path)
+		return model.File{}, fmt.Errorf("Failed to notify didOpen while updating lines in file %s: %w", path, err)
+	}
+
+	// wait for diagnostics
+	time.Sleep(MaxDiagnosticsDelay)
+
+	if diagnostics := fsm.lspService.GetDiagnostics(ctx, file); diagnostics != nil {
+		file.Diagnostics = diagnostics
+	}
+
+	if err := fsm.lspService.NotifyDidClose(ctx, file); err != nil {
+		log.Error().Err(err).Msgf("Failed to notify didClose while updating lines in %s", path)
+		return model.File{}, fmt.Errorf("Failed to notify didClose while updating lines in %s: %w", path, err)
+	}
+
+	return file, err
 }
 
 func NewLanguageServerAwareFileManager(delegate FileManager, lspService languageserver.Service) FileManager {
