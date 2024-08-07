@@ -6,10 +6,7 @@ import (
 	"net/http"
 
 	"github.com/artmoskvin/hide/pkg/project"
-	"github.com/gorilla/mux"
 )
-
-const key = "id"
 
 type FileResponse struct {
 	Path string `json:"path"`
@@ -20,9 +17,8 @@ type ListFilesHandler struct {
 }
 
 func (h ListFilesHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	projectID, ok := vars[key]
-	if !ok {
+	projectID, err := getProjectID(r)
+	if err != nil {
 		http.Error(w, "invalid project ID", http.StatusBadRequest)
 	}
 
