@@ -11,11 +11,10 @@ import (
 	"testing"
 
 	"github.com/artmoskvin/hide/pkg/files"
-	files_mocks "github.com/artmoskvin/hide/pkg/files/mocks"
 	"github.com/artmoskvin/hide/pkg/handlers"
 	"github.com/artmoskvin/hide/pkg/model"
+	"github.com/artmoskvin/hide/pkg/project"
 	project_mocks "github.com/artmoskvin/hide/pkg/project/mocks"
-	"github.com/spf13/afero"
 )
 
 func TestUpdateFileHandler_Success(t *testing.T) {
@@ -70,24 +69,18 @@ func TestUpdateFileHandler_Success(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mockManager := &project_mocks.MockProjectManager{
-				GetProjectFunc: func(projectId string) (model.Project, error) {
-					return model.Project{}, nil
-				},
-			}
-
-			mockFileManager := &files_mocks.MockFileManager{
-				ApplyPatchFunc: func(ctx context.Context, fs afero.Fs, path, patch string) (model.File, error) {
+				ApplyPatchFunc: func(ctx context.Context, projectId string, path, patch string) (model.File, error) {
 					return tt.expected, nil
 				},
-				UpdateLinesFunc: func(ctx context.Context, fs afero.Fs, path string, lineDiff files.LineDiffChunk) (model.File, error) {
+				UpdateLinesFunc: func(ctx context.Context, projectId string, path string, lineDiff files.LineDiffChunk) (model.File, error) {
 					return tt.expected, nil
 				},
-				UpdateFileFunc: func(ctx context.Context, fs afero.Fs, path, content string) (model.File, error) {
+				UpdateFileFunc: func(ctx context.Context, projectId string, path, content string) (model.File, error) {
 					return tt.expected, nil
 				},
 			}
 
-			handler := handlers.UpdateFileHandler{Manager: mockManager, FileManager: mockFileManager}
+			handler := handlers.UpdateFileHandler{ProjectManager: mockManager}
 			payload, _ := json.Marshal(tt.payload)
 			request, _ := http.NewRequest("PUT", "/projects/123/files/test.txt", bytes.NewBuffer(payload))
 			response := httptest.NewRecorder()
@@ -111,10 +104,7 @@ func TestUpdateFileHandler_Success(t *testing.T) {
 }
 
 func TestUpdateFileHandler_RespondsWithBadRequest_IfRequestIsUnparsable(t *testing.T) {
-	mockManager := &project_mocks.MockProjectManager{}
-	mockFileManager := &files_mocks.MockFileManager{}
-
-	handler := handlers.UpdateFileHandler{Manager: mockManager, FileManager: mockFileManager}
+	handler := handlers.UpdateFileHandler{}
 	request, _ := http.NewRequest("PUT", "/projects/123/files/test.txt", bytes.NewBuffer([]byte("invalid json")))
 	response := httptest.NewRecorder()
 
@@ -190,10 +180,7 @@ func TestUpdateFileHandler_RespondsWithBadRequest_IfRequestIsInvalid(t *testing.
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mockManager := &project_mocks.MockProjectManager{}
-			mockFileManager := &files_mocks.MockFileManager{}
-
-			handler := handlers.UpdateFileHandler{Manager: mockManager, FileManager: mockFileManager}
+			handler := handlers.UpdateFileHandler{}
 
 			body, _ := json.Marshal(tt.payload)
 			request, _ := http.NewRequest("PUT", "/projects/123/files/test.txt", bytes.NewBuffer(body))
@@ -214,13 +201,7 @@ func TestUpdateFileHandler_RespondsWithBadRequest_IfRequestIsInvalid(t *testing.
 
 func TestUpdateFileHandler_RespondsWithInternalServerError_IfFileManagerFails(t *testing.T) {
 	mockManager := &project_mocks.MockProjectManager{
-		GetProjectFunc: func(projectId string) (model.Project, error) {
-			return model.Project{}, nil
-		},
-	}
-
-	mockFileManager := &files_mocks.MockFileManager{
-		ApplyPatchFunc: func(ctx context.Context, fs afero.Fs, path, patch string) (model.File, error) {
+		ApplyPatchFunc: func(ctx context.Context, projectId string, path, patch string) (model.File, error) {
 			return model.File{}, errors.New("file manager error")
 		},
 	}
@@ -232,7 +213,7 @@ func TestUpdateFileHandler_RespondsWithInternalServerError_IfFileManagerFails(t 
 		},
 	})
 
-	handler := handlers.UpdateFileHandler{Manager: mockManager, FileManager: mockFileManager}
+	handler := handlers.UpdateFileHandler{ProjectManager: mockManager}
 	request, _ := http.NewRequest("PUT", "/projects/123/files/test.txt", bytes.NewBuffer(body))
 	response := httptest.NewRecorder()
 
@@ -249,12 +230,10 @@ func TestUpdateFileHandler_RespondsWithInternalServerError_IfFileManagerFails(t 
 
 func TestUpdateFileHandler_RespondsWithNotFound_IfProjectNotFound(t *testing.T) {
 	mockManager := &project_mocks.MockProjectManager{
-		GetProjectFunc: func(projectId string) (model.Project, error) {
-			return model.Project{}, errors.New("project not found")
+		ApplyPatchFunc: func(ctx context.Context, projectId string, path, patch string) (model.File, error) {
+			return model.File{}, &project.ProjectNotFoundError{ProjectId: projectId}
 		},
 	}
-
-	mockFileManager := &files_mocks.MockFileManager{}
 
 	body, _ := json.Marshal(handlers.UpdateFileRequest{
 		Type: handlers.Udiff,
@@ -263,7 +242,7 @@ func TestUpdateFileHandler_RespondsWithNotFound_IfProjectNotFound(t *testing.T) 
 		},
 	})
 
-	handler := handlers.UpdateFileHandler{Manager: mockManager, FileManager: mockFileManager}
+	handler := handlers.UpdateFileHandler{ProjectManager: mockManager}
 	request, _ := http.NewRequest("PUT", "/projects/123/files/test.txt", bytes.NewBuffer(body))
 	response := httptest.NewRecorder()
 
@@ -273,7 +252,7 @@ func TestUpdateFileHandler_RespondsWithNotFound_IfProjectNotFound(t *testing.T) 
 		t.Errorf("Expected status %d, got %d", http.StatusNotFound, response.Code)
 	}
 
-	if !strings.Contains(strings.ToLower(response.Body.String()), "project not found") {
+	if !strings.Contains(strings.ToLower(response.Body.String()), "not found") {
 		t.Errorf("Expected error message 'Project not found', got %s", response.Body.String())
 	}
 }

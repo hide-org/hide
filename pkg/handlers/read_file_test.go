@@ -9,11 +9,10 @@ import (
 	"testing"
 
 	"github.com/artmoskvin/hide/pkg/files"
-	files_mocks "github.com/artmoskvin/hide/pkg/files/mocks"
 	"github.com/artmoskvin/hide/pkg/handlers"
 	"github.com/artmoskvin/hide/pkg/model"
+	"github.com/artmoskvin/hide/pkg/project"
 	project_mocks "github.com/artmoskvin/hide/pkg/project/mocks"
-	"github.com/spf13/afero"
 )
 
 func TestReadFileHandler_Success(t *testing.T) {
@@ -59,18 +58,12 @@ func TestReadFileHandler_Success(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mockManager := &project_mocks.MockProjectManager{
-				GetProjectFunc: func(projectId string) (model.Project, error) {
-					return model.Project{}, nil
-				},
-			}
-
-			mockFileManager := &files_mocks.MockFileManager{
-				ReadFileFunc: func(ctx context.Context, fs afero.Fs, path string, props files.ReadProps) (model.File, error) {
+				ReadFileFunc: func(ctx context.Context, projectId string, path string, props files.ReadProps) (model.File, error) {
 					return tt.expectedFile, nil
 				},
 			}
 
-			handler := handlers.ReadFileHandler{Manager: mockManager, FileManager: mockFileManager}
+			handler := handlers.ReadFileHandler{ProjectManager: mockManager}
 
 			request, _ := http.NewRequest("GET", "/projects/123/files/test.txt?"+tt.query, nil)
 			response := httptest.NewRecorder()
@@ -118,13 +111,7 @@ func TestReadFileHandler_Fails_WithInvalidQueryParams(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mockManager := &project_mocks.MockProjectManager{
-				GetProjectFunc: func(projectId string) (model.Project, error) {
-					return model.Project{}, nil
-				},
-			}
-
-			handler := handlers.ReadFileHandler{Manager: mockManager, FileManager: files.NewFileManager()}
+			handler := handlers.ReadFileHandler{}
 
 			request, _ := http.NewRequest("GET", "/projects/123/files/test.txt?"+tt.query, nil)
 			response := httptest.NewRecorder()
@@ -139,15 +126,15 @@ func TestReadFileHandler_Fails_WithInvalidQueryParams(t *testing.T) {
 	}
 }
 
-func TestReadFileHandler_Fails_WhenProjectNotFound(t *testing.T) {
+func TestReadFileHandler_Returns404_WhenProjectNotFound(t *testing.T) {
 	t.Run("Read file with invalid project ID", func(t *testing.T) {
 		mockManager := &project_mocks.MockProjectManager{
-			GetProjectFunc: func(projectId string) (model.Project, error) {
-				return model.Project{}, errors.New("project not found")
+			ReadFileFunc: func(ctx context.Context, projectId string, path string, props files.ReadProps) (model.File, error) {
+				return model.File{}, &project.ProjectNotFoundError{ProjectId: projectId}
 			},
 		}
 
-		handler := handlers.ReadFileHandler{Manager: mockManager, FileManager: files.NewFileManager()}
+		handler := handlers.ReadFileHandler{ProjectManager: mockManager}
 
 		request, _ := http.NewRequest("GET", "/projects/123/files/test.txt", nil)
 		response := httptest.NewRecorder()
@@ -160,21 +147,15 @@ func TestReadFileHandler_Fails_WhenProjectNotFound(t *testing.T) {
 	})
 }
 
-func TestReadFileHandler_Fails_WhenReadFileFails(t *testing.T) {
+func TestReadFileHandler_Returns500_WhenReadFileFails(t *testing.T) {
 	t.Run("Read file with invalid file path", func(t *testing.T) {
 		mockManager := &project_mocks.MockProjectManager{
-			GetProjectFunc: func(projectId string) (model.Project, error) {
-				return model.Project{}, nil
-			},
-		}
-
-		mockFileManager := &files_mocks.MockFileManager{
-			ReadFileFunc: func(ctx context.Context, fs afero.Fs, path string, props files.ReadProps) (model.File, error) {
+			ReadFileFunc: func(ctx context.Context, projectId string, path string, props files.ReadProps) (model.File, error) {
 				return model.File{}, errors.New("file not found")
 			},
 		}
 
-		handler := handlers.ReadFileHandler{Manager: mockManager, FileManager: mockFileManager}
+		handler := handlers.ReadFileHandler{ProjectManager: mockManager}
 
 		request, _ := http.NewRequest("GET", "/projects/123/files/invalid.txt", nil)
 		response := httptest.NewRecorder()

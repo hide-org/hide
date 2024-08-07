@@ -1,8 +1,6 @@
 package project
 
 import (
-	"fmt"
-
 	"github.com/artmoskvin/hide/pkg/model"
 )
 
@@ -26,7 +24,7 @@ func (s *InMemoryStore) GetProject(id string) (*model.Project, error) {
 	project, ok := s.projects[id]
 
 	if !ok {
-		return nil, fmt.Errorf("project with id %s not found", id)
+		return nil, ProjectNotFoundError{ProjectId: id}
 	}
 
 	return project, nil
@@ -44,7 +42,7 @@ func (s *InMemoryStore) GetProjects() ([]*model.Project, error) {
 
 func (s *InMemoryStore) CreateProject(project *model.Project) error {
 	if _, ok := s.projects[project.Id]; ok {
-		return fmt.Errorf("project with id %s already exists", project.Id)
+		return ProjectAlreadyExistsError{ProjectId: project.Id}
 	}
 
 	s.projects[project.Id] = project
@@ -54,7 +52,7 @@ func (s *InMemoryStore) CreateProject(project *model.Project) error {
 
 func (s *InMemoryStore) UpdateProject(project *model.Project) error {
 	if _, ok := s.projects[project.Id]; !ok {
-		return fmt.Errorf("project with id %s not found", project.Id)
+		return ProjectNotFoundError{ProjectId: project.Id}
 	}
 
 	s.projects[project.Id] = project

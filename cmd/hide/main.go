@@ -77,17 +77,17 @@ func main() {
 
 	projectsDir := filepath.Join(home, ProjectsDir)
 
-	projectManager := project.NewProjectManager(containerRunner, projectStore, projectsDir)
 	fileManager := files.NewFileManager()
+	projectManager := project.NewProjectManager(containerRunner, projectStore, projectsDir, fileManager)
 	createProjectHandler := handlers.CreateProjectHandler{Manager: projectManager}
 	deleteProjectHandler := handlers.DeleteProjectHandler{Manager: projectManager}
 	createTaskHandler := handlers.CreateTaskHandler{Manager: projectManager}
 	listTasksHandler := handlers.ListTasksHandler{Manager: projectManager}
-	createFileHandler := handlers.CreateFileHandler{Manager: projectManager, FileManager: fileManager}
-	readFileHandler := handlers.ReadFileHandler{Manager: projectManager, FileManager: fileManager}
-	updateFileHandler := handlers.UpdateFileHandler{Manager: projectManager, FileManager: fileManager}
-	deleteFileHandler := handlers.DeleteFileHandler{Manager: projectManager, FileManager: fileManager}
-	listFilesHandler := handlers.ListFilesHandler{ProjectManager: projectManager, FileManager: fileManager}
+	createFileHandler := handlers.CreateFileHandler{ProjectManager: projectManager}
+	readFileHandler := handlers.ReadFileHandler{ProjectManager: projectManager}
+	updateFileHandler := handlers.UpdateFileHandler{ProjectManager: projectManager}
+	deleteFileHandler := handlers.DeleteFileHandler{ProjectManager: projectManager}
+	listFilesHandler := handlers.ListFilesHandler{ProjectManager: projectManager}
 
 	mux.Handle("POST /projects", createProjectHandler)
 	mux.Handle("DELETE /projects/{id}", deleteProjectHandler)

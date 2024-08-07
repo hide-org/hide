@@ -2,11 +2,10 @@ package handlers
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 
-	"github.com/artmoskvin/hide/pkg/files"
 	"github.com/artmoskvin/hide/pkg/project"
-	"github.com/spf13/afero"
 )
 
 type FileResponse struct {
@@ -15,21 +14,19 @@ type FileResponse struct {
 
 type ListFilesHandler struct {
 	ProjectManager project.Manager
-	FileManager    files.FileManager
 }
 
 func (h ListFilesHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	projectId := r.PathValue("id")
-	project, err := h.ProjectManager.GetProject(projectId)
+	files, err := h.ProjectManager.ListFiles(r.Context(), projectId)
 
 	if err != nil {
-		http.Error(w, "Project not found", http.StatusNotFound)
-		return
-	}
+		var projectNotFoundError *project.ProjectNotFoundError
+		if errors.As(err, &projectNotFoundError) {
+			http.Error(w, projectNotFoundError.Error(), http.StatusNotFound)
+			return
+		}
 
-	files, err := h.FileManager.ListFiles(r.Context(), afero.NewBasePathFs(afero.NewOsFs(), project.Path))
-
-	if err != nil {
 		http.Error(w, "Failed to list files", http.StatusInternalServerError)
 		return
 	}

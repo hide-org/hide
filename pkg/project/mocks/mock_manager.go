@@ -1,7 +1,10 @@
 package mocks
 
 import (
+	"context"
+
 	"github.com/artmoskvin/hide/pkg/devcontainer"
+	"github.com/artmoskvin/hide/pkg/files"
 	"github.com/artmoskvin/hide/pkg/model"
 	"github.com/artmoskvin/hide/pkg/project"
 	"github.com/artmoskvin/hide/pkg/result"
@@ -16,6 +19,13 @@ type MockProjectManager struct {
 	ResolveTaskAliasFunc func(projectId string, alias string) (devcontainer.Task, error)
 	CreateTaskFunc       func(projectId string, command string) (project.TaskResult, error)
 	CleanupFunc          func() error
+	CreateFileFunc       func(ctx context.Context, projectId, path, content string) (model.File, error)
+	ReadFileFunc         func(ctx context.Context, projectId, path string, props files.ReadProps) (model.File, error)
+	UpdateFileFunc       func(ctx context.Context, projectId, path, content string) (model.File, error)
+	DeleteFileFunc       func(ctx context.Context, projectId, path string) error
+	ListFilesFunc        func(ctx context.Context, projectId string) ([]model.File, error)
+	ApplyPatchFunc       func(ctx context.Context, projectId, path, patch string) (model.File, error)
+	UpdateLinesFunc      func(ctx context.Context, projectId, path string, lineDiff files.LineDiffChunk) (model.File, error)
 }
 
 func (m *MockProjectManager) CreateProject(request project.CreateProjectRequest) <-chan result.Result[model.Project] {
@@ -44,4 +54,32 @@ func (m *MockProjectManager) CreateTask(projectId string, command string) (proje
 
 func (m *MockProjectManager) Cleanup() error {
 	return m.CleanupFunc()
+}
+
+func (m *MockProjectManager) CreateFile(ctx context.Context, projectId, path, content string) (model.File, error) {
+	return m.CreateFileFunc(ctx, projectId, path, content)
+}
+
+func (m *MockProjectManager) ReadFile(ctx context.Context, projectId, path string, props files.ReadProps) (model.File, error) {
+	return m.ReadFileFunc(ctx, projectId, path, props)
+}
+
+func (m *MockProjectManager) UpdateFile(ctx context.Context, projectId, path, content string) (model.File, error) {
+	return m.UpdateFileFunc(ctx, projectId, path, content)
+}
+
+func (m *MockProjectManager) DeleteFile(ctx context.Context, projectId, path string) error {
+	return m.DeleteFileFunc(ctx, projectId, path)
+}
+
+func (m *MockProjectManager) ListFiles(ctx context.Context, projectId string) ([]model.File, error) {
+	return m.ListFilesFunc(ctx, projectId)
+}
+
+func (m *MockProjectManager) ApplyPatch(ctx context.Context, projectId, path, patch string) (model.File, error) {
+	return m.ApplyPatchFunc(ctx, projectId, path, patch)
+}
+
+func (m *MockProjectManager) UpdateLines(ctx context.Context, projectId, path string, lineDiff files.LineDiffChunk) (model.File, error) {
+	return m.UpdateLinesFunc(ctx, projectId, path, lineDiff)
 }

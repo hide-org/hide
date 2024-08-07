@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -9,12 +10,10 @@ import (
 
 	"github.com/artmoskvin/hide/pkg/files"
 	"github.com/artmoskvin/hide/pkg/project"
-	"github.com/spf13/afero"
 )
 
 type ReadFileHandler struct {
-	Manager     project.Manager
-	FileManager files.FileManager
+	ProjectManager project.Manager
 }
 
 func (h ReadFileHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -43,14 +42,7 @@ func (h ReadFileHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	project, err := h.Manager.GetProject(projectId)
-
-	if err != nil {
-		http.Error(w, "Project not found", http.StatusNotFound)
-		return
-	}
-
-	file, err := h.FileManager.ReadFile(r.Context(), afero.NewBasePathFs(afero.NewOsFs(), project.Path), filePath, files.NewReadProps(
+	file, err := h.ProjectManager.ReadFile(r.Context(), projectId, filePath, files.NewReadProps(
 		func(props *files.ReadProps) {
 			props.ShowLineNumbers = showLineNumbers
 			props.StartLine = startLine
@@ -59,6 +51,12 @@ func (h ReadFileHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	))
 
 	if err != nil {
+		var projectNotFoundError *project.ProjectNotFoundError
+		if errors.As(err, &projectNotFoundError) {
+			http.Error(w, projectNotFoundError.Error(), http.StatusNotFound)
+			return
+		}
+
 		http.Error(w, fmt.Sprintf("Failed to read file: %s", err), http.StatusInternalServerError)
 		return
 	}
