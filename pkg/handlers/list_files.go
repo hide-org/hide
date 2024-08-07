@@ -22,7 +22,6 @@ func (h ListFilesHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid project ID", http.StatusBadRequest)
 	}
 
-	// projectId := r.PathValue("id")
 	files, err := h.ProjectManager.ListFiles(r.Context(), projectID)
 	if err != nil {
 		var projectNotFoundError *project.ProjectNotFoundError

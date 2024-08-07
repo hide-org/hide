@@ -18,7 +18,7 @@ func getFilePath(r *http.Request) (string, error) {
 func getPathValue(r *http.Request, key string) (string, error) {
 	vars := mux.Vars(r)
 	value, ok := vars[key]
-	if !ok {
+	if !ok || value == "" {
 		return "", errors.New("invalid path value")
 	}
 
