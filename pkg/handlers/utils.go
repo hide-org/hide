@@ -9,7 +9,7 @@ import (
 
 func getProjectID(r *http.Request) (string, error) {
 	vars := mux.Vars(r)
-	projectID, ok := vars[key]
+	projectID, ok := vars["id"]
 	if !ok {
 		return "", errors.New("invalid project ID")
 	}
