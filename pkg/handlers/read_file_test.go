@@ -11,7 +11,7 @@ import (
 	"github.com/artmoskvin/hide/pkg/files"
 	files_mocks "github.com/artmoskvin/hide/pkg/files/mocks"
 	"github.com/artmoskvin/hide/pkg/handlers"
-	"github.com/artmoskvin/hide/pkg/project"
+	"github.com/artmoskvin/hide/pkg/model"
 	project_mocks "github.com/artmoskvin/hide/pkg/project/mocks"
 )
 
@@ -19,12 +19,12 @@ func TestReadFileHandler_Success(t *testing.T) {
 	tests := []struct {
 		name         string
 		query        string
-		expectedFile files.File
+		expectedFile model.File
 	}{
 		{
 			name:  "Read file with default params",
 			query: "",
-			expectedFile: files.File{
+			expectedFile: model.File{
 				Path:    "test.txt",
 				Content: "line1\nline2\nline3\n",
 			},
@@ -32,7 +32,7 @@ func TestReadFileHandler_Success(t *testing.T) {
 		{
 			name:  "Read file with showLineNumbers=true",
 			query: "showLineNumbers=true",
-			expectedFile: files.File{
+			expectedFile: model.File{
 				Path:    "test.txt",
 				Content: "1:line1\n2:line2\n3:line3\n",
 			},
@@ -40,7 +40,7 @@ func TestReadFileHandler_Success(t *testing.T) {
 		{
 			name:  "Read file with startLine=2",
 			query: "startLine=2",
-			expectedFile: files.File{
+			expectedFile: model.File{
 				Path:    "test.txt",
 				Content: "2:line2\n3:line3\n",
 			},
@@ -48,7 +48,7 @@ func TestReadFileHandler_Success(t *testing.T) {
 		{
 			name:  "Read file with numLines=2",
 			query: "numLines=2",
-			expectedFile: files.File{
+			expectedFile: model.File{
 				Path:    "test.txt",
 				Content: "line1\nline2\n",
 			},
@@ -58,13 +58,13 @@ func TestReadFileHandler_Success(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mockManager := &project_mocks.MockProjectManager{
-				GetProjectFunc: func(projectId string) (project.Project, error) {
-					return project.Project{}, nil
+				GetProjectFunc: func(projectId string) (model.Project, error) {
+					return model.Project{}, nil
 				},
 			}
 
 			mockFileManager := &files_mocks.MockFileManager{
-				ReadFileFunc: func(fileSystem fs.FS, path string, props files.ReadProps) (files.File, error) {
+				ReadFileFunc: func(fileSystem fs.FS, path string, props files.ReadProps) (model.File, error) {
 					return tt.expectedFile, nil
 				},
 			}
@@ -80,7 +80,7 @@ func TestReadFileHandler_Success(t *testing.T) {
 				t.Errorf("Expected status 200, got %d", response.Code)
 			}
 
-			var respFile files.File
+			var respFile model.File
 			if err := json.NewDecoder(response.Body).Decode(&respFile); err != nil {
 				t.Fatalf("Failed to decode response: %v", err)
 			}
@@ -118,8 +118,8 @@ func TestReadFileHandler_Fails_WithInvalidQueryParams(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mockManager := &project_mocks.MockProjectManager{
-				GetProjectFunc: func(projectId string) (project.Project, error) {
-					return project.Project{}, nil
+				GetProjectFunc: func(projectId string) (model.Project, error) {
+					return model.Project{}, nil
 				},
 			}
 
@@ -141,8 +141,8 @@ func TestReadFileHandler_Fails_WithInvalidQueryParams(t *testing.T) {
 func TestReadFileHandler_Fails_WhenProjectNotFound(t *testing.T) {
 	t.Run("Read file with invalid project ID", func(t *testing.T) {
 		mockManager := &project_mocks.MockProjectManager{
-			GetProjectFunc: func(projectId string) (project.Project, error) {
-				return project.Project{}, errors.New("project not found")
+			GetProjectFunc: func(projectId string) (model.Project, error) {
+				return model.Project{}, errors.New("project not found")
 			},
 		}
 
@@ -162,14 +162,14 @@ func TestReadFileHandler_Fails_WhenProjectNotFound(t *testing.T) {
 func TestReadFileHandler_Fails_WhenReadFileFails(t *testing.T) {
 	t.Run("Read file with invalid file path", func(t *testing.T) {
 		mockManager := &project_mocks.MockProjectManager{
-			GetProjectFunc: func(projectId string) (project.Project, error) {
-				return project.Project{}, nil
+			GetProjectFunc: func(projectId string) (model.Project, error) {
+				return model.Project{}, nil
 			},
 		}
 
 		mockFileManager := &files_mocks.MockFileManager{
-			ReadFileFunc: func(fileSystem fs.FS, path string, props files.ReadProps) (files.File, error) {
-				return files.File{}, errors.New("file not found")
+			ReadFileFunc: func(fileSystem fs.FS, path string, props files.ReadProps) (model.File, error) {
+				return model.File{}, errors.New("file not found")
 			},
 		}
 

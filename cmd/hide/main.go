@@ -11,6 +11,7 @@ import (
 	"github.com/artmoskvin/hide/pkg/devcontainer"
 	"github.com/artmoskvin/hide/pkg/files"
 	"github.com/artmoskvin/hide/pkg/handlers"
+	"github.com/artmoskvin/hide/pkg/model"
 	"github.com/artmoskvin/hide/pkg/project"
 	"github.com/artmoskvin/hide/pkg/util"
 	"github.com/docker/docker/client"
@@ -65,7 +66,7 @@ func main() {
 
 	context := context.Background()
 	containerRunner := devcontainer.NewDockerRunner(dockerClient, util.NewExecutorImpl(), context, devcontainer.DockerRunnerConfig{Username: dockerUser, Password: dockerToken})
-	projectStore := project.NewInMemoryStore(make(map[string]*project.Project))
+	projectStore := project.NewInMemoryStore(make(map[string]*model.Project))
 	home, err := os.UserHomeDir()
 	if err != nil {
 		log.Fatal().Err(err).Msg("User's home directory is not set")
