@@ -9,7 +9,9 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
+	"github.com/artmoskvin/hide/pkg/lsp"
 	"github.com/artmoskvin/hide/pkg/model"
 	"github.com/bluekeyes/go-gitdiff/gitdiff"
 	"github.com/rs/zerolog/log"
@@ -19,6 +21,7 @@ import (
 const DefaultNumLines = 100
 const DefaultStartLine = 1
 const DefaultShowLineNumbers = false
+const MaxDiagnosticsDelay = time.Second * 1
 
 type ReadProps struct {
 	ShowLineNumbers bool
@@ -322,4 +325,193 @@ func replaceSlice(original []string, replacement []string, start, end int) []str
 	copy(result[start+len(replacement):], original[end:])
 
 	return result
+}
+
+type LanguageServerAwareFileManager struct {
+	delegate   FileManager
+	lspService lsp.Service
+}
+
+// ApplyPatch implements FileManager.
+func (fsm LanguageServerAwareFileManager) ApplyPatch(ctx context.Context, fs afero.Fs, path, patch string) (model.File, error) {
+	file, err := fsm.delegate.ApplyPatch(ctx, fs, path, patch)
+
+	if err != nil {
+		return file, err
+	}
+
+	if err := fsm.lspService.NotifyDidOpen(ctx, file); err != nil {
+		log.Error().Err(err).Msgf("Failed to notify didOpen while applying patch to %s", path)
+		return model.File{}, fmt.Errorf("Failed to notify didOpen while applying patch to %s: %w", path, err)
+	}
+
+	// wait for diagnostics
+	time.Sleep(MaxDiagnosticsDelay)
+
+	if diagnostics := fsm.lspService.GetDiagnostics(ctx, file); diagnostics != nil {
+		file.Diagnostics = diagnostics
+	}
+
+	if err := fsm.lspService.NotifyDidClose(ctx, file); err != nil {
+		log.Error().Err(err).Msgf("Failed to notify didClose while applying patch to %s", path)
+		return model.File{}, fmt.Errorf("Failed to notify didClose while applying patch to %s: %w", path, err)
+	}
+
+	return file, nil
+}
+
+// CreateFile implements FileManager.
+func (fsm LanguageServerAwareFileManager) CreateFile(ctx context.Context, fs afero.Fs, path string, content string) (model.File, error) {
+	file, err := fsm.delegate.CreateFile(ctx, fs, path, content)
+
+	if err != nil {
+		return file, err
+	}
+
+	if err := fsm.lspService.NotifyDidOpen(ctx, file); err != nil {
+		log.Error().Err(err).Msgf("Failed to notify didOpen while creating file %s", path)
+		return model.File{}, fmt.Errorf("Failed to notify didOpen while creating file %s: %w", path, err)
+	}
+
+	// wait for diagnostics
+	time.Sleep(MaxDiagnosticsDelay)
+
+	if diagnostics := fsm.lspService.GetDiagnostics(ctx, file); diagnostics != nil {
+		file.Diagnostics = diagnostics
+		return file, nil
+	}
+
+	if err := fsm.lspService.NotifyDidClose(ctx, file); err != nil {
+		log.Error().Err(err).Msgf("Failed to notify didClose while creating file %s", path)
+		return model.File{}, fmt.Errorf("Failed to notify didClose while creating file %s: %w", path, err)
+	}
+
+	return file, nil
+}
+
+// DeleteFile implements FileManager.
+func (fsm LanguageServerAwareFileManager) DeleteFile(ctx context.Context, fs afero.Fs, path string) error {
+	return fsm.delegate.DeleteFile(ctx, fs, path)
+}
+
+// ListFiles implements FileManager.
+func (fsm LanguageServerAwareFileManager) ListFiles(ctx context.Context, fs afero.Fs) ([]model.File, error) {
+	files, err := fsm.delegate.ListFiles(ctx, fs)
+
+	if err != nil {
+		return files, err
+	}
+
+	for _, file := range files {
+		if err := fsm.lspService.NotifyDidOpen(ctx, file); err != nil {
+			log.Error().Err(err).Msgf("Failed to notify didOpen for file %s while listing files", file.Path)
+			return nil, fmt.Errorf("Failed to notify didOpen for file %s while listing files: %w", file.Path, err)
+		}
+
+		// wait for diagnostics
+		// TODO: fix me
+		time.Sleep(MaxDiagnosticsDelay)
+
+		if diagnostics := fsm.lspService.GetDiagnostics(ctx, file); diagnostics != nil {
+			file.Diagnostics = diagnostics
+		}
+
+		if err := fsm.lspService.NotifyDidClose(ctx, file); err != nil {
+			log.Error().Err(err).Msgf("Failed to notify didClose for file %s while listing files", file.Path)
+			return nil, fmt.Errorf("Failed to notify didClose for file %s while listing files: %w", file.Path, err)
+		}
+	}
+
+	return files, err
+}
+
+// ReadFile implements FileManager.
+func (fsm LanguageServerAwareFileManager) ReadFile(ctx context.Context, fs afero.Fs, path string, props ReadProps) (model.File, error) {
+	file, err := fsm.delegate.ReadFile(ctx, fs, path, props)
+
+	if err != nil {
+		return file, err
+	}
+
+	if err := fsm.lspService.NotifyDidOpen(ctx, file); err != nil {
+		log.Error().Err(err).Msgf("Failed to notify didOpen while reading file %s", path)
+		return model.File{}, fmt.Errorf("Failed to notify didOpen while reading file %s: %w", path, err)
+	}
+
+	// wait for diagnostics
+	time.Sleep(MaxDiagnosticsDelay)
+
+	if diagnostics := fsm.lspService.GetDiagnostics(ctx, file); diagnostics != nil {
+		file.Diagnostics = diagnostics
+	}
+
+	if err := fsm.lspService.NotifyDidClose(ctx, file); err != nil {
+		log.Error().Err(err).Msgf("Failed to notify didClose while reading file %s", path)
+		return model.File{}, fmt.Errorf("Failed to notify didClose while reading file %s: %w", path, err)
+	}
+
+	return file, nil
+}
+
+// UpdateFile implements FileManager.
+func (fsm LanguageServerAwareFileManager) UpdateFile(ctx context.Context, fs afero.Fs, path, content string) (model.File, error) {
+	file, err := fsm.delegate.UpdateFile(ctx, fs, path, content)
+
+	if err != nil {
+		return file, err
+	}
+
+	if err := fsm.lspService.NotifyDidOpen(ctx, file); err != nil {
+		log.Error().Err(err).Msgf("Failed to notify didOpen while updating file %s", path)
+		return model.File{}, fmt.Errorf("Failed to notify didOpen while updating file %s: %w", path, err)
+	}
+
+	// Wait for diagnostics
+	time.Sleep(MaxDiagnosticsDelay)
+
+	if diagnostics := fsm.lspService.GetDiagnostics(ctx, file); diagnostics != nil {
+		file.Diagnostics = diagnostics
+	}
+
+	if err := fsm.lspService.NotifyDidClose(ctx, file); err != nil {
+		log.Error().Err(err).Msgf("Failed to notify didClose while updating file %s", path)
+		return model.File{}, fmt.Errorf("Failed to notify didClose while updating file %s: %w", path, err)
+	}
+
+	return file, err
+}
+
+// UpdateLines implements FileManager.
+func (fsm LanguageServerAwareFileManager) UpdateLines(ctx context.Context, fs afero.Fs, path string, lineDiff LineDiffChunk) (model.File, error) {
+	file, err := fsm.delegate.UpdateLines(ctx, fs, path, lineDiff)
+
+	if err != nil {
+		return file, err
+	}
+
+	if err := fsm.lspService.NotifyDidOpen(ctx, file); err != nil {
+		log.Error().Err(err).Msgf("Failed to notify didOpen while updating lines in file %s", path)
+		return model.File{}, fmt.Errorf("Failed to notify didOpen while updating lines in file %s: %w", path, err)
+	}
+
+	// wait for diagnostics
+	time.Sleep(MaxDiagnosticsDelay)
+
+	if diagnostics := fsm.lspService.GetDiagnostics(ctx, file); diagnostics != nil {
+		file.Diagnostics = diagnostics
+	}
+
+	if err := fsm.lspService.NotifyDidClose(ctx, file); err != nil {
+		log.Error().Err(err).Msgf("Failed to notify didClose while updating lines in %s", path)
+		return model.File{}, fmt.Errorf("Failed to notify didClose while updating lines in %s: %w", path, err)
+	}
+
+	return file, err
+}
+
+func NewLanguageServerAwareFileManager(delegate FileManager, lspService lsp.Service) FileManager {
+	return LanguageServerAwareFileManager{
+		delegate:   delegate,
+		lspService: lspService,
+	}
 }
