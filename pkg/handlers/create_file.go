@@ -6,7 +6,10 @@ import (
 	"net/http"
 
 	"github.com/artmoskvin/hide/pkg/project"
+	"github.com/gorilla/mux"
 )
+
+const key = "id"
 
 type CreateFileRequest struct {
 	Path    string `json:"path"`
@@ -18,7 +21,12 @@ type CreateFileHandler struct {
 }
 
 func (h CreateFileHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	projectId := r.PathValue("id")
+	vars := mux.Vars(r)
+	projectID, ok := vars[key]
+	if !ok {
+		http.Error(w, "invalid project ID", http.StatusBadRequest)
+	}
+
 	var request CreateFileRequest
 
 	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
@@ -26,8 +34,7 @@ func (h CreateFileHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	file, err := h.ProjectManager.CreateFile(r.Context(), projectId, request.Path, request.Content)
-
+	file, err := h.ProjectManager.CreateFile(r.Context(), projectID, request.Path, request.Content)
 	if err != nil {
 		var projectNotFoundError *project.ProjectNotFoundError
 		if errors.As(err, &projectNotFoundError) {
