@@ -100,9 +100,9 @@ func main() {
 	router.Handle("/projects/{id}/tasks", listTasksHandler).Methods("GET")
 	router.Handle("/projects/{id}/files", createFileHandler).Methods("POST")
 	router.Handle("/projects/{id}/files", listFilesHandler).Methods("GET")
-	router.Handle("/projects/{id}/files/{path...}", readFileHandler).Methods("GET")
-	router.Handle("/projects/{id}/files/{path...}", updateFileHandler).Methods("PUT")
-	router.Handle("/projects/{id}/files/{path...}", deleteFileHandler).Methods("DELETE")
+	router.Handle("/projects/{id}/files/{path:.*}", readFileHandler).Methods("GET")
+	router.Handle("/projects/{id}/files/{path:.*}", updateFileHandler).Methods("PUT")
+	router.Handle("/projects/{id}/files/{path:.*}", deleteFileHandler).Methods("DELETE")
 
 	addr := fmt.Sprintf("127.0.0.1:%d", *port)
 
