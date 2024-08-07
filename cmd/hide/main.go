@@ -104,17 +104,16 @@ func main() {
 	router.Handle("PUT /projects/{id}/files/{path...}", updateFileHandler)
 	router.Handle("DELETE /projects/{id}/files/{path...}", deleteFileHandler)
 
-	// TODO: make configurable
-	// port := ":8080"
+	addr := fmt.Sprintf("127.0.0.1:%d", *port)
 
 	server := &http.Server{
 		Handler:      router,
-		Addr:         "127.0.0.1:8000", // TODO: set port
+		Addr:         addr,
 		WriteTimeout: 15 * time.Second,
 		ReadTimeout:  15 * time.Second,
 	}
 
-	log.Info().Msgf("Server started on %d\n", port)
+	log.Info().Msgf("Server started on %s\n", addr)
 
 	go func() {
 		sigChan := make(chan os.Signal, 1)
