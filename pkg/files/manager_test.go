@@ -1,10 +1,9 @@
 package files_test
 
 import (
-	"io/fs"
+	"context"
 	"strings"
 	"testing"
-	"testing/fstest"
 
 	"github.com/artmoskvin/hide/pkg/files"
 	"github.com/artmoskvin/hide/pkg/model"
@@ -93,13 +92,12 @@ func TestNewReadProps(t *testing.T) {
 }
 
 func TestFileManagerImpl_ReadFile_Success(t *testing.T) {
-	filesystem := fstest.MapFS{
-		"test.txt": {Data: []byte("line1\nline2\nline3\nline4\nline5\nline6\nline7\nline8\nline9\nline10")},
-	}
+	filesystem := afero.NewMemMapFs()
+	afero.WriteFile(filesystem, "test.txt", []byte("line1\nline2\nline3\nline4\nline5\nline6\nline7\nline8\nline9\nline10"), 0644)
 
 	tests := []struct {
 		name     string
-		fs       fs.FS
+		fs       afero.Fs
 		filePath string
 		props    files.ReadPropsSetter
 		expected model.File
@@ -179,7 +177,7 @@ func TestFileManagerImpl_ReadFile_Success(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			fm := files.NewFileManager()
-			actual, err := fm.ReadFile(tt.fs, tt.filePath, files.NewReadProps(tt.props))
+			actual, err := fm.ReadFile(context.Background(), tt.fs, tt.filePath, files.NewReadProps(tt.props))
 			if err != nil {
 				t.Fatalf("Unexpected error: %v", err)
 			}
@@ -192,20 +190,19 @@ func TestFileManagerImpl_ReadFile_Success(t *testing.T) {
 }
 
 func TestFileManagerImpl_ReadFile_Failure(t *testing.T) {
-	filesystem := fstest.MapFS{
-		"test.txt": {Data: []byte("line1\nline2\nline3\nline4\nline5\nline6\nline7\nline8\nline9\nline10")},
-	}
+	fs := afero.NewMemMapFs()
+	afero.WriteFile(fs, "test.txt", []byte("line1\nline2\nline3\nline4\nline5\nline6\nline7\nline8\nline9\nline10"), 0644)
 
 	tests := []struct {
 		name     string
-		fs       fs.FS
+		fs       afero.Fs
 		filePath string
 		props    files.ReadPropsSetter
 		expected string
 	}{
 		{
 			name:     "StartLine < 1",
-			fs:       filesystem,
+			fs:       fs,
 			filePath: "test.txt",
 			props: func(props *files.ReadProps) {
 				props.StartLine = 0
@@ -214,7 +211,7 @@ func TestFileManagerImpl_ReadFile_Failure(t *testing.T) {
 		},
 		{
 			name:     "StartLine > number of lines",
-			fs:       filesystem,
+			fs:       fs,
 			filePath: "test.txt",
 			props: func(props *files.ReadProps) {
 				props.StartLine = 11
@@ -223,7 +220,7 @@ func TestFileManagerImpl_ReadFile_Failure(t *testing.T) {
 		},
 		{
 			name:     "NumLines < 0",
-			fs:       filesystem,
+			fs:       fs,
 			filePath: "test.txt",
 			props: func(props *files.ReadProps) {
 				props.NumLines = -1
@@ -232,7 +229,7 @@ func TestFileManagerImpl_ReadFile_Failure(t *testing.T) {
 		},
 		{
 			name:     "Failed to read file",
-			fs:       fstest.MapFS{},
+			fs:       afero.NewMemMapFs(),
 			filePath: "test.txt",
 			props:    func(props *files.ReadProps) {},
 			expected: "Failed to open file",
@@ -242,7 +239,7 @@ func TestFileManagerImpl_ReadFile_Failure(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			fm := files.NewFileManager()
-			_, err := fm.ReadFile(tt.fs, tt.filePath, files.NewReadProps(tt.props))
+			_, err := fm.ReadFile(context.Background(), tt.fs, tt.filePath, files.NewReadProps(tt.props))
 			if err == nil {
 				t.Fatalf("Expected error, got nil")
 			}
@@ -290,7 +287,7 @@ func TestFileManagerImpl_ApplyPatch_Success(t *testing.T) {
 			filesystem := afero.NewMemMapFs()
 			afero.WriteFile(filesystem, "test.txt", []byte("line1\nline2\nline3\nline4\nline5\nline6\nline7\nline8\nline9\nline10\n"), 0644)
 			fm := files.NewFileManager()
-			actual, err := fm.ApplyPatch(filesystem, "test.txt", tt.patch)
+			actual, err := fm.ApplyPatch(context.Background(), filesystem, "test.txt", tt.patch)
 			if err != nil {
 				t.Fatalf("Unexpected error: %v", err)
 			}
@@ -356,7 +353,7 @@ func TestFileManagerImpl_ApplyPatch_Failure(t *testing.T) {
 			fileSystem := afero.NewMemMapFs()
 			afero.WriteFile(fileSystem, "test.txt", []byte("line1\nline2\nline3\n"), 0644)
 			fm := files.NewFileManager()
-			_, err := fm.ApplyPatch(fileSystem, tt.file, tt.patch)
+			_, err := fm.ApplyPatch(context.Background(), fileSystem, tt.file, tt.patch)
 			if err == nil {
 				t.Fatalf("Expected error, got nil")
 			}
@@ -417,7 +414,7 @@ func TestFileManagerImpl_UpdateLines_Success(t *testing.T) {
 			fm := files.NewFileManager()
 			filesystem := afero.NewMemMapFs()
 			afero.WriteFile(filesystem, "test.txt", []byte("line1\nline2\nline3\n"), 0644)
-			actual, err := fm.UpdateLines(filesystem, "test.txt", tt.lineDiff)
+			actual, err := fm.UpdateLines(context.Background(), filesystem, "test.txt", tt.lineDiff)
 			if err != nil {
 				t.Fatalf("Unexpected error: %v", err)
 			}
@@ -460,7 +457,7 @@ func TestFileManagerImpl_UpdateLines_Failure(t *testing.T) {
 			filesystem := afero.NewMemMapFs()
 			afero.WriteFile(filesystem, "test.txt", []byte("line1\nline2\nline3\n"), 0644)
 			fm := files.NewFileManager()
-			_, err := fm.UpdateLines(filesystem, "test.txt", tt.lineDiff)
+			_, err := fm.UpdateLines(context.Background(), filesystem, "test.txt", tt.lineDiff)
 			if err == nil {
 				t.Fatalf("Expected error, got nil")
 			}
@@ -490,7 +487,7 @@ func TestUpdateFile_Success(t *testing.T) {
 			filesystem := afero.NewMemMapFs()
 			afero.WriteFile(filesystem, "test.txt", []byte("line11\nline12\n"), 0644)
 			fm := files.NewFileManager()
-			actual, err := fm.UpdateFile(filesystem, "test.txt", tt.content)
+			actual, err := fm.UpdateFile(context.Background(), filesystem, "test.txt", tt.content)
 			if err != nil {
 				t.Fatalf("Unexpected error: %v", err)
 			}
@@ -519,7 +516,7 @@ func TestUpdateFile_Failure(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			filesystem := afero.NewMemMapFs()
 			fm := files.NewFileManager()
-			_, err := fm.UpdateFile(filesystem, "test.txt", tt.content)
+			_, err := fm.UpdateFile(context.Background(), filesystem, "test.txt", tt.content)
 			if err == nil {
 				t.Fatalf("Expected error, got nil")
 			}
