@@ -2,11 +2,10 @@ package handlers
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 
-	"github.com/artmoskvin/hide/pkg/files"
 	"github.com/artmoskvin/hide/pkg/project"
-	"github.com/spf13/afero"
 )
 
 type CreateFileRequest struct {
@@ -15,8 +14,7 @@ type CreateFileRequest struct {
 }
 
 type CreateFileHandler struct {
-	Manager     project.Manager
-	FileManager files.FileManager
+	ProjectManager project.Manager
 }
 
 func (h CreateFileHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -28,16 +26,15 @@ func (h CreateFileHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	project, err := h.Manager.GetProject(projectId)
+	file, err := h.ProjectManager.CreateFile(r.Context(), projectId, request.Path, request.Content)
 
 	if err != nil {
-		http.Error(w, "Project not found", http.StatusNotFound)
-		return
-	}
+		var projectNotFoundError *project.ProjectNotFoundError
+		if errors.As(err, &projectNotFoundError) {
+			http.Error(w, projectNotFoundError.Error(), http.StatusNotFound)
+			return
+		}
 
-	file, err := h.FileManager.CreateFile(r.Context(), afero.NewBasePathFs(afero.NewOsFs(), project.Path), request.Path, request.Content)
-
-	if err != nil {
 		http.Error(w, "Failed to create file", http.StatusInternalServerError)
 		return
 	}

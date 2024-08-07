@@ -9,7 +9,6 @@ import (
 	"github.com/artmoskvin/hide/pkg/files"
 	"github.com/artmoskvin/hide/pkg/model"
 	"github.com/artmoskvin/hide/pkg/project"
-	"github.com/spf13/afero"
 )
 
 type UpdateType string
@@ -67,8 +66,7 @@ func (r *UpdateFileRequest) Validate() error {
 }
 
 type UpdateFileHandler struct {
-	Manager     project.Manager
-	FileManager files.FileManager
+	ProjectManager project.Manager
 }
 
 func (h UpdateFileHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -87,36 +85,45 @@ func (h UpdateFileHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	project, err := h.Manager.GetProject(projectId)
-
-	if err != nil {
-		http.Error(w, "Project not found", http.StatusNotFound)
-		return
-	}
-
-	fileSystem := afero.NewBasePathFs(afero.NewOsFs(), project.Path)
-
 	var file model.File
 
 	switch request.Type {
 	case Udiff:
-		updatedFile, err := h.FileManager.ApplyPatch(r.Context(), fileSystem, filePath, request.Udiff.Patch)
+		updatedFile, err := h.ProjectManager.ApplyPatch(r.Context(), projectId, filePath, request.Udiff.Patch)
 		if err != nil {
+			var projectNotFoundError *project.ProjectNotFoundError
+			if errors.As(err, &projectNotFoundError) {
+				http.Error(w, projectNotFoundError.Error(), http.StatusNotFound)
+				return
+			}
+
 			http.Error(w, "Failed to update file", http.StatusInternalServerError)
 			return
 		}
 		file = updatedFile
 	case LineDiff:
 		lineDiff := request.LineDiff
-		updatedFile, err := h.FileManager.UpdateLines(r.Context(), fileSystem, filePath, files.LineDiffChunk{StartLine: lineDiff.StartLine, EndLine: lineDiff.EndLine, Content: lineDiff.Content})
+		updatedFile, err := h.ProjectManager.UpdateLines(r.Context(), projectId, filePath, files.LineDiffChunk{StartLine: lineDiff.StartLine, EndLine: lineDiff.EndLine, Content: lineDiff.Content})
 		if err != nil {
+			var projectNotFoundError *project.ProjectNotFoundError
+			if errors.As(err, &projectNotFoundError) {
+				http.Error(w, projectNotFoundError.Error(), http.StatusNotFound)
+				return
+			}
+
 			http.Error(w, "Failed to update file", http.StatusInternalServerError)
 			return
 		}
 		file = updatedFile
 	case Overwrite:
-		updatedFile, err := h.FileManager.UpdateFile(r.Context(), fileSystem, filePath, request.Overwrite.Content)
+		updatedFile, err := h.ProjectManager.UpdateFile(r.Context(), projectId, filePath, request.Overwrite.Content)
 		if err != nil {
+			var projectNotFoundError *project.ProjectNotFoundError
+			if errors.As(err, &projectNotFoundError) {
+				http.Error(w, projectNotFoundError.Error(), http.StatusNotFound)
+				return
+			}
+
 			http.Error(w, "Failed to update file", http.StatusInternalServerError)
 			return
 		}
