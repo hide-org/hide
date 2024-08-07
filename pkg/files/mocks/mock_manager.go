@@ -1,7 +1,7 @@
 package mocks
 
 import (
-	"io/fs"
+	"context"
 
 	"github.com/artmoskvin/hide/pkg/files"
 	"github.com/artmoskvin/hide/pkg/model"
@@ -10,39 +10,39 @@ import (
 
 // MockFileManager is a mock of the filemanager.FileManager interface for testing
 type MockFileManager struct {
-	CreateFileFunc  func(path string, content string) (model.File, error)
-	ReadFileFunc    func(fileSystem fs.FS, path string, props files.ReadProps) (model.File, error)
-	UpdateFileFunc  func(fileSystem afero.Fs, path string, content string) (model.File, error)
-	DeleteFileFunc  func(path string) error
-	ListFilesFunc   func(rootPath string) ([]model.File, error)
-	ApplyPatchFunc  func(fileSystem afero.Fs, path string, patch string) (model.File, error)
-	UpdateLinesFunc func(filesystem afero.Fs, path string, lineDiff files.LineDiffChunk) (model.File, error)
+	CreateFileFunc  func(ctx context.Context, fs afero.Fs, path, content string) (model.File, error)
+	ReadFileFunc    func(ctx context.Context, fs afero.Fs, path string, props files.ReadProps) (model.File, error)
+	UpdateFileFunc  func(ctx context.Context, fs afero.Fs, path, content string) (model.File, error)
+	DeleteFileFunc  func(ctx context.Context, fs afero.Fs, path string) error
+	ListFilesFunc   func(ctx context.Context, fs afero.Fs) ([]model.File, error)
+	ApplyPatchFunc  func(ctx context.Context, fs afero.Fs, path, patch string) (model.File, error)
+	UpdateLinesFunc func(ctx context.Context, fs afero.Fs, path string, lineDiff files.LineDiffChunk) (model.File, error)
 }
 
-func (m *MockFileManager) CreateFile(path string, content string) (model.File, error) {
-	return m.CreateFileFunc(path, content)
+func (m *MockFileManager) CreateFile(ctx context.Context, fs afero.Fs, path, content string) (model.File, error) {
+	return m.CreateFileFunc(ctx, fs, path, content)
 }
 
-func (m *MockFileManager) ReadFile(fileSystem fs.FS, path string, props files.ReadProps) (model.File, error) {
-	return m.ReadFileFunc(fileSystem, path, props)
+func (m *MockFileManager) ReadFile(ctx context.Context, fs afero.Fs, path string, props files.ReadProps) (model.File, error) {
+	return m.ReadFileFunc(ctx, fs, path, props)
 }
 
-func (m *MockFileManager) UpdateFile(fileSystem afero.Fs, path string, content string) (model.File, error) {
-	return m.UpdateFileFunc(fileSystem, path, content)
+func (m *MockFileManager) UpdateFile(ctx context.Context, fs afero.Fs, path, content string) (model.File, error) {
+	return m.UpdateFileFunc(ctx, fs, path, content)
 }
 
-func (m *MockFileManager) DeleteFile(path string) error {
-	return m.DeleteFileFunc(path)
+func (m *MockFileManager) DeleteFile(ctx context.Context, fs afero.Fs, path string) error {
+	return m.DeleteFileFunc(ctx, fs, path)
 }
 
-func (m *MockFileManager) ListFiles(rootPath string) ([]model.File, error) {
-	return m.ListFilesFunc(rootPath)
+func (m *MockFileManager) ListFiles(ctx context.Context, fs afero.Fs) ([]model.File, error) {
+	return m.ListFilesFunc(ctx, fs)
 }
 
-func (m *MockFileManager) ApplyPatch(fileSystem afero.Fs, path string, patch string) (model.File, error) {
-	return m.ApplyPatchFunc(fileSystem, path, patch)
+func (m *MockFileManager) ApplyPatch(ctx context.Context, fs afero.Fs, path, patch string) (model.File, error) {
+	return m.ApplyPatchFunc(ctx, fs, path, patch)
 }
 
-func (m *MockFileManager) UpdateLines(filesystem afero.Fs, path string, lineDiff files.LineDiffChunk) (model.File, error) {
-	return m.UpdateLinesFunc(filesystem, path, lineDiff)
+func (m *MockFileManager) UpdateLines(ctx context.Context, fs afero.Fs, path string, lineDiff files.LineDiffChunk) (model.File, error) {
+	return m.UpdateLinesFunc(ctx, fs, path, lineDiff)
 }

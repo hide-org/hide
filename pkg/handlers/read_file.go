@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"os"
 	"strconv"
 
 	"github.com/artmoskvin/hide/pkg/files"
 	"github.com/artmoskvin/hide/pkg/project"
+	"github.com/spf13/afero"
 )
 
 type ReadFileHandler struct {
@@ -50,7 +50,7 @@ func (h ReadFileHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	file, err := h.FileManager.ReadFile(os.DirFS(project.Path), filePath, files.NewReadProps(
+	file, err := h.FileManager.ReadFile(r.Context(), afero.NewBasePathFs(afero.NewOsFs(), project.Path), filePath, files.NewReadProps(
 		func(props *files.ReadProps) {
 			props.ShowLineNumbers = showLineNumbers
 			props.StartLine = startLine

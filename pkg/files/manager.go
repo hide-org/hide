@@ -44,7 +44,7 @@ type FileManager interface {
 	UpdateFile(ctx context.Context, fs afero.Fs, path, content string) (model.File, error)
 	DeleteFile(ctx context.Context, fs afero.Fs, path string) error
 	ListFiles(ctx context.Context, fs afero.Fs) ([]model.File, error)
-	ApplyPatch(ctx context.Context, fs afero.Fs, path string, patch string) (model.File, error)
+	ApplyPatch(ctx context.Context, fs afero.Fs, path, patch string) (model.File, error)
 	UpdateLines(ctx context.Context, fs afero.Fs, path string, lineDiff LineDiffChunk) (model.File, error)
 }
 
@@ -174,7 +174,7 @@ func (fm *FileManagerImpl) ListFiles(ctx context.Context, fs afero.Fs) ([]model.
 	return files, err
 }
 
-func (fm *FileManagerImpl) ApplyPatch(ctx context.Context, fs afero.Fs, path string, patch string) (model.File, error) {
+func (fm *FileManagerImpl) ApplyPatch(ctx context.Context, fs afero.Fs, path, patch string) (model.File, error) {
 	log.Debug().Msgf("Applying patch to %s:\n%s", path, patch)
 
 	file, err := readFile(fs, path)

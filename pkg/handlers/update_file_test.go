@@ -2,6 +2,7 @@ package handlers_test
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -75,13 +76,13 @@ func TestUpdateFileHandler_Success(t *testing.T) {
 			}
 
 			mockFileManager := &files_mocks.MockFileManager{
-				ApplyPatchFunc: func(fileSystem afero.Fs, path string, patch string) (model.File, error) {
+				ApplyPatchFunc: func(ctx context.Context, fs afero.Fs, path, patch string) (model.File, error) {
 					return tt.expected, nil
 				},
-				UpdateLinesFunc: func(filesystem afero.Fs, path string, lineDiff files.LineDiffChunk) (model.File, error) {
+				UpdateLinesFunc: func(ctx context.Context, fs afero.Fs, path string, lineDiff files.LineDiffChunk) (model.File, error) {
 					return tt.expected, nil
 				},
-				UpdateFileFunc: func(fileSystem afero.Fs, path string, content string) (model.File, error) {
+				UpdateFileFunc: func(ctx context.Context, fs afero.Fs, path, content string) (model.File, error) {
 					return tt.expected, nil
 				},
 			}
@@ -219,7 +220,7 @@ func TestUpdateFileHandler_RespondsWithInternalServerError_IfFileManagerFails(t 
 	}
 
 	mockFileManager := &files_mocks.MockFileManager{
-		ApplyPatchFunc: func(fileSystem afero.Fs, path string, patch string) (model.File, error) {
+		ApplyPatchFunc: func(ctx context.Context, fs afero.Fs, path, patch string) (model.File, error) {
 			return model.File{}, errors.New("file manager error")
 		},
 	}

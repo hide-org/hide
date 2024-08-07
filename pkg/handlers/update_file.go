@@ -100,7 +100,7 @@ func (h UpdateFileHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	switch request.Type {
 	case Udiff:
-		updatedFile, err := h.FileManager.ApplyPatch(fileSystem, filePath, request.Udiff.Patch)
+		updatedFile, err := h.FileManager.ApplyPatch(r.Context(), fileSystem, filePath, request.Udiff.Patch)
 		if err != nil {
 			http.Error(w, "Failed to update file", http.StatusInternalServerError)
 			return
@@ -108,14 +108,14 @@ func (h UpdateFileHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		file = updatedFile
 	case LineDiff:
 		lineDiff := request.LineDiff
-		updatedFile, err := h.FileManager.UpdateLines(fileSystem, filePath, files.LineDiffChunk{StartLine: lineDiff.StartLine, EndLine: lineDiff.EndLine, Content: lineDiff.Content})
+		updatedFile, err := h.FileManager.UpdateLines(r.Context(), fileSystem, filePath, files.LineDiffChunk{StartLine: lineDiff.StartLine, EndLine: lineDiff.EndLine, Content: lineDiff.Content})
 		if err != nil {
 			http.Error(w, "Failed to update file", http.StatusInternalServerError)
 			return
 		}
 		file = updatedFile
 	case Overwrite:
-		updatedFile, err := h.FileManager.UpdateFile(fileSystem, filePath, request.Overwrite.Content)
+		updatedFile, err := h.FileManager.UpdateFile(r.Context(), fileSystem, filePath, request.Overwrite.Content)
 		if err != nil {
 			http.Error(w, "Failed to update file", http.StatusInternalServerError)
 			return
