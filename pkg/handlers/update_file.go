@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"github.com/artmoskvin/hide/pkg/files"
+	"github.com/artmoskvin/hide/pkg/model"
 	"github.com/artmoskvin/hide/pkg/project"
 	"github.com/spf13/afero"
 )
@@ -95,7 +96,7 @@ func (h UpdateFileHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	fileSystem := afero.NewBasePathFs(afero.NewOsFs(), project.Path)
 
-	var file files.File
+	var file model.File
 
 	switch request.Type {
 	case Udiff:

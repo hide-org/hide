@@ -7,6 +7,7 @@ import (
 	"testing/fstest"
 
 	"github.com/artmoskvin/hide/pkg/files"
+	"github.com/artmoskvin/hide/pkg/model"
 	"github.com/spf13/afero"
 )
 
@@ -101,7 +102,7 @@ func TestFileManagerImpl_ReadFile_Success(t *testing.T) {
 		fs       fs.FS
 		filePath string
 		props    files.ReadPropsSetter
-		expected files.File
+		expected model.File
 	}{
 		{
 			name:     "ShowLineNumbers = true",
@@ -112,7 +113,7 @@ func TestFileManagerImpl_ReadFile_Success(t *testing.T) {
 				props.StartLine = 2
 				props.NumLines = 3
 			},
-			expected: files.File{
+			expected: model.File{
 				Path:    "test.txt",
 				Content: "2:line2\n3:line3\n4:line4\n",
 			},
@@ -126,7 +127,7 @@ func TestFileManagerImpl_ReadFile_Success(t *testing.T) {
 				props.StartLine = 4
 				props.NumLines = 4
 			},
-			expected: files.File{
+			expected: model.File{
 				Path:    "test.txt",
 				Content: "line4\nline5\nline6\nline7\n",
 			},
@@ -140,7 +141,7 @@ func TestFileManagerImpl_ReadFile_Success(t *testing.T) {
 				props.StartLine = 2
 				props.NumLines = 0
 			},
-			expected: files.File{
+			expected: model.File{
 				Path:    "test.txt",
 				Content: "",
 			},
@@ -154,7 +155,7 @@ func TestFileManagerImpl_ReadFile_Success(t *testing.T) {
 				props.StartLine = 5
 				props.NumLines = 10
 			},
-			expected: files.File{
+			expected: model.File{
 				Path:    "test.txt",
 				Content: " 5:line5\n 6:line6\n 7:line7\n 8:line8\n 9:line9\n10:line10\n",
 			},
@@ -168,7 +169,7 @@ func TestFileManagerImpl_ReadFile_Success(t *testing.T) {
 				props.StartLine = 5
 				props.NumLines = 10
 			},
-			expected: files.File{
+			expected: model.File{
 				Path:    "test.txt",
 				Content: " 5:line5\n 6:line6\n 7:line7\n 8:line8\n 9:line9\n10:line10\n",
 			},
@@ -257,7 +258,7 @@ func TestFileManagerImpl_ApplyPatch_Success(t *testing.T) {
 	tests := []struct {
 		name     string
 		patch    string
-		expected files.File
+		expected model.File
 	}{
 		{
 			name: "Apply patch to file",
@@ -277,7 +278,7 @@ func TestFileManagerImpl_ApplyPatch_Success(t *testing.T) {
 -line9
  line10
 +line11`,
-			expected: files.File{
+			expected: model.File{
 				Path:    "test.txt",
 				Content: "line1\nline20\nline3\nline40\nline5\nline7\nline8\nline10\nline11",
 			},
@@ -371,7 +372,7 @@ func TestFileManagerImpl_UpdateLines_Success(t *testing.T) {
 	tests := []struct {
 		name     string
 		lineDiff files.LineDiffChunk
-		expected files.File
+		expected model.File
 	}{
 		{
 			name: "Update 1 line",
@@ -380,7 +381,7 @@ func TestFileManagerImpl_UpdateLines_Success(t *testing.T) {
 				EndLine:   1,
 				Content:   "line11",
 			},
-			expected: files.File{
+			expected: model.File{
 				Path:    "test.txt",
 				Content: "line11\nline2\nline3\n",
 			},
@@ -392,7 +393,7 @@ func TestFileManagerImpl_UpdateLines_Success(t *testing.T) {
 				EndLine:   2,
 				Content:   "line11\nline12\n",
 			},
-			expected: files.File{
+			expected: model.File{
 				Path:    "test.txt",
 				Content: "line11\nline12\nline3\n",
 			},
@@ -404,7 +405,7 @@ func TestFileManagerImpl_UpdateLines_Success(t *testing.T) {
 				EndLine:   3,
 				Content:   "line3\nline11\nline12\n",
 			},
-			expected: files.File{
+			expected: model.File{
 				Path:    "test.txt",
 				Content: "line1\nline2\nline3\nline11\nline12\n",
 			},
@@ -475,12 +476,12 @@ func TestUpdateFile_Success(t *testing.T) {
 	tests := []struct {
 		name     string
 		content  string
-		expected files.File
+		expected model.File
 	}{
 		{
 			name:     "Update file",
 			content:  "line1\nline2\nline3\n",
-			expected: files.File{Path: "test.txt", Content: "line1\nline2\nline3\n"},
+			expected: model.File{Path: "test.txt", Content: "line1\nline2\nline3\n"},
 		},
 	}
 
