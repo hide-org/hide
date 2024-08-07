@@ -2,10 +2,10 @@ package handlers
 
 import (
 	"net/http"
-	"path/filepath"
 
 	"github.com/artmoskvin/hide/pkg/files"
 	"github.com/artmoskvin/hide/pkg/project"
+	"github.com/spf13/afero"
 )
 
 type DeleteFileHandler struct {
@@ -24,8 +24,7 @@ func (h DeleteFileHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fullPath := filepath.Join(project.Path, filePath)
-	err = h.FileManager.DeleteFile(fullPath)
+	err = h.FileManager.DeleteFile(r.Context(), afero.NewBasePathFs(afero.NewOsFs(), project.Path), filePath)
 
 	if err != nil {
 		http.Error(w, "Failed to delete file", http.StatusInternalServerError)

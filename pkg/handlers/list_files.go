@@ -6,6 +6,7 @@ import (
 
 	"github.com/artmoskvin/hide/pkg/files"
 	"github.com/artmoskvin/hide/pkg/project"
+	"github.com/spf13/afero"
 )
 
 type FileResponse struct {
@@ -26,7 +27,7 @@ func (h ListFilesHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	files, err := h.FileManager.ListFiles(project.Path)
+	files, err := h.FileManager.ListFiles(r.Context(), afero.NewBasePathFs(afero.NewOsFs(), project.Path))
 
 	if err != nil {
 		http.Error(w, "Failed to list files", http.StatusInternalServerError)

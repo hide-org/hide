@@ -3,10 +3,10 @@ package handlers
 import (
 	"encoding/json"
 	"net/http"
-	"path/filepath"
 
 	"github.com/artmoskvin/hide/pkg/files"
 	"github.com/artmoskvin/hide/pkg/project"
+	"github.com/spf13/afero"
 )
 
 type CreateFileRequest struct {
@@ -35,8 +35,7 @@ func (h CreateFileHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fullPath := filepath.Join(project.Path, request.Path)
-	file, err := h.FileManager.CreateFile(fullPath, request.Content)
+	file, err := h.FileManager.CreateFile(r.Context(), afero.NewBasePathFs(afero.NewOsFs(), project.Path), request.Path, request.Content)
 
 	if err != nil {
 		http.Error(w, "Failed to create file", http.StatusInternalServerError)

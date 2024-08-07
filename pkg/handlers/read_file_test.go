@@ -1,9 +1,9 @@
 package handlers_test
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
-	"io/fs"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -13,6 +13,7 @@ import (
 	"github.com/artmoskvin/hide/pkg/handlers"
 	"github.com/artmoskvin/hide/pkg/model"
 	project_mocks "github.com/artmoskvin/hide/pkg/project/mocks"
+	"github.com/spf13/afero"
 )
 
 func TestReadFileHandler_Success(t *testing.T) {
@@ -64,7 +65,7 @@ func TestReadFileHandler_Success(t *testing.T) {
 			}
 
 			mockFileManager := &files_mocks.MockFileManager{
-				ReadFileFunc: func(fileSystem fs.FS, path string, props files.ReadProps) (model.File, error) {
+				ReadFileFunc: func(ctx context.Context, fs afero.Fs, path string, props files.ReadProps) (model.File, error) {
 					return tt.expectedFile, nil
 				},
 			}
@@ -168,7 +169,7 @@ func TestReadFileHandler_Fails_WhenReadFileFails(t *testing.T) {
 		}
 
 		mockFileManager := &files_mocks.MockFileManager{
-			ReadFileFunc: func(fileSystem fs.FS, path string, props files.ReadProps) (model.File, error) {
+			ReadFileFunc: func(ctx context.Context, fs afero.Fs, path string, props files.ReadProps) (model.File, error) {
 				return model.File{}, errors.New("file not found")
 			},
 		}

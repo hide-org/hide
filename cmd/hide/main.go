@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/artmoskvin/hide/pkg/devcontainer"
 	"github.com/artmoskvin/hide/pkg/files"
@@ -37,17 +38,19 @@ func main() {
 	_, err := os.Stat(*envPath)
 
 	if os.IsNotExist(err) {
-		log.Debug().Msg(fmt.Sprintf("Environment file %s does not exist.", *envPath))
+		log.Debug().Msgf("Environment file %s does not exist.", *envPath)
 	}
 
 	if err == nil {
-		// NOTE: can use filepath.Split()
-		dotEnvDir := filepath.Dir(*envPath)
-		dotEnvFile := filepath.Base(*envPath)
+		dir, file := filepath.Split(*envPath)
 
-		err := util.LoadEnv(os.DirFS(dotEnvDir), dotEnvFile)
+		if dir == "" {
+			dir = "."
+		}
+
+		err := util.LoadEnv(os.DirFS(dir), file)
 		if err != nil {
-			log.Error().Err(err).Msg(fmt.Sprintf("Cannot load environment variables from %s", *envPath))
+			log.Error().Err(err).Msgf("Cannot load environment variables from %s", *envPath)
 		}
 	}
 
@@ -99,7 +102,7 @@ func main() {
 	// TODO: make configurable
 	port := ":8080"
 
-	log.Info().Msg(fmt.Sprintf("Server started on %s\n", port))
+	log.Info().Msgf("Server started on %s\n", port)
 
 	if err := http.ListenAndServe(port, mux); err != nil {
 		log.Fatal().Err(err).Str("port", port).Msg("Failed to start server")
@@ -107,8 +110,9 @@ func main() {
 }
 
 func setupLogger(debug bool) {
-	output := zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: zerolog.TimeFormatUnix, NoColor: false}
-	log.Logger = log.Output(output)
+	zerolog.TimeFieldFormat = zerolog.TimeFormatUnixMs
+	output := zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: time.RFC3339Nano}
+	log.Logger = log.Output(output).With().Caller().Logger()
 
 	zerolog.SetGlobalLevel(zerolog.InfoLevel)
 	if debug {
