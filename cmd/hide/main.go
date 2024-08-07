@@ -94,15 +94,15 @@ func main() {
 	listFilesHandler := handlers.ListFilesHandler{ProjectManager: projectManager}
 
 	router := mux.NewRouter()
-	router.Handle("POST /projects", createProjectHandler)
-	router.Handle("DELETE /projects/{id}", deleteProjectHandler)
-	router.Handle("POST /projects/{id}/tasks", createTaskHandler)
-	router.Handle("GET /projects/{id}/tasks", listTasksHandler)
-	router.Handle("POST /projects/{id}/files", createFileHandler)
-	router.Handle("GET /projects/{id}/files", listFilesHandler)
-	router.Handle("GET /projects/{id}/files/{path...}", readFileHandler)
-	router.Handle("PUT /projects/{id}/files/{path...}", updateFileHandler)
-	router.Handle("DELETE /projects/{id}/files/{path...}", deleteFileHandler)
+	router.Handle("/projects", createProjectHandler).Methods("POST")
+	router.Handle("/projects/{id}", deleteProjectHandler).Methods("DELETE")
+	router.Handle("/projects/{id}/tasks", createTaskHandler).Methods("POST")
+	router.Handle("/projects/{id}/tasks", listTasksHandler).Methods("GET")
+	router.Handle("/projects/{id}/files", createFileHandler).Methods("POST")
+	router.Handle("/projects/{id}/files", listFilesHandler).Methods("GET")
+	router.Handle("/projects/{id}/files/{path...}", readFileHandler).Methods("GET")
+	router.Handle("/projects/{id}/files/{path...}", updateFileHandler).Methods("PUT")
+	router.Handle("/projects/{id}/files/{path...}", deleteFileHandler).Methods("DELETE")
 
 	addr := fmt.Sprintf("127.0.0.1:%d", *port)
 
