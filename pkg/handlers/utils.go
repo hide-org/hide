@@ -8,11 +8,19 @@ import (
 )
 
 func getProjectID(r *http.Request) (string, error) {
+	return getPathValue(r, "id")
+}
+
+func getFilePath(r *http.Request) (string, error) {
+	return getPathValue(r, "path")
+}
+
+func getPathValue(r *http.Request, key string) (string, error) {
 	vars := mux.Vars(r)
-	projectID, ok := vars["id"]
+	value, ok := vars[key]
 	if !ok {
-		return "", errors.New("invalid project ID")
+		return "", errors.New("invalid path value")
 	}
 
-	return projectID, nil
+	return value, nil
 }

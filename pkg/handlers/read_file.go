@@ -17,8 +17,16 @@ type ReadFileHandler struct {
 }
 
 func (h ReadFileHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	projectId := r.PathValue("id")
-	filePath := r.PathValue("path")
+	projectID, err := getProjectID(r)
+	if err != nil {
+		http.Error(w, "invalid project ID", http.StatusBadRequest)
+	}
+
+	filePath, err := getFilePath(r)
+	if err != nil {
+		http.Error(w, "invalid file path", http.StatusBadRequest)
+	}
+
 	queryParams := r.URL.Query()
 
 	showLineNumbers, err := parseBoolQueryParam(queryParams, "showLineNumbers", files.DefaultShowLineNumbers)
@@ -42,7 +50,7 @@ func (h ReadFileHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	file, err := h.ProjectManager.ReadFile(r.Context(), projectId, filePath, files.NewReadProps(
+	file, err := h.ProjectManager.ReadFile(r.Context(), projectID, filePath, files.NewReadProps(
 		func(props *files.ReadProps) {
 			props.ShowLineNumbers = showLineNumbers
 			props.StartLine = startLine
