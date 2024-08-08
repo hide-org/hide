@@ -10,6 +10,7 @@ import (
 
 	"github.com/artmoskvin/hide/pkg/devcontainer"
 	"github.com/artmoskvin/hide/pkg/files"
+	"github.com/artmoskvin/hide/pkg/lsp"
 	"github.com/artmoskvin/hide/pkg/model"
 	"github.com/artmoskvin/hide/pkg/result"
 	"github.com/artmoskvin/hide/pkg/util"
@@ -57,10 +58,26 @@ type ManagerImpl struct {
 	Store              Store
 	ProjectsRoot       string
 	fileManager        files.FileManager
+	lspService         lsp.Service
+	languageDetector   lsp.LanguageDetector
 }
 
-func NewProjectManager(devContainerRunner devcontainer.Runner, projectStore Store, projectsRoot string, fileManager files.FileManager) Manager {
-	return ManagerImpl{DevContainerRunner: devContainerRunner, Store: projectStore, ProjectsRoot: projectsRoot, fileManager: fileManager}
+func NewProjectManager(
+	devContainerRunner devcontainer.Runner,
+	projectStore Store,
+	projectsRoot string,
+	fileManager files.FileManager,
+	lspService lsp.Service,
+	languageDetector lsp.LanguageDetector,
+) Manager {
+	return ManagerImpl{
+		DevContainerRunner: devContainerRunner,
+		Store:              projectStore,
+		ProjectsRoot:       projectsRoot,
+		fileManager:        fileManager,
+		lspService:         lspService,
+		languageDetector:   languageDetector,
+	}
 }
 
 func (pm ManagerImpl) CreateProject(request CreateProjectRequest) <-chan result.Result[model.Project] {
@@ -112,6 +129,8 @@ func (pm ManagerImpl) CreateProject(request CreateProjectRequest) <-chan result.
 		}
 
 		project := model.Project{Id: projectId, Path: projectPath, Config: model.Config{DevContainerConfig: devContainerConfig}, ContainerId: containerId}
+
+		// TODO: start LSP server
 
 		if err := pm.Store.CreateProject(&project); err != nil {
 			log.Error().Err(err).Msg("Failed to save project")

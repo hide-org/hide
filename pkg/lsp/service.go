@@ -10,28 +10,130 @@ import (
 	protocol "github.com/tliron/glsp/protocol_3_16"
 )
 
-type Service interface {
-	NotifyDidOpen(ctx context.Context, file model.File) error
-	NotifyDidClose(ctx context.Context, file model.File) error
-	// TODO: check if any LSP server supports this
-	// PullDiagnostics(ctx context.Context, params DocumentDiagnosticParams) (DocumentDiagnosticReport, error)
-	GetDiagnostics(ctx context.Context, file model.File) []protocol.Diagnostic
-	StopClient(ctx context.Context, file model.File) error
-	Cleanup(ctx context.Context) error
-	CleanupProject(ctx context.Context, projectId ProjectId) error
-}
-
 type ProjectId = string
 type LanguageId = string
 type ProjectRoot = string
 type LspClientStore = map[ProjectId]map[LanguageId]Client
 type LspDiagnostics = map[ProjectId]map[protocol.DocumentUri][]protocol.Diagnostic
 
+type Service interface {
+	StartServer(ctx context.Context, languageId LanguageId) error
+	StopServer(ctx context.Context, languageId LanguageId) error
+	NotifyDidOpen(ctx context.Context, file model.File) error
+	NotifyDidClose(ctx context.Context, file model.File) error
+	// TODO: check if any LSP server supports this
+	// PullDiagnostics(ctx context.Context, params DocumentDiagnosticParams) (DocumentDiagnosticReport, error)
+	GetDiagnostics(ctx context.Context, file model.File) ([]protocol.Diagnostic, error)
+	Cleanup(ctx context.Context) error
+	CleanupProject(ctx context.Context, projectId ProjectId) error
+}
+
 type ServiceImpl struct {
 	lspClients             LspClientStore
 	lspClientFactoryMethod func(LanguageId, ProjectRoot, chan protocol.PublishDiagnosticsParams) Client
 	lspDiagnostics         LspDiagnostics
 	languageDetector       LanguageDetector
+	lspServerExecutables   map[LanguageId]string
+}
+
+// StartServer implements Service.
+func (s *ServiceImpl) StartServer(ctx context.Context, languageId LanguageId) error {
+	project, ok := model.ProjectFromContext(ctx)
+	if !ok {
+		log.Error().Msg("Project not found in context")
+		return fmt.Errorf("Project not found in context")
+	}
+
+	projectId := project.Id
+
+	executable, ok := s.lspServerExecutables[languageId]
+	if !ok {
+		return LanguageNotSupportedError{LanguageId: languageId}
+	}
+
+	// Start the language server
+	process, err := NewProcess(executable)
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to create language server process")
+		return fmt.Errorf("Failed to create language server process: %w", err)
+	}
+
+	if err := process.Start(); err != nil {
+		log.Error().Err(err).Msg("Failed to start language server")
+		return fmt.Errorf("Failed to start language server: %w", err)
+	}
+
+	// Create a channel for diagnostics
+	diagnosticsChannel := make(chan protocol.PublishDiagnosticsParams)
+
+	// Create a client for the language server
+	client := NewClient(process, diagnosticsChannel)
+
+	// Initialize the language server
+	root := PathToURI(project.Path)
+	initResult, err := client.Initialize(ctx, protocol.InitializeParams{
+		RootURI: &root,
+		Capabilities: protocol.ClientCapabilities{
+			TextDocument: &protocol.TextDocumentClientCapabilities{
+				Synchronization: &protocol.TextDocumentSyncClientCapabilities{
+					DynamicRegistration: boolPointer(true),
+				},
+			},
+		},
+		// WorkspaceFolders: []protocol.WorkspaceFolder{
+		// 	{
+		// 		URI:  root,
+		// 		Name: "hide",
+		// 	},
+		// },
+	})
+
+	if err != nil {
+		log.Error().Str("languageId", languageId).Str("projectId", projectId).Err(err).Msg("Failed to initialize language server")
+		return fmt.Errorf("Failed to initialize language server: %w", err)
+	}
+
+	log.Debug().Str("languageId", languageId).Str("projectId", projectId).Msg("Initialized language server")
+
+	// Check capabilities
+	if opt, ok := initResult.Capabilities.TextDocumentSync.(protocol.TextDocumentSyncOptions); ok {
+		log.Debug().Str("languageId", languageId).Str("projectId", projectId).Msgf("LSP server supports open/close file: %t", *opt.OpenClose)
+		log.Debug().Str("languageId", languageId).Str("projectId", projectId).Msgf("LSP server supports change notifications: %v", *opt.Change)
+	}
+
+	// Notify that initialized
+	if err := client.NotifyInitialized(ctx); err != nil {
+		log.Error().Err(err).Str("languageId", languageId).Str("projectId", projectId).Msg("Failed to notify initialized")
+		return fmt.Errorf("Failed to notify initialized: %w", err)
+	}
+
+	s.lspClients[projectId][languageId] = client
+	go s.listenForDiagnostics(projectId, diagnosticsChannel)
+	return nil
+}
+
+func (s *ServiceImpl) StopServer(ctx context.Context, languageId LanguageId) error {
+	project, ok := model.ProjectFromContext(ctx)
+	if !ok {
+		log.Error().Msg("Project not found in context")
+		return fmt.Errorf("Project not found in context")
+	}
+
+	client, ok := s.getClient(ctx, languageId)
+
+	if !ok {
+		log.Warn().Str("languageId", languageId).Str("projectId", project.Id).Msg("LSP client not found")
+		return nil
+	}
+
+	if err := client.Shutdown(ctx); err != nil {
+		log.Error().Err(err).Str("languageId", languageId).Str("projectId", project.Id).Msg("Failed to stop language server")
+		return fmt.Errorf("Failed to stop language server: %w", err)
+	}
+
+	delete(s.lspClients[project.Id], languageId)
+
+	return nil
 }
 
 // NotifyDidClose implements Service.
@@ -44,10 +146,18 @@ func (s *ServiceImpl) NotifyDidClose(ctx context.Context, file model.File) error
 	}
 
 	languageId := s.languageDetector.DetectLanguage(file)
-	client := s.getOrCreateLspClient(*project, languageId)
+	client, ok := s.getClient(ctx, languageId)
+
+	if !ok {
+		log.Error().Str("languageId", languageId).Str("projectId", project.Id).Msg("LSP client not found")
+		return LanguageServerNotFoundError{ProjectId: project.Id, LanguageId: languageId}
+	}
+
+	fullPath := filepath.Join(project.Path, file.Path)
+
 	err := client.NotifyDidClose(ctx, protocol.DidCloseTextDocumentParams{
 		TextDocument: protocol.TextDocumentIdentifier{
-			URI: PathToURI(file.Path),
+			URI: PathToURI(fullPath),
 		},
 	})
 
@@ -64,7 +174,13 @@ func (s *ServiceImpl) NotifyDidOpen(ctx context.Context, file model.File) error 
 	}
 
 	languageId := s.languageDetector.DetectLanguage(file)
-	client := s.getOrCreateLspClient(*project, languageId)
+	client, ok := s.getClient(ctx, languageId)
+
+	if !ok {
+		log.Error().Str("languageId", languageId).Str("projectId", project.Id).Msg("LSP client not found")
+		return LanguageServerNotFoundError{ProjectId: project.Id, LanguageId: languageId}
+	}
+
 	fullPath := filepath.Join(project.Path, file.Path)
 
 	err := client.NotifyDidOpen(ctx, protocol.DidOpenTextDocumentParams{
@@ -79,47 +195,20 @@ func (s *ServiceImpl) NotifyDidOpen(ctx context.Context, file model.File) error 
 	return err
 }
 
-func (s *ServiceImpl) GetDiagnostics(ctx context.Context, file model.File) []protocol.Diagnostic {
+func (s *ServiceImpl) GetDiagnostics(ctx context.Context, file model.File) ([]protocol.Diagnostic, error) {
 	project, ok := model.ProjectFromContext(ctx)
 
 	if !ok {
 		log.Error().Msg("Project not found in context")
-		return nil
+		return nil, fmt.Errorf("Project not found in context")
 	}
 
 	uri := PathToURI(filepath.Join(project.Path, file.Path))
 	if diagnostics, ok := s.lspDiagnostics[project.Id]; ok {
-		return diagnostics[uri]
+		return diagnostics[uri], nil
 	}
 
-	return nil
-}
-
-func (s *ServiceImpl) StopClient(ctx context.Context, file model.File) error {
-	project, ok := model.ProjectFromContext(ctx)
-
-	if !ok {
-		log.Error().Msg("Project not found in context")
-		return fmt.Errorf("Project not found in context")
-	}
-
-	languageId := s.languageDetector.DetectLanguage(file)
-
-	if _, ok := s.lspClients[project.Id]; !ok {
-		return nil
-	}
-
-	if _, ok := s.lspClients[project.Id][languageId]; !ok {
-		return nil
-	}
-
-	if err := s.lspClients[project.Id][languageId].StopServer(); err != nil {
-		return err
-	}
-
-	delete(s.lspClients[project.Id], languageId)
-
-	return nil
+	return nil, nil
 }
 
 func (s *ServiceImpl) Cleanup(ctx context.Context) error {
@@ -133,25 +222,39 @@ func (s *ServiceImpl) Cleanup(ctx context.Context) error {
 }
 
 func (s *ServiceImpl) CleanupProject(ctx context.Context, projectId ProjectId) error {
-	panic("not implemented")
+	clients, ok := s.lspClients[projectId]
+	if !ok {
+		return nil
+	}
+
+	for _, client := range clients {
+		if err := client.Shutdown(ctx); err != nil {
+			return err
+		}
+	}
+
+	delete(s.lspClients, projectId)
+	return nil
 }
 
-func (s *ServiceImpl) getOrCreateLspClient(project model.Project, languageId LanguageId) Client {
-	projectId := project.Id
-
-	if _, ok := s.lspClients[projectId]; !ok {
-		s.lspClients[projectId] = make(map[LanguageId]Client)
+func (s *ServiceImpl) getClient(ctx context.Context, languageId LanguageId) (Client, bool) {
+	project, ok := model.ProjectFromContext(ctx)
+	if !ok {
+		log.Error().Msg("Project not found in context")
+		return nil, false
 	}
 
-	if _, ok := s.lspClients[projectId][languageId]; !ok {
-		log.Debug().Str("projectId", projectId).Str("languageId", languageId).Msg("Creating LSP client")
-
-		diagnosticsChannel := make(chan protocol.PublishDiagnosticsParams)
-		s.lspClients[projectId][languageId] = s.lspClientFactoryMethod(languageId, project.Path, diagnosticsChannel)
-		go s.listenForDiagnostics(projectId, diagnosticsChannel)
+	clients, ok := s.lspClients[project.Id]
+	if !ok {
+		return nil, false
 	}
 
-	return s.lspClients[projectId][languageId]
+	client, ok := clients[languageId]
+	if !ok {
+		return nil, false
+	}
+
+	return client, true
 }
 
 func (s *ServiceImpl) listenForDiagnostics(projectId ProjectId, channel chan protocol.PublishDiagnosticsParams) {
@@ -185,66 +288,6 @@ func NewService(lspClientFactoryMethod func(LanguageId, ProjectRoot, chan protoc
 		lspDiagnostics:         make(LspDiagnostics),
 		languageDetector:       languageDetector,
 	}
-}
-
-func ClientFactoryMethod(languageId, projectRoot string, diagnosticsChannel chan protocol.PublishDiagnosticsParams) Client {
-	ctx := context.Background()
-
-	// Define the lsp server executable based on the languageId (currently only "go" is supported)
-	lspServerExecutable := "gopls"
-
-	// Start the language server
-	process, err := NewProcess(lspServerExecutable)
-	if err != nil {
-		log.Fatal().Err(err).Msg("Failed to create language server process")
-	}
-
-	if err := process.Start(); err != nil {
-		log.Fatal().Err(err).Msg("Failed to start language server")
-	}
-
-	// TODO: fix me
-	// defer process.Stop()
-
-	// Create a client for the language server
-	client := NewClient(ctx, process, diagnosticsChannel)
-
-	// Initialize the language server
-	root := PathToURI(projectRoot)
-	_, err = client.Initialize(context.Background(), protocol.InitializeParams{
-		RootURI: &root,
-		Capabilities: protocol.ClientCapabilities{
-			TextDocument: &protocol.TextDocumentClientCapabilities{
-				Synchronization: &protocol.TextDocumentSyncClientCapabilities{
-					DynamicRegistration: boolPointer(true),
-				},
-			},
-		},
-		// WorkspaceFolders: []protocol.WorkspaceFolder{
-		// 	{
-		// 		URI:  root,
-		// 		Name: "hide",
-		// 	},
-		// },
-	})
-
-	if err != nil {
-		log.Fatal().Err(err).Msg("Failed to initialize language server")
-	}
-
-	log.Debug().Str("languageId", languageId).Msg("Initialized language server")
-
-	// if opt, ok := initResult.Capabilities.TextDocumentSync.(protocol.TextDocumentSyncOptions); ok {
-	// 	log.Printf("Support open/close file: %t", *opt.OpenClose)
-	// 	log.Printf("Support change notifications: %v", *opt.Change)
-	// }
-
-	// Notify that initialized
-	if err := client.NotifyInitialized(ctx); err != nil {
-		log.Fatal().Err(err).Msg("Failed to notify initialized")
-	}
-
-	return client
 }
 
 func boolPointer(b bool) *bool {

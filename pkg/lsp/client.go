@@ -32,7 +32,7 @@ type Client interface {
 	NotifyDidClose(ctx context.Context, params protocol.DidCloseTextDocumentParams) error
 	// TODO: check if any LSP server supports this
 	// PullDiagnostics(ctx context.Context, params DocumentDiagnosticParams) (DocumentDiagnosticReport, error)
-	StopServer() error
+	Shutdown(ctx context.Context) error
 }
 type ClientImpl struct {
 	conn               Connection
@@ -40,13 +40,13 @@ type ClientImpl struct {
 	diagnosticsChannel chan protocol.PublishDiagnosticsParams
 }
 
-func NewClient(ctx context.Context, server Process, diagnosticsChannel chan protocol.PublishDiagnosticsParams) Client {
+func NewClient(server Process, diagnosticsChannel chan protocol.PublishDiagnosticsParams) Client {
 	handler := &lspHandler{
 		diagnosticsHandler: func(params protocol.PublishDiagnosticsParams) {
 			diagnosticsChannel <- params
 		},
 	}
-	conn := NewConnection(ctx, server.ReadWriteCloser(), jsonrpc2.HandlerWithError(handler.Handle))
+	conn := NewConnection(context.Background(), server.ReadWriteCloser(), jsonrpc2.HandlerWithError(handler.Handle))
 	return &ClientImpl{conn: conn, server: server, diagnosticsChannel: diagnosticsChannel}
 }
 
@@ -74,6 +74,7 @@ func (c *ClientImpl) NotifyDidClose(ctx context.Context, params protocol.DidClos
 // 	return result, err
 // }
 
-func (c *ClientImpl) StopServer() error {
+func (c *ClientImpl) Shutdown(ctx context.Context) error {
+	// TODO: do something with the channel
 	return c.server.Stop()
 }
