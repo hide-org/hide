@@ -78,8 +78,9 @@ func main() {
 
 	projectsDir := filepath.Join(home, ProjectsDir)
 
-	lspServerExecutables := make(map[lsp.LanguageId]string)
-	lspServerExecutables[lsp.LanguageId("go")] = "gopls"
+	lspServerExecutables := make(map[lsp.LanguageId]lsp.Command)
+	lspServerExecutables[lsp.LanguageId("go")] = lsp.NewCommand("gopls", []string{})
+	lspServerExecutables[lsp.LanguageId("python")] = lsp.NewCommand("pyright-langserver", []string{"--stdio"})
 
 	fileManager := files.NewFileManager()
 	languageDetector := lsp.NewFileExtensionBasedLanguageDetector()

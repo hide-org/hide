@@ -2,6 +2,7 @@ package project
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io/fs"
 	"os"
@@ -310,9 +311,7 @@ func (pm ManagerImpl) CreateFile(ctx context.Context, projectId, path, content s
 		return file, err
 	}
 
-	// wait for diagnostics
-	time.Sleep(MaxDiagnosticsDelay)
-	diagnostics, err := pm.getDiagnostics(ctx, file)
+	diagnostics, err := pm.getDiagnostics(ctx, file, MaxDiagnosticsDelay)
 
 	if err != nil {
 		log.Error().Err(err).Str("projectId", projectId).Msgf("Failed to get diagnostics for file %s", path)
@@ -341,9 +340,7 @@ func (pm ManagerImpl) ReadFile(ctx context.Context, projectId, path string, prop
 		return file, err
 	}
 
-	// wait for diagnostics
-	time.Sleep(MaxDiagnosticsDelay)
-	diagnostics, err := pm.getDiagnostics(ctx, file)
+	diagnostics, err := pm.getDiagnostics(ctx, file, MaxDiagnosticsDelay)
 
 	if err != nil {
 		log.Error().Err(err).Str("projectId", projectId).Msgf("Failed to get diagnostics for file %s", path)
@@ -373,9 +370,7 @@ func (pm ManagerImpl) UpdateFile(ctx context.Context, projectId, path, content s
 		return file, err
 	}
 
-	// wait for diagnostics
-	time.Sleep(MaxDiagnosticsDelay)
-	diagnostics, err := pm.getDiagnostics(ctx, file)
+	diagnostics, err := pm.getDiagnostics(ctx, file, MaxDiagnosticsDelay)
 
 	if err != nil {
 		log.Error().Err(err).Str("projectId", projectId).Msgf("Failed to get diagnostics for file %s", path)
@@ -417,12 +412,9 @@ func (pm ManagerImpl) ListFiles(ctx context.Context, projectId string, showHidde
 		return nil, fmt.Errorf("Failed to list files in project %s: %w", projectId, err)
 	}
 
-	// wait for diagnostics
-	time.Sleep(MaxDiagnosticsDelay)
-
 	for _, file := range files {
-		// TODO: it will take a long time because there's a timeout for each file; fix me!
-		diagnostics, err := pm.getDiagnostics(ctx, file)
+		// TODO: it doesn't work because LSP needs some time after opening a file to send diagnostics
+		diagnostics, err := pm.getDiagnostics(ctx, file, 0)
 
 		if err != nil {
 			log.Error().Err(err).Str("projectId", projectId).Msgf("Failed to get diagnostics for file %s", file.Path)
@@ -453,9 +445,7 @@ func (pm ManagerImpl) ApplyPatch(ctx context.Context, projectId, path, patch str
 		return model.File{}, fmt.Errorf("Failed to apply patch %s to file %s: %w", patch, path, err)
 	}
 
-	// wait for diagnostics
-	time.Sleep(MaxDiagnosticsDelay)
-	diagnostics, err := pm.getDiagnostics(ctx, file)
+	diagnostics, err := pm.getDiagnostics(ctx, file, MaxDiagnosticsDelay)
 
 	if err != nil {
 		log.Error().Err(err).Str("projectId", projectId).Msgf("Failed to get diagnostics for file %s", path)
@@ -484,9 +474,7 @@ func (pm ManagerImpl) UpdateLines(ctx context.Context, projectId, path string, l
 		return model.File{}, fmt.Errorf("Failed to update lines in file %s: %w", path, err)
 	}
 
-	// wait for diagnostics
-	time.Sleep(MaxDiagnosticsDelay)
-	diagnostics, err := pm.getDiagnostics(ctx, file)
+	diagnostics, err := pm.getDiagnostics(ctx, file, MaxDiagnosticsDelay)
 
 	if err != nil {
 		log.Error().Err(err).Str("projectId", projectId).Msgf("Failed to get diagnostics for file %s", path)
@@ -523,20 +511,34 @@ func (pm ManagerImpl) configFromProject(fileSystem fs.FS) (devcontainer.Config, 
 	return *config, nil
 }
 
-func (pm ManagerImpl) getDiagnostics(ctx context.Context, file model.File) ([]protocol.Diagnostic, error) {
-	// TODO: check if notification are required
+func (pm ManagerImpl) getDiagnostics(ctx context.Context, file model.File, waitFor time.Duration) ([]protocol.Diagnostic, error) {
 	if err := pm.lspService.NotifyDidOpen(ctx, file); err != nil {
+		if errors.As(err, &lsp.LanguageServerNotFoundError{}) {
+			return nil, nil
+		}
+
 		return nil, fmt.Errorf("Failed to notify didOpen while reading file %s: %w", file.Path, err)
 	}
 
+	// wait for diagnostics
+	time.Sleep(waitFor)
+
 	diagnostics, err := pm.lspService.GetDiagnostics(ctx, file)
 	if err != nil {
+		if errors.As(err, &lsp.LanguageServerNotFoundError{}) {
+			return nil, nil
+		}
+
 		return nil, fmt.Errorf("Failed to get diagnostics for file %s: %w", file.Path, err)
 	}
 
-	// if err := pm.lspService.NotifyDidClose(ctx, file); err != nil {
-	// 	return nil, fmt.Errorf("Failed to notify didClose while reading file %s: %w", file.Path, err)
-	// }
+	if err := pm.lspService.NotifyDidClose(ctx, file); err != nil {
+		if errors.As(err, &lsp.LanguageServerNotFoundError{}) {
+			return nil, nil
+		}
+
+		return nil, fmt.Errorf("Failed to notify didClose while reading file %s: %w", file.Path, err)
+	}
 
 	return diagnostics, nil
 }

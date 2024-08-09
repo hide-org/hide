@@ -32,7 +32,7 @@ type ServiceImpl struct {
 	languageDetector     LanguageDetector
 	lspClients           LspClientStore
 	lspDiagnostics       LspDiagnostics
-	lspServerExecutables map[LanguageId]string
+	lspServerExecutables map[LanguageId]Command
 }
 
 // StartServer implements Service.
@@ -45,13 +45,13 @@ func (s *ServiceImpl) StartServer(ctx context.Context, languageId LanguageId) er
 
 	projectId := project.Id
 
-	executable, ok := s.lspServerExecutables[languageId]
+	command, ok := s.lspServerExecutables[languageId]
 	if !ok {
 		return LanguageNotSupportedError{LanguageId: languageId}
 	}
 
 	// Start the language server
-	process, err := NewProcess(executable)
+	process, err := NewProcess(command)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to create language server process")
 		return fmt.Errorf("Failed to create language server process: %w", err)
@@ -79,12 +79,12 @@ func (s *ServiceImpl) StartServer(ctx context.Context, languageId LanguageId) er
 				},
 			},
 		},
-		// WorkspaceFolders: []protocol.WorkspaceFolder{
-		// 	{
-		// 		URI:  root,
-		// 		Name: "hide",
-		// 	},
-		// },
+		WorkspaceFolders: []protocol.WorkspaceFolder{
+			{
+				URI:  root,
+				Name: project.Id,
+			},
+		},
 	})
 
 	if err != nil {
@@ -154,7 +154,7 @@ func (s *ServiceImpl) NotifyDidClose(ctx context.Context, file model.File) error
 	client, ok := s.getClient(ctx, languageId)
 
 	if !ok {
-		log.Error().Str("languageId", languageId).Str("projectId", project.Id).Msg("LSP client not found")
+		log.Warn().Str("languageId", languageId).Str("projectId", project.Id).Msg("LSP client not found")
 		return LanguageServerNotFoundError{ProjectId: project.Id, LanguageId: languageId}
 	}
 
@@ -182,7 +182,7 @@ func (s *ServiceImpl) NotifyDidOpen(ctx context.Context, file model.File) error 
 	client, ok := s.getClient(ctx, languageId)
 
 	if !ok {
-		log.Error().Str("languageId", languageId).Str("projectId", project.Id).Msg("LSP client not found")
+		log.Warn().Str("languageId", languageId).Str("projectId", project.Id).Msg("LSP client not found")
 		return LanguageServerNotFoundError{ProjectId: project.Id, LanguageId: languageId}
 	}
 
@@ -286,7 +286,7 @@ func PathToURI(path string) protocol.DocumentUri {
 	return protocol.DocumentUri("file://" + path)
 }
 
-func NewService(languageDetector LanguageDetector, lspServerExecutables map[LanguageId]string) Service {
+func NewService(languageDetector LanguageDetector, lspServerExecutables map[LanguageId]Command) Service {
 	return &ServiceImpl{
 		languageDetector:     languageDetector,
 		lspClients:           make(LspClientStore),
