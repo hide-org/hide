@@ -78,10 +78,13 @@ func main() {
 
 	projectsDir := filepath.Join(home, ProjectsDir)
 
+	lspServerExecutables := make(map[lsp.LanguageId]string)
+	lspServerExecutables[lsp.LanguageId("go")] = "gopls"
+
 	fileManager := files.NewFileManager()
-	lspService := lsp.NewService(lsp.ClientFactoryMethod, lsp.NewLanguageDetector())
-	languageServerAwareFileManager := files.NewLanguageServerAwareFileManager(fileManager, lspService)
-	projectManager := project.NewProjectManager(containerRunner, projectStore, projectsDir, languageServerAwareFileManager)
+	languageDetector := lsp.NewFileExtensionBasedLanguageDetector()
+	lspService := lsp.NewService(languageDetector, lspServerExecutables)
+	projectManager := project.NewProjectManager(containerRunner, projectStore, projectsDir, fileManager, lspService, languageDetector)
 	createProjectHandler := handlers.CreateProjectHandler{Manager: projectManager}
 	deleteProjectHandler := handlers.DeleteProjectHandler{Manager: projectManager}
 	createTaskHandler := handlers.CreateTaskHandler{Manager: projectManager}

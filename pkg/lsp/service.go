@@ -29,11 +29,10 @@ type Service interface {
 }
 
 type ServiceImpl struct {
-	lspClients             LspClientStore
-	lspClientFactoryMethod func(LanguageId, ProjectRoot, chan protocol.PublishDiagnosticsParams) Client
-	lspDiagnostics         LspDiagnostics
-	languageDetector       LanguageDetector
-	lspServerExecutables   map[LanguageId]string
+	languageDetector     LanguageDetector
+	lspClients           LspClientStore
+	lspDiagnostics       LspDiagnostics
+	lspServerExecutables map[LanguageId]string
 }
 
 // StartServer implements Service.
@@ -107,7 +106,13 @@ func (s *ServiceImpl) StartServer(ctx context.Context, languageId LanguageId) er
 		return fmt.Errorf("Failed to notify initialized: %w", err)
 	}
 
-	s.lspClients[projectId][languageId] = client
+	if clients, ok := s.lspClients[projectId]; ok {
+		clients[languageId] = client
+	} else {
+		s.lspClients[projectId] = make(map[LanguageId]Client)
+		s.lspClients[projectId][languageId] = client
+	}
+
 	go s.listenForDiagnostics(projectId, diagnosticsChannel)
 	return nil
 }
@@ -281,12 +286,12 @@ func PathToURI(path string) protocol.DocumentUri {
 	return protocol.DocumentUri("file://" + path)
 }
 
-func NewService(lspClientFactoryMethod func(LanguageId, ProjectRoot, chan protocol.PublishDiagnosticsParams) Client, languageDetector LanguageDetector) Service {
+func NewService(languageDetector LanguageDetector, lspServerExecutables map[LanguageId]string) Service {
 	return &ServiceImpl{
-		lspClients:             make(LspClientStore),
-		lspClientFactoryMethod: lspClientFactoryMethod,
-		lspDiagnostics:         make(LspDiagnostics),
-		languageDetector:       languageDetector,
+		languageDetector:     languageDetector,
+		lspClients:           make(LspClientStore),
+		lspDiagnostics:       make(LspDiagnostics),
+		lspServerExecutables: lspServerExecutables,
 	}
 }
 

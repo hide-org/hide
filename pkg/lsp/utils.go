@@ -8,6 +8,8 @@ import (
 
 type LanguageDetector interface {
 	DetectLanguage(file model.File) string
+	DetectLanguages(files []model.File) map[string]int
+	DetectMainLanguage(files []model.File) string
 }
 
 // Naive implementation that detects the language based on the file extension
@@ -71,4 +73,26 @@ func (ld FileExtensionBasedLanguageDetector) DetectLanguage(file model.File) Lan
 	default:
 		return "plaintext"
 	}
+}
+
+func (ld FileExtensionBasedLanguageDetector) DetectLanguages(files []model.File) map[string]int {
+	languages := make(map[string]int)
+	for _, file := range files {
+		language := ld.DetectLanguage(file)
+		languages[language]++
+	}
+	return languages
+}
+
+func (ld FileExtensionBasedLanguageDetector) DetectMainLanguage(files []model.File) string {
+	languages := ld.DetectLanguages(files)
+	var maxLanguage string
+	maxCount := 0
+	for language, count := range languages {
+		if count > maxCount {
+			maxLanguage = language
+			maxCount = count
+		}
+	}
+	return maxLanguage
 }
