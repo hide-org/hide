@@ -12,6 +12,7 @@ import (
 	"github.com/artmoskvin/hide/pkg/devcontainer"
 	"github.com/artmoskvin/hide/pkg/files"
 	"github.com/artmoskvin/hide/pkg/handlers"
+	"github.com/artmoskvin/hide/pkg/lsp"
 	"github.com/artmoskvin/hide/pkg/model"
 	"github.com/artmoskvin/hide/pkg/project"
 	"github.com/artmoskvin/hide/pkg/util"
@@ -77,8 +78,14 @@ func main() {
 
 	projectsDir := filepath.Join(home, ProjectsDir)
 
+	lspServerExecutables := make(map[lsp.LanguageId]lsp.Command)
+	lspServerExecutables[lsp.LanguageId("go")] = lsp.NewCommand("gopls", []string{})
+	lspServerExecutables[lsp.LanguageId("python")] = lsp.NewCommand("pyright-langserver", []string{"--stdio"})
+
 	fileManager := files.NewFileManager()
-	projectManager := project.NewProjectManager(containerRunner, projectStore, projectsDir, fileManager)
+	languageDetector := lsp.NewFileExtensionBasedLanguageDetector()
+	lspService := lsp.NewService(languageDetector, lspServerExecutables)
+	projectManager := project.NewProjectManager(containerRunner, projectStore, projectsDir, fileManager, lspService, languageDetector)
 	createProjectHandler := handlers.CreateProjectHandler{Manager: projectManager}
 	deleteProjectHandler := handlers.DeleteProjectHandler{Manager: projectManager}
 	createTaskHandler := handlers.CreateTaskHandler{Manager: projectManager}

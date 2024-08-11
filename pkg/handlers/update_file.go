@@ -76,7 +76,7 @@ func (h UpdateFileHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	var request UpdateFileRequest
 
 	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
-		http.Error(w, "Failed parsing request body", http.StatusBadRequest)
+		http.Error(w, fmt.Sprintf("Failed parsing request body: %s", err), http.StatusBadRequest)
 		return
 	}
 
@@ -97,7 +97,7 @@ func (h UpdateFileHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
-			http.Error(w, "Failed to update file", http.StatusInternalServerError)
+			http.Error(w, fmt.Sprintf("Failed to update file: %s", err), http.StatusInternalServerError)
 			return
 		}
 		file = updatedFile
@@ -111,7 +111,7 @@ func (h UpdateFileHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
-			http.Error(w, "Failed to update file", http.StatusInternalServerError)
+			http.Error(w, fmt.Sprintf("Failed to update file: %s", err), http.StatusInternalServerError)
 			return
 		}
 		file = updatedFile
@@ -124,7 +124,7 @@ func (h UpdateFileHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
-			http.Error(w, "Failed to update file", http.StatusInternalServerError)
+			http.Error(w, fmt.Sprintf("Failed to update file: %s", err), http.StatusInternalServerError)
 			return
 		}
 		file = updatedFile

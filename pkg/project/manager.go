@@ -2,22 +2,28 @@ package project
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io/fs"
 	"os"
 	"os/exec"
 	"path"
+	"time"
 
 	"github.com/artmoskvin/hide/pkg/devcontainer"
 	"github.com/artmoskvin/hide/pkg/files"
+	"github.com/artmoskvin/hide/pkg/lsp"
 	"github.com/artmoskvin/hide/pkg/model"
 	"github.com/artmoskvin/hide/pkg/result"
 	"github.com/artmoskvin/hide/pkg/util"
+	protocol "github.com/tliron/glsp/protocol_3_16"
 
 	"github.com/rs/zerolog/log"
 
 	"github.com/spf13/afero"
 )
+
+const MaxDiagnosticsDelay = time.Second * 1
 
 type Repository struct {
 	Url    string  `json:"url"`
@@ -47,7 +53,7 @@ type Manager interface {
 	ReadFile(ctx context.Context, projectId, path string, props files.ReadProps) (model.File, error)
 	UpdateFile(ctx context.Context, projectId, path, content string) (model.File, error)
 	DeleteFile(ctx context.Context, projectId, path string) error
-	ListFiles(ctx context.Context, projectId string) ([]model.File, error)
+	ListFiles(ctx context.Context, projectId string, showHidden bool) ([]model.File, error)
 	ApplyPatch(ctx context.Context, projectId, path, patch string) (model.File, error)
 	UpdateLines(ctx context.Context, projectId, path string, lineDiff files.LineDiffChunk) (model.File, error)
 }
@@ -57,10 +63,26 @@ type ManagerImpl struct {
 	Store              Store
 	ProjectsRoot       string
 	fileManager        files.FileManager
+	lspService         lsp.Service
+	languageDetector   lsp.LanguageDetector
 }
 
-func NewProjectManager(devContainerRunner devcontainer.Runner, projectStore Store, projectsRoot string, fileManager files.FileManager) Manager {
-	return ManagerImpl{DevContainerRunner: devContainerRunner, Store: projectStore, ProjectsRoot: projectsRoot, fileManager: fileManager}
+func NewProjectManager(
+	devContainerRunner devcontainer.Runner,
+	projectStore Store,
+	projectsRoot string,
+	fileManager files.FileManager,
+	lspService lsp.Service,
+	languageDetector lsp.LanguageDetector,
+) Manager {
+	return ManagerImpl{
+		DevContainerRunner: devContainerRunner,
+		Store:              projectStore,
+		ProjectsRoot:       projectsRoot,
+		fileManager:        fileManager,
+		lspService:         lspService,
+		languageDetector:   languageDetector,
+	}
 }
 
 func (pm ManagerImpl) CreateProject(request CreateProjectRequest) <-chan result.Result[model.Project] {
@@ -72,6 +94,7 @@ func (pm ManagerImpl) CreateProject(request CreateProjectRequest) <-chan result.
 		projectId := util.RandomString(10)
 		projectPath := path.Join(pm.ProjectsRoot, projectId)
 
+		// Clone git repo
 		if err := pm.createProjectDir(projectPath); err != nil {
 			log.Error().Err(err).Msg("Failed to create project directory")
 			c <- result.Failure[model.Project](fmt.Errorf("Failed to create project directory: %w", err))
@@ -85,6 +108,7 @@ func (pm ManagerImpl) CreateProject(request CreateProjectRequest) <-chan result.
 			return
 		}
 
+		// Start devcontainer
 		var devContainerConfig devcontainer.Config
 
 		if request.DevContainer != nil {
@@ -113,6 +137,23 @@ func (pm ManagerImpl) CreateProject(request CreateProjectRequest) <-chan result.
 
 		project := model.Project{Id: projectId, Path: projectPath, Config: model.Config{DevContainerConfig: devContainerConfig}, ContainerId: containerId}
 
+		// Start LSP server if language is supported
+		files, err := pm.fileManager.ListFiles(model.NewContextWithProject(context.Background(), &project), afero.NewBasePathFs(afero.NewOsFs(), projectPath), false)
+		if err != nil {
+			log.Error().Err(err).Msg("Failed to list files")
+			removeProjectDir(projectPath)
+			c <- result.Failure[model.Project](fmt.Errorf("Failed to list files: %w", err))
+			return
+		}
+
+		language := pm.languageDetector.DetectMainLanguage(files)
+		log.Debug().Msgf("Detected main language %s for project %s", language, projectId)
+
+		if err := pm.lspService.StartServer(model.NewContextWithProject(context.Background(), &project), language); err != nil {
+			log.Warn().Err(err).Msg("Failed to start LSP server. Diagnostics will not be available.")
+		}
+
+		// Save project in store
 		if err := pm.Store.CreateProject(&project); err != nil {
 			log.Error().Err(err).Msg("Failed to save project")
 			removeProjectDir(projectPath)
@@ -258,7 +299,22 @@ func (pm ManagerImpl) CreateFile(ctx context.Context, projectId, path, content s
 		return model.File{}, fmt.Errorf("Failed to get project with id %s: %w", projectId, err)
 	}
 
-	return pm.fileManager.CreateFile(model.NewContextWithProject(ctx, &project), afero.NewBasePathFs(afero.NewOsFs(), project.Path), path, content)
+	ctx = model.NewContextWithProject(ctx, &project)
+
+	file, err := pm.fileManager.CreateFile(ctx, afero.NewBasePathFs(afero.NewOsFs(), project.Path), path, content)
+
+	if err != nil {
+		log.Error().Err(err).Str("projectId", projectId).Msgf("Failed to create file %s", path)
+		return file, err
+	}
+
+	if diagnostics, err := pm.getDiagnostics(ctx, file, MaxDiagnosticsDelay); err != nil {
+		log.Warn().Err(err).Str("projectId", projectId).Str("path", path).Msg("Failed to get diagnostics")
+	} else {
+		file.Diagnostics = diagnostics
+	}
+
+	return file, nil
 }
 
 func (pm ManagerImpl) ReadFile(ctx context.Context, projectId, path string, props files.ReadProps) (model.File, error) {
@@ -271,7 +327,21 @@ func (pm ManagerImpl) ReadFile(ctx context.Context, projectId, path string, prop
 		return model.File{}, fmt.Errorf("Failed to get project with id %s: %w", projectId, err)
 	}
 
-	return pm.fileManager.ReadFile(model.NewContextWithProject(ctx, &project), afero.NewBasePathFs(afero.NewOsFs(), project.Path), path, props)
+	ctx = model.NewContextWithProject(ctx, &project)
+	file, err := pm.fileManager.ReadFile(ctx, afero.NewBasePathFs(afero.NewOsFs(), project.Path), path, props)
+
+	if err != nil {
+		log.Error().Err(err).Str("projectId", projectId).Msgf("Failed to read file %s", path)
+		return file, err
+	}
+
+	if diagnostics, err := pm.getDiagnostics(ctx, file, MaxDiagnosticsDelay); err != nil {
+		log.Warn().Err(err).Str("projectId", projectId).Str("path", path).Msg("Failed to get diagnostics")
+	} else {
+		file.Diagnostics = diagnostics
+	}
+
+	return file, nil
 }
 
 func (pm ManagerImpl) UpdateFile(ctx context.Context, projectId, path, content string) (model.File, error) {
@@ -284,7 +354,22 @@ func (pm ManagerImpl) UpdateFile(ctx context.Context, projectId, path, content s
 		return model.File{}, fmt.Errorf("Failed to get project with id %s: %w", projectId, err)
 	}
 
-	return pm.fileManager.UpdateFile(model.NewContextWithProject(ctx, &project), afero.NewBasePathFs(afero.NewOsFs(), project.Path), path, content)
+	ctx = model.NewContextWithProject(ctx, &project)
+
+	file, err := pm.fileManager.UpdateFile(ctx, afero.NewBasePathFs(afero.NewOsFs(), project.Path), path, content)
+
+	if err != nil {
+		log.Error().Err(err).Str("projectId", projectId).Msgf("Failed to update file %s", path)
+		return file, err
+	}
+
+	if diagnostics, err := pm.getDiagnostics(ctx, file, MaxDiagnosticsDelay); err != nil {
+		log.Warn().Err(err).Str("projectId", projectId).Str("path", path).Msg("Failed to get diagnostics")
+	} else {
+		file.Diagnostics = diagnostics
+	}
+
+	return file, nil
 }
 
 func (pm ManagerImpl) DeleteFile(ctx context.Context, projectId, path string) error {
@@ -300,7 +385,7 @@ func (pm ManagerImpl) DeleteFile(ctx context.Context, projectId, path string) er
 	return pm.fileManager.DeleteFile(model.NewContextWithProject(ctx, &project), afero.NewBasePathFs(afero.NewOsFs(), project.Path), path)
 }
 
-func (pm ManagerImpl) ListFiles(ctx context.Context, projectId string) ([]model.File, error) {
+func (pm ManagerImpl) ListFiles(ctx context.Context, projectId string, showHidden bool) ([]model.File, error) {
 	log.Debug().Msgf("Listing files in project %s", projectId)
 
 	project, err := pm.GetProject(projectId)
@@ -310,7 +395,24 @@ func (pm ManagerImpl) ListFiles(ctx context.Context, projectId string) ([]model.
 		return nil, fmt.Errorf("Failed to get project with id %s: %w", projectId, err)
 	}
 
-	return pm.fileManager.ListFiles(model.NewContextWithProject(ctx, &project), afero.NewBasePathFs(afero.NewOsFs(), project.Path))
+	ctx = model.NewContextWithProject(ctx, &project)
+	files, err := pm.fileManager.ListFiles(ctx, afero.NewBasePathFs(afero.NewOsFs(), project.Path), showHidden)
+
+	if err != nil {
+		log.Error().Err(err).Str("projectId", projectId).Msgf("Failed to list files in project %s", projectId)
+		return nil, fmt.Errorf("Failed to list files in project %s: %w", projectId, err)
+	}
+
+	for _, file := range files {
+		// TODO: it doesn't work because LSP needs some time after opening a file to send diagnostics
+		if diagnostics, err := pm.getDiagnostics(ctx, file, MaxDiagnosticsDelay); err != nil {
+			log.Warn().Err(err).Str("projectId", projectId).Str("path", file.Path).Msg("Failed to get diagnostics")
+		} else {
+			file.Diagnostics = diagnostics
+		}
+	}
+
+	return files, nil
 }
 
 func (pm ManagerImpl) ApplyPatch(ctx context.Context, projectId, path, patch string) (model.File, error) {
@@ -323,7 +425,21 @@ func (pm ManagerImpl) ApplyPatch(ctx context.Context, projectId, path, patch str
 		return model.File{}, fmt.Errorf("Failed to get project with id %s: %w", projectId, err)
 	}
 
-	return pm.fileManager.ApplyPatch(model.NewContextWithProject(ctx, &project), afero.NewBasePathFs(afero.NewOsFs(), project.Path), path, patch)
+	ctx = model.NewContextWithProject(ctx, &project)
+	file, err := pm.fileManager.ApplyPatch(ctx, afero.NewBasePathFs(afero.NewOsFs(), project.Path), path, patch)
+
+	if err != nil {
+		log.Error().Err(err).Str("projectId", projectId).Msgf("Failed to apply patch %s to file %s", patch, path)
+		return model.File{}, fmt.Errorf("Failed to apply patch %s to file %s: %w", patch, path, err)
+	}
+
+	if diagnostics, err := pm.getDiagnostics(ctx, file, MaxDiagnosticsDelay); err != nil {
+		log.Warn().Err(err).Str("projectId", projectId).Str("path", path).Msg("Failed to get diagnostics")
+	} else {
+		file.Diagnostics = diagnostics
+	}
+
+	return file, nil
 }
 
 func (pm ManagerImpl) UpdateLines(ctx context.Context, projectId, path string, lineDiff files.LineDiffChunk) (model.File, error) {
@@ -336,7 +452,21 @@ func (pm ManagerImpl) UpdateLines(ctx context.Context, projectId, path string, l
 		return model.File{}, fmt.Errorf("Failed to get project with id %s: %w", projectId, err)
 	}
 
-	return pm.fileManager.UpdateLines(model.NewContextWithProject(ctx, &project), afero.NewBasePathFs(afero.NewOsFs(), project.Path), path, lineDiff)
+	ctx = model.NewContextWithProject(ctx, &project)
+	file, err := pm.fileManager.UpdateLines(ctx, afero.NewBasePathFs(afero.NewOsFs(), project.Path), path, lineDiff)
+
+	if err != nil {
+		log.Error().Err(err).Str("projectId", projectId).Msgf("Failed to update lines in file %s", path)
+		return model.File{}, fmt.Errorf("Failed to update lines in file %s: %w", path, err)
+	}
+
+	if diagnostics, err := pm.getDiagnostics(ctx, file, MaxDiagnosticsDelay); err != nil {
+		log.Warn().Err(err).Str("projectId", projectId).Str("path", path).Msg("Failed to get diagnostics")
+	} else {
+		file.Diagnostics = diagnostics
+	}
+
+	return file, nil
 }
 
 func (pm ManagerImpl) createProjectDir(path string) error {
@@ -363,6 +493,38 @@ func (pm ManagerImpl) configFromProject(fileSystem fs.FS) (devcontainer.Config, 
 	}
 
 	return *config, nil
+}
+
+func (pm ManagerImpl) getDiagnostics(ctx context.Context, file model.File, waitFor time.Duration) ([]protocol.Diagnostic, error) {
+	if err := pm.lspService.NotifyDidOpen(ctx, file); err != nil {
+		if errors.As(err, &lsp.LanguageServerNotFoundError{}) {
+			return nil, nil
+		}
+
+		return nil, fmt.Errorf("Failed to notify didOpen while reading file %s: %w", file.Path, err)
+	}
+
+	// wait for diagnostics
+	time.Sleep(waitFor)
+
+	diagnostics, err := pm.lspService.GetDiagnostics(ctx, file)
+	if err != nil {
+		if errors.As(err, &lsp.LanguageServerNotFoundError{}) {
+			return nil, nil
+		}
+
+		return nil, fmt.Errorf("Failed to get diagnostics for file %s: %w", file.Path, err)
+	}
+
+	if err := pm.lspService.NotifyDidClose(ctx, file); err != nil {
+		if errors.As(err, &lsp.LanguageServerNotFoundError{}) {
+			return nil, nil
+		}
+
+		return nil, fmt.Errorf("Failed to notify didClose while reading file %s: %w", file.Path, err)
+	}
+
+	return diagnostics, nil
 }
 
 func removeProjectDir(projectPath string) {
