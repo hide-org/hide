@@ -21,7 +21,6 @@ func NewFileExtensionBasedLanguageDetector() LanguageDetector {
 
 // Return the language id as per https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocumentItem
 func (ld FileExtensionBasedLanguageDetector) DetectLanguage(file model.File) LanguageId {
-	// TODO: implement
 	extension := filepath.Ext(file.Path)
 	switch extension {
 	case ".c":
