@@ -150,10 +150,7 @@ func (pm ManagerImpl) CreateProject(request CreateProjectRequest) <-chan result.
 		log.Debug().Msgf("Detected main language %s for project %s", language, projectId)
 
 		if err := pm.lspService.StartServer(model.NewContextWithProject(context.Background(), &project), language); err != nil {
-			log.Error().Err(err).Msg("Failed to start LSP server")
-			removeProjectDir(projectPath)
-			c <- result.Failure[model.Project](fmt.Errorf("Failed to start LSP server: %w", err))
-			return
+			log.Warn().Err(err).Msg("Failed to start LSP server. Diagnostics will not be available.")
 		}
 
 		// Save project in store
@@ -311,14 +308,12 @@ func (pm ManagerImpl) CreateFile(ctx context.Context, projectId, path, content s
 		return file, err
 	}
 
-	diagnostics, err := pm.getDiagnostics(ctx, file, MaxDiagnosticsDelay)
-
-	if err != nil {
-		log.Error().Err(err).Str("projectId", projectId).Msgf("Failed to get diagnostics for file %s", path)
-		return model.File{}, fmt.Errorf("Failed to get diagnostics for file %s: %w", path, err)
+	if diagnostics, err := pm.getDiagnostics(ctx, file, MaxDiagnosticsDelay); err != nil {
+		log.Warn().Err(err).Str("projectId", projectId).Str("path", path).Msg("Failed to get diagnostics")
+	} else {
+		file.Diagnostics = diagnostics
 	}
 
-	file.Diagnostics = diagnostics
 	return file, nil
 }
 
@@ -340,14 +335,12 @@ func (pm ManagerImpl) ReadFile(ctx context.Context, projectId, path string, prop
 		return file, err
 	}
 
-	diagnostics, err := pm.getDiagnostics(ctx, file, MaxDiagnosticsDelay)
-
-	if err != nil {
-		log.Error().Err(err).Str("projectId", projectId).Msgf("Failed to get diagnostics for file %s", path)
-		return model.File{}, fmt.Errorf("Failed to get diagnostics for file %s: %w", path, err)
+	if diagnostics, err := pm.getDiagnostics(ctx, file, MaxDiagnosticsDelay); err != nil {
+		log.Warn().Err(err).Str("projectId", projectId).Str("path", path).Msg("Failed to get diagnostics")
+	} else {
+		file.Diagnostics = diagnostics
 	}
 
-	file.Diagnostics = diagnostics
 	return file, nil
 }
 
@@ -370,14 +363,12 @@ func (pm ManagerImpl) UpdateFile(ctx context.Context, projectId, path, content s
 		return file, err
 	}
 
-	diagnostics, err := pm.getDiagnostics(ctx, file, MaxDiagnosticsDelay)
-
-	if err != nil {
-		log.Error().Err(err).Str("projectId", projectId).Msgf("Failed to get diagnostics for file %s", path)
-		return model.File{}, fmt.Errorf("Failed to get diagnostics for file %s: %w", path, err)
+	if diagnostics, err := pm.getDiagnostics(ctx, file, MaxDiagnosticsDelay); err != nil {
+		log.Warn().Err(err).Str("projectId", projectId).Str("path", path).Msg("Failed to get diagnostics")
+	} else {
+		file.Diagnostics = diagnostics
 	}
 
-	file.Diagnostics = diagnostics
 	return file, nil
 }
 
@@ -414,14 +405,11 @@ func (pm ManagerImpl) ListFiles(ctx context.Context, projectId string, showHidde
 
 	for _, file := range files {
 		// TODO: it doesn't work because LSP needs some time after opening a file to send diagnostics
-		diagnostics, err := pm.getDiagnostics(ctx, file, 0)
-
-		if err != nil {
-			log.Error().Err(err).Str("projectId", projectId).Msgf("Failed to get diagnostics for file %s", file.Path)
-			return nil, fmt.Errorf("Failed to get diagnostics for file %s: %w", file.Path, err)
+		if diagnostics, err := pm.getDiagnostics(ctx, file, MaxDiagnosticsDelay); err != nil {
+			log.Warn().Err(err).Str("projectId", projectId).Str("path", file.Path).Msg("Failed to get diagnostics")
+		} else {
+			file.Diagnostics = diagnostics
 		}
-
-		file.Diagnostics = diagnostics
 	}
 
 	return files, nil
@@ -445,14 +433,12 @@ func (pm ManagerImpl) ApplyPatch(ctx context.Context, projectId, path, patch str
 		return model.File{}, fmt.Errorf("Failed to apply patch %s to file %s: %w", patch, path, err)
 	}
 
-	diagnostics, err := pm.getDiagnostics(ctx, file, MaxDiagnosticsDelay)
-
-	if err != nil {
-		log.Error().Err(err).Str("projectId", projectId).Msgf("Failed to get diagnostics for file %s", path)
-		return model.File{}, fmt.Errorf("Failed to get diagnostics for file %s: %w", path, err)
+	if diagnostics, err := pm.getDiagnostics(ctx, file, MaxDiagnosticsDelay); err != nil {
+		log.Warn().Err(err).Str("projectId", projectId).Str("path", path).Msg("Failed to get diagnostics")
+	} else {
+		file.Diagnostics = diagnostics
 	}
 
-	file.Diagnostics = diagnostics
 	return file, nil
 }
 
@@ -474,14 +460,12 @@ func (pm ManagerImpl) UpdateLines(ctx context.Context, projectId, path string, l
 		return model.File{}, fmt.Errorf("Failed to update lines in file %s: %w", path, err)
 	}
 
-	diagnostics, err := pm.getDiagnostics(ctx, file, MaxDiagnosticsDelay)
-
-	if err != nil {
-		log.Error().Err(err).Str("projectId", projectId).Msgf("Failed to get diagnostics for file %s", path)
-		return model.File{}, fmt.Errorf("Failed to get diagnostics for file %s: %w", path, err)
+	if diagnostics, err := pm.getDiagnostics(ctx, file, MaxDiagnosticsDelay); err != nil {
+		log.Warn().Err(err).Str("projectId", projectId).Str("path", path).Msg("Failed to get diagnostics")
+	} else {
+		file.Diagnostics = diagnostics
 	}
 
-	file.Diagnostics = diagnostics
 	return file, nil
 }
 

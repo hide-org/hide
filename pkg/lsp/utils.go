@@ -71,7 +71,7 @@ func (ld FileExtensionBasedLanguageDetector) DetectLanguage(file model.File) Lan
 	case ".yaml":
 		return "yaml"
 	default:
-		return "plaintext"
+		return "unknown"
 	}
 }
 
