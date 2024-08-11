@@ -127,11 +127,13 @@ func main() {
 		signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 		<-sigChan
 
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 		defer cancel()
 
 		log.Info().Msg("Server shutting down ...")
-		projectManager.Cleanup()
+		if err := projectManager.Cleanup(ctx); err != nil {
+			log.Warn().Err(err).Msgf("Failed to cleanup projects")
+		}
 
 		if err := server.Shutdown(ctx); err != nil {
 			log.Warn().Err(err).Msgf("HTTP shutdown error: %v", err)

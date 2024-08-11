@@ -18,7 +18,7 @@ type MockProjectManager struct {
 	DeleteProjectFunc    func(projectId string) <-chan result.Empty
 	ResolveTaskAliasFunc func(projectId string, alias string) (devcontainer.Task, error)
 	CreateTaskFunc       func(projectId string, command string) (project.TaskResult, error)
-	CleanupFunc          func() error
+	CleanupFunc          func(ctx context.Context) error
 	CreateFileFunc       func(ctx context.Context, projectId, path, content string) (model.File, error)
 	ReadFileFunc         func(ctx context.Context, projectId, path string, props files.ReadProps) (model.File, error)
 	UpdateFileFunc       func(ctx context.Context, projectId, path, content string) (model.File, error)
@@ -52,8 +52,8 @@ func (m *MockProjectManager) CreateTask(projectId string, command string) (proje
 	return m.CreateTaskFunc(projectId, command)
 }
 
-func (m *MockProjectManager) Cleanup() error {
-	return m.CleanupFunc()
+func (m *MockProjectManager) Cleanup(ctx context.Context) error {
+	return m.CleanupFunc(ctx)
 }
 
 func (m *MockProjectManager) CreateFile(ctx context.Context, projectId, path, content string) (model.File, error) {

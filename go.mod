@@ -6,6 +6,7 @@ require (
 	github.com/bluekeyes/go-gitdiff v0.7.4
 	github.com/docker/docker v26.1.3+incompatible
 	github.com/docker/go-connections v0.5.0
+	github.com/gorilla/mux v1.8.1
 	github.com/rs/zerolog v1.33.0
 	github.com/sourcegraph/jsonrpc2 v0.2.0
 	github.com/spf13/afero v1.11.0
@@ -23,7 +24,6 @@ require (
 	github.com/go-logr/logr v1.4.1 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
-	github.com/gorilla/mux v1.8.1 // indirect
 	github.com/klauspost/compress v1.17.8 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
