@@ -22,7 +22,14 @@ func (h ListFilesHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid project ID", http.StatusBadRequest)
 	}
 
-	files, err := h.ProjectManager.ListFiles(r.Context(), projectID)
+	showHidden, err := parseBoolQueryParam(r.URL.Query(), "showHidden", false)
+
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	files, err := h.ProjectManager.ListFiles(r.Context(), projectId, showHidden)
 	if err != nil {
 		var projectNotFoundError *project.ProjectNotFoundError
 		if errors.As(err, &projectNotFoundError) {
