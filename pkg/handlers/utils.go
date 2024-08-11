@@ -1,10 +1,32 @@
 package handlers
 
 import (
+	"errors"
 	"fmt"
+	"net/http"
 	"net/url"
 	"strconv"
+
+	"github.com/gorilla/mux"
 )
+
+func getProjectID(r *http.Request) (string, error) {
+	return getPathValue(r, "id")
+}
+
+func getFilePath(r *http.Request) (string, error) {
+	return getPathValue(r, "path")
+}
+
+func getPathValue(r *http.Request, key string) (string, error) {
+	vars := mux.Vars(r)
+	value, ok := vars[key]
+	if !ok || value == "" {
+		return "", errors.New("invalid path value")
+	}
+
+	return value, nil
+}
 
 func parseIntQueryParam(params url.Values, paramName string, defaultValue int) (int, error) {
 	param := params.Get(paramName)

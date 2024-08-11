@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 
 	"github.com/artmoskvin/hide/pkg/project"
@@ -17,16 +18,19 @@ type ListFilesHandler struct {
 }
 
 func (h ListFilesHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	projectId := r.PathValue("id")
+	projectID, err := getProjectID(r)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("invalid project ID: %s", err), http.StatusBadRequest)
+	}
+
 	showHidden, err := parseBoolQueryParam(r.URL.Query(), "showHidden", false)
 
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		http.Error(w, fmt.Sprintf("invalid showHidden query parameter: %s", err), http.StatusBadRequest)
 		return
 	}
 
-	files, err := h.ProjectManager.ListFiles(r.Context(), projectId, showHidden)
-
+	files, err := h.ProjectManager.ListFiles(r.Context(), projectID, showHidden)
 	if err != nil {
 		var projectNotFoundError *project.ProjectNotFoundError
 		if errors.As(err, &projectNotFoundError) {
@@ -34,7 +38,7 @@ func (h ListFilesHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		http.Error(w, "Failed to list files", http.StatusInternalServerError)
+		http.Error(w, fmt.Sprintf("Failed to list files: %s", err), http.StatusInternalServerError)
 		return
 	}
 

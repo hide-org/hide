@@ -12,6 +12,7 @@ import (
 	"github.com/artmoskvin/hide/pkg/handlers"
 	"github.com/artmoskvin/hide/pkg/project"
 	"github.com/artmoskvin/hide/pkg/project/mocks"
+	"github.com/gorilla/mux"
 )
 
 func TestCreateTaskHandler_Command_Success(t *testing.T) {
@@ -25,17 +26,19 @@ func TestCreateTaskHandler_Command_Success(t *testing.T) {
 		},
 	}
 
+	router := mux.NewRouter()
 	handler := handlers.CreateTaskHandler{Manager: mockManager}
+	router.Handle("/projects/{id}/tasks", handler).Methods("POST")
 
 	requestBody := handlers.TaskRequest{Command: new(string)}
 	*requestBody.Command = "test command"
 
 	body, _ := json.Marshal(requestBody)
-	request, _ := http.NewRequest("POST", "/ignored", bytes.NewBuffer(body))
+	request, _ := http.NewRequest("POST", "/projects/123/tasks", bytes.NewBuffer(body))
 	response := httptest.NewRecorder()
 
 	// Execute
-	handler.ServeHTTP(response, request)
+	router.ServeHTTP(response, request)
 
 	// Verify
 	if response.Code != http.StatusOK {
@@ -66,17 +69,19 @@ func TestCreateTaskHandler_Alias_Success(t *testing.T) {
 		},
 	}
 
+	router := mux.NewRouter()
 	handler := handlers.CreateTaskHandler{Manager: mockManager}
+	router.Handle("/projects/{id}/tasks", handler).Methods("POST")
 
 	requestBody := handlers.TaskRequest{Alias: new(string)}
 	*requestBody.Alias = "test alias"
 
 	body, _ := json.Marshal(requestBody)
-	request, _ := http.NewRequest("POST", "/ignored", bytes.NewBuffer(body))
+	request, _ := http.NewRequest("POST", "/projects/123/tasks", bytes.NewBuffer(body))
 	response := httptest.NewRecorder()
 
 	// Execute
-	handler.ServeHTTP(response, request)
+	router.ServeHTTP(response, request)
 
 	// Verify
 	if response.Code != http.StatusOK {
@@ -101,21 +106,24 @@ func TestCreateTaskHandler_Failure(t *testing.T) {
 		},
 	}
 
+	router := mux.NewRouter()
 	handler := handlers.CreateTaskHandler{Manager: mockManager}
+	router.Handle("/projects/{id}/tasks", handler).Methods("POST")
 
 	requestBody := handlers.TaskRequest{Command: new(string)}
 	*requestBody.Command = "test command"
 
 	body, _ := json.Marshal(requestBody)
-	request, _ := http.NewRequest("POST", "/ignored", bytes.NewBuffer(body))
+	request, _ := http.NewRequest("POST", "/projects/123/tasks", bytes.NewBuffer(body))
 	response := httptest.NewRecorder()
 
 	// Execute
-	handler.ServeHTTP(response, request)
+	router.ServeHTTP(response, request)
 
 	// Verify
 	if response.Code != http.StatusInternalServerError {
 		t.Errorf("Expected status %d, got %d", http.StatusInternalServerError, response.Code)
+		t.Errorf("Body: %s", response.Body.String())
 	}
 }
 
@@ -123,13 +131,16 @@ func TestCreateTaskHandler_BadRequest(t *testing.T) {
 	// Setup
 	mockManager := &mocks.MockProjectManager{}
 
+	router := mux.NewRouter()
 	handler := handlers.CreateTaskHandler{Manager: mockManager}
+	router.Handle("/projects/{id}/tasks", handler).Methods("POST")
 
-	request, _ := http.NewRequest("POST", "/projects/123/exec", bytes.NewBuffer([]byte("invalid json")))
+	// No request body
+	request, _ := http.NewRequest("POST", "/projects/123/tasks", bytes.NewBuffer([]byte("invalid json")))
 	response := httptest.NewRecorder()
 
 	// Execute
-	handler.ServeHTTP(response, request)
+	router.ServeHTTP(response, request)
 
 	// Verify
 	if response.Code != http.StatusBadRequest {

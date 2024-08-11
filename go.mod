@@ -6,6 +6,7 @@ require (
 	github.com/bluekeyes/go-gitdiff v0.7.4
 	github.com/docker/docker v26.1.3+incompatible
 	github.com/docker/go-connections v0.5.0
+	github.com/gorilla/mux v1.8.1
 	github.com/rs/zerolog v1.33.0
 	github.com/sourcegraph/jsonrpc2 v0.2.0
 	github.com/spf13/afero v1.11.0

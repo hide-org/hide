@@ -113,6 +113,7 @@ func (s *ServiceImpl) StartServer(ctx context.Context, languageId LanguageId) er
 		s.lspClients[projectId][languageId] = client
 	}
 
+	// TODO: kill this goroutine when the project is deleted
 	go s.listenForDiagnostics(projectId, diagnosticsChannel)
 	return nil
 }
@@ -239,6 +240,7 @@ func (s *ServiceImpl) CleanupProject(ctx context.Context, projectId ProjectId) e
 	}
 
 	delete(s.lspClients, projectId)
+	delete(s.lspDiagnostics, projectId)
 	return nil
 }
 

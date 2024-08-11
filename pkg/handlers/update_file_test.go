@@ -15,6 +15,7 @@ import (
 	"github.com/artmoskvin/hide/pkg/model"
 	"github.com/artmoskvin/hide/pkg/project"
 	project_mocks "github.com/artmoskvin/hide/pkg/project/mocks"
+	"github.com/gorilla/mux"
 )
 
 func TestUpdateFileHandler_Success(t *testing.T) {
@@ -80,12 +81,15 @@ func TestUpdateFileHandler_Success(t *testing.T) {
 				},
 			}
 
+			router := mux.NewRouter()
 			handler := handlers.UpdateFileHandler{ProjectManager: mockManager}
+			router.Handle("/projects/{id}/files/{path:.*}", handler).Methods("PUT")
+
 			payload, _ := json.Marshal(tt.payload)
 			request, _ := http.NewRequest("PUT", "/projects/123/files/test.txt", bytes.NewBuffer(payload))
 			response := httptest.NewRecorder()
 
-			handler.ServeHTTP(response, request)
+			router.ServeHTTP(response, request)
 
 			if response.Code != http.StatusOK {
 				t.Errorf("Expected status %d, got %d", http.StatusOK, response.Code)
@@ -104,11 +108,14 @@ func TestUpdateFileHandler_Success(t *testing.T) {
 }
 
 func TestUpdateFileHandler_RespondsWithBadRequest_IfRequestIsUnparsable(t *testing.T) {
+	router := mux.NewRouter()
 	handler := handlers.UpdateFileHandler{}
+	router.Handle("/projects/{id}/files/{path:.*}", handler).Methods("PUT")
+
 	request, _ := http.NewRequest("PUT", "/projects/123/files/test.txt", bytes.NewBuffer([]byte("invalid json")))
 	response := httptest.NewRecorder()
 
-	handler.ServeHTTP(response, request)
+	router.ServeHTTP(response, request)
 
 	if response.Code != http.StatusBadRequest {
 		t.Errorf("Expected status %d, got %d", http.StatusBadRequest, response.Code)
@@ -180,13 +187,15 @@ func TestUpdateFileHandler_RespondsWithBadRequest_IfRequestIsInvalid(t *testing.
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			router := mux.NewRouter()
 			handler := handlers.UpdateFileHandler{}
+			router.Handle("/projects/{id}/files/{path:.*}", handler).Methods("PUT")
 
 			body, _ := json.Marshal(tt.payload)
 			request, _ := http.NewRequest("PUT", "/projects/123/files/test.txt", bytes.NewBuffer(body))
 			response := httptest.NewRecorder()
 
-			handler.ServeHTTP(response, request)
+			router.ServeHTTP(response, request)
 
 			if response.Code != http.StatusBadRequest {
 				t.Errorf("Expected status %d, got %d", http.StatusBadRequest, response.Code)
@@ -206,6 +215,10 @@ func TestUpdateFileHandler_RespondsWithInternalServerError_IfFileManagerFails(t 
 		},
 	}
 
+	router := mux.NewRouter()
+	handler := handlers.UpdateFileHandler{ProjectManager: mockManager}
+	router.Handle("/projects/{id}/files/{path:.*}", handler).Methods("PUT")
+
 	body, _ := json.Marshal(handlers.UpdateFileRequest{
 		Type: handlers.Udiff,
 		Udiff: &handlers.UdiffRequest{
@@ -213,11 +226,10 @@ func TestUpdateFileHandler_RespondsWithInternalServerError_IfFileManagerFails(t 
 		},
 	})
 
-	handler := handlers.UpdateFileHandler{ProjectManager: mockManager}
 	request, _ := http.NewRequest("PUT", "/projects/123/files/test.txt", bytes.NewBuffer(body))
 	response := httptest.NewRecorder()
 
-	handler.ServeHTTP(response, request)
+	router.ServeHTTP(response, request)
 
 	if response.Code != http.StatusInternalServerError {
 		t.Errorf("Expected status %d, got %d", http.StatusInternalServerError, response.Code)
@@ -235,6 +247,10 @@ func TestUpdateFileHandler_RespondsWithNotFound_IfProjectNotFound(t *testing.T) 
 		},
 	}
 
+	router := mux.NewRouter()
+	handler := handlers.UpdateFileHandler{ProjectManager: mockManager}
+	router.Handle("/projects/{id}/files/{path:.*}", handler).Methods("PUT")
+
 	body, _ := json.Marshal(handlers.UpdateFileRequest{
 		Type: handlers.Udiff,
 		Udiff: &handlers.UdiffRequest{
@@ -242,11 +258,10 @@ func TestUpdateFileHandler_RespondsWithNotFound_IfProjectNotFound(t *testing.T) 
 		},
 	})
 
-	handler := handlers.UpdateFileHandler{ProjectManager: mockManager}
 	request, _ := http.NewRequest("PUT", "/projects/123/files/test.txt", bytes.NewBuffer(body))
 	response := httptest.NewRecorder()
 
-	handler.ServeHTTP(response, request)
+	router.ServeHTTP(response, request)
 
 	if response.Code != http.StatusNotFound {
 		t.Errorf("Expected status %d, got %d", http.StatusNotFound, response.Code)

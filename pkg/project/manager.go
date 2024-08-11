@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"sync"
 	"time"
 
 	"github.com/artmoskvin/hide/pkg/devcontainer"
@@ -48,7 +49,7 @@ type Manager interface {
 	DeleteProject(projectId model.ProjectId) <-chan result.Empty
 	ResolveTaskAlias(projectId model.ProjectId, alias string) (devcontainer.Task, error)
 	CreateTask(projectId model.ProjectId, command string) (TaskResult, error)
-	Cleanup() error
+	Cleanup(ctx context.Context) error
 	CreateFile(ctx context.Context, projectId, path, content string) (model.File, error)
 	ReadFile(ctx context.Context, projectId, path string, props files.ReadProps) (model.File, error)
 	UpdateFile(ctx context.Context, projectId, path, content string) (model.File, error)
@@ -269,23 +270,54 @@ func (pm ManagerImpl) CreateTask(projectId string, command string) (TaskResult, 
 	return TaskResult{StdOut: execResult.StdOut, StdErr: execResult.StdErr, ExitCode: execResult.ExitCode}, nil
 }
 
-func (pm ManagerImpl) Cleanup() error {
+func (pm ManagerImpl) Cleanup(ctx context.Context) error {
 	log.Info().Msg("Cleaning up projects")
 
 	projects, err := pm.GetProjects()
-
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to get projects")
 		return fmt.Errorf("Failed to get projects: %w", err)
 	}
 
+	var wg sync.WaitGroup
+	errChan := make(chan error, len(projects))
+
 	for _, project := range projects {
-		log.Debug().Msgf("Cleaning up project %s", project.Id)
-		pm.DevContainerRunner.Stop(project.ContainerId)
+		wg.Add(1)
+		go func(p *model.Project) {
+			defer wg.Done()
+			log.Debug().Msgf("Cleaning up project %s", p.Id)
+
+			if err := pm.DevContainerRunner.Stop(p.ContainerId); err != nil {
+				errChan <- fmt.Errorf("Failed to stop container for project %s: %w", p.Id, err)
+				return
+			}
+
+			if err := pm.lspService.CleanupProject(ctx, p.Id); err != nil {
+				errChan <- fmt.Errorf("Failed to cleanup LSP for project %s: %w", p.Id, err)
+				return
+			}
+
+			if err := pm.Store.DeleteProject(p.Id); err != nil {
+				errChan <- fmt.Errorf("Failed to delete project %s: %w", p.Id, err)
+				return
+			}
+		}(project)
+	}
+
+	wg.Wait()
+	close(errChan)
+
+	var errs []error
+	for err := range errChan {
+		errs = append(errs, err)
+	}
+
+	if len(errs) > 0 {
+		return fmt.Errorf("Errors occurred during cleanup: %v", errs)
 	}
 
 	log.Info().Msg("Cleaned up projects")
-
 	return nil
 }
 

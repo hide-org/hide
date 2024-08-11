@@ -75,6 +75,7 @@ func (c *ClientImpl) NotifyDidClose(ctx context.Context, params protocol.DidClos
 // }
 
 func (c *ClientImpl) Shutdown(ctx context.Context) error {
-	// TODO: do something with the channel
-	return c.server.Stop()
+	err := c.server.Stop()
+	close(c.diagnosticsChannel)
+	return err
 }
