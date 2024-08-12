@@ -3,6 +3,7 @@ package handlers
 import (
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/rs/zerolog/log"
 )
@@ -22,7 +23,7 @@ func PathCheckerMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
-		if filePath[0:1] == "/" {
+		if strings.HasPrefix(filePath, "/") {
 			http.Error(w, "Invalid file path: path starts with '/'", http.StatusBadRequest)
 			return
 		}
