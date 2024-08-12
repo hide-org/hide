@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/docker/docker/client"
-	"github.com/gorilla/mux"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 
@@ -90,26 +89,8 @@ func main() {
 	languageDetector := lsp.NewFileExtensionBasedLanguageDetector()
 	lspService := lsp.NewService(languageDetector, lspServerExecutables)
 	projectManager := project.NewProjectManager(containerRunner, projectStore, projectsDir, fileManager, lspService, languageDetector)
-	createProjectHandler := handlers.CreateProjectHandler{Manager: projectManager}
-	deleteProjectHandler := handlers.DeleteProjectHandler{Manager: projectManager}
-	createTaskHandler := handlers.CreateTaskHandler{Manager: projectManager}
-	listTasksHandler := handlers.ListTasksHandler{Manager: projectManager}
-	createFileHandler := handlers.CreateFileHandler{ProjectManager: projectManager}
-	readFileHandler := handlers.ReadFileHandler{ProjectManager: projectManager}
-	updateFileHandler := handlers.UpdateFileHandler{ProjectManager: projectManager}
-	deleteFileHandler := handlers.DeleteFileHandler{ProjectManager: projectManager}
-	listFilesHandler := handlers.ListFilesHandler{ProjectManager: projectManager}
 
-	router := mux.NewRouter()
-	router.Handle("/projects", createProjectHandler).Methods("POST")
-	router.Handle("/projects/{id}", deleteProjectHandler).Methods("DELETE")
-	router.Handle("/projects/{id}/tasks", createTaskHandler).Methods("POST")
-	router.Handle("/projects/{id}/tasks", listTasksHandler).Methods("GET")
-	router.Handle("/projects/{id}/files", createFileHandler).Methods("POST")
-	router.Handle("/projects/{id}/files", listFilesHandler).Methods("GET")
-	router.Handle("/projects/{id}/files/{path:.*}", readFileHandler).Methods("GET")
-	router.Handle("/projects/{id}/files/{path:.*}", updateFileHandler).Methods("PUT")
-	router.Handle("/projects/{id}/files/{path:.*}", deleteFileHandler).Methods("DELETE")
+	router := handlers.Router(projectManager)
 
 	addr := fmt.Sprintf("127.0.0.1:%d", *port)
 

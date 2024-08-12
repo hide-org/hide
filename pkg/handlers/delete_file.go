@@ -15,11 +15,13 @@ func (h DeleteFileHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	projectID, err := getProjectID(r)
 	if err != nil {
 		http.Error(w, "invalid project ID", http.StatusBadRequest)
+		return
 	}
 
 	filePath, err := getFilePath(r)
 	if err != nil {
 		http.Error(w, "invalid file path", http.StatusBadRequest)
+		return
 	}
 
 	if err := h.ProjectManager.DeleteFile(r.Context(), projectID, filePath); err != nil {

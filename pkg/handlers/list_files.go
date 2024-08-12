@@ -21,6 +21,7 @@ func (h ListFilesHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	projectID, err := getProjectID(r)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("invalid project ID: %s", err), http.StatusBadRequest)
+		return
 	}
 
 	showHidden, err := parseBoolQueryParam(r.URL.Query(), "showHidden", false)
