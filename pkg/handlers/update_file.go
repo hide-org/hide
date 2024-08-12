@@ -70,14 +70,17 @@ type UpdateFileHandler struct {
 }
 
 func (h UpdateFileHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	fmt.Println("received update files request")
 	projectID, err := getProjectID(r)
 	if err != nil {
 		http.Error(w, "invalid project ID", http.StatusBadRequest)
+		return
 	}
 
 	filePath, err := getFilePath(r)
 	if err != nil {
 		http.Error(w, "invalid file path", http.StatusBadRequest)
+		return
 	}
 
 	var request UpdateFileRequest

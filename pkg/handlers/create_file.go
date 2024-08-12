@@ -21,6 +21,7 @@ func (h CreateFileHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	projectID, err := getProjectID(r)
 	if err != nil {
 		http.Error(w, "invalid project ID", http.StatusBadRequest)
+		return
 	}
 
 	var request CreateFileRequest

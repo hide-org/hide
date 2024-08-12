@@ -437,7 +437,7 @@ func (pm ManagerImpl) ListFiles(ctx context.Context, projectId string, showHidde
 
 	for _, file := range files {
 		// TODO: it doesn't work because LSP needs some time after opening a file to send diagnostics
-		if diagnostics, err := pm.getDiagnostics(ctx, file, MaxDiagnosticsDelay); err != nil {
+		if diagnostics, err := pm.getDiagnostics(ctx, file, 0); err != nil {
 			log.Warn().Err(err).Str("projectId", projectId).Str("path", file.Path).Msg("Failed to get diagnostics")
 		} else {
 			file.Diagnostics = diagnostics

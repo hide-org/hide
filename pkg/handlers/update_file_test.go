@@ -271,3 +271,71 @@ func TestUpdateFileHandler_RespondsWithNotFound_IfProjectNotFound(t *testing.T) 
 		t.Errorf("Expected error message 'Project not found', got %s", response.Body.String())
 	}
 }
+
+func TestPathStartingWithSlash(t *testing.T) {
+	t.Run("Update file with invalid path should return 400", func(t *testing.T) {
+		// Setup
+		mockManager := &project_mocks.MockProjectManager{
+			UpdateLinesFunc: func(ctx context.Context, projectId string, path string, lineDiff files.LineDiffChunk) (model.File, error) {
+				return model.File{}, nil
+			},
+		}
+
+		router := handlers.Router(mockManager)
+
+		payload, _ := json.Marshal(handlers.UpdateFileRequest{
+			Type: handlers.LineDiff,
+			LineDiff: &handlers.LineDiffRequest{
+				StartLine: 1,
+				EndLine:   3,
+				Content:   "line11\nline12\n",
+			},
+		})
+
+		request, _ := http.NewRequest("PUT", "/projects/123/files//test.txt", bytes.NewBuffer(payload))
+		response := httptest.NewRecorder()
+
+		// Execute
+		router.ServeHTTP(response, request)
+
+		// Verify
+		if response.Code != http.StatusBadRequest {
+			t.Errorf("Expected status %d, got %d", http.StatusBadRequest, response.Code)
+			t.Errorf("Body: %s", response.Body.String())
+		}
+	})
+}
+
+func TestEmptyPath(t *testing.T) {
+	t.Run("Update file with invalid path should return 400", func(t *testing.T) {
+		// Setup
+		mockManager := &project_mocks.MockProjectManager{
+			UpdateLinesFunc: func(ctx context.Context, projectId string, path string, lineDiff files.LineDiffChunk) (model.File, error) {
+				return model.File{}, nil
+			},
+		}
+
+		router := handlers.Router(mockManager)
+
+		payload, _ := json.Marshal(handlers.UpdateFileRequest{
+			Type: handlers.LineDiff,
+			LineDiff: &handlers.LineDiffRequest{
+				StartLine: 1,
+				EndLine:   3,
+				Content:   "line11\nline12\n",
+			},
+		})
+
+		request, _ := http.NewRequest("PUT", "/projects/123/files/", bytes.NewBuffer(payload))
+		response := httptest.NewRecorder()
+
+		// Execute
+		router.ServeHTTP(response, request)
+
+		// Verify
+		if response.Code != http.StatusBadRequest {
+			t.Errorf("Expected status %d, got %d", http.StatusBadRequest, response.Code)
+			t.Errorf("Body: %s", response.Body.String())
+		}
+	})
+}
