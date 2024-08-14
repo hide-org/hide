@@ -28,20 +28,18 @@ func getPathValue(r *http.Request, key string) (string, error) {
 	return value, nil
 }
 
-func parseIntQueryParam(params url.Values, paramName string, defaultValue int) (int, error) {
+func parseIntQueryParam(params url.Values, paramName string) (int, bool, error) {
 	param := params.Get(paramName)
-
 	if param == "" {
-		return defaultValue, nil
+		return 0, false, nil
 	}
 
 	value, err := strconv.Atoi(param)
-
 	if err != nil {
-		return 0, fmt.Errorf("Failed to parse %s: %w", paramName, err)
+		return 0, true, fmt.Errorf("invalid value for %s: %w", paramName, err)
 	}
 
-	return value, nil
+	return value, true, nil
 }
 
 func parseBoolQueryParam(params url.Values, paramName string, defaultValue bool) (bool, error) {

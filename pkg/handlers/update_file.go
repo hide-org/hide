@@ -73,13 +73,13 @@ func (h UpdateFileHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("received update files request")
 	projectID, err := getProjectID(r)
 	if err != nil {
-		http.Error(w, "invalid project ID", http.StatusBadRequest)
+		http.Error(w, fmt.Sprintf("Invalid project ID: %s", err), http.StatusBadRequest)
 		return
 	}
 
 	filePath, err := getFilePath(r)
 	if err != nil {
-		http.Error(w, "invalid file path", http.StatusBadRequest)
+		http.Error(w, fmt.Sprintf("Invalid file path: %s", err), http.StatusBadRequest)
 		return
 	}
 
@@ -95,7 +95,7 @@ func (h UpdateFileHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var file model.File
+	var file *model.File
 
 	switch request.Type {
 	case Udiff:

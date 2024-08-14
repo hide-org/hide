@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 
 	"github.com/artmoskvin/hide/pkg/project"
@@ -20,14 +21,14 @@ type CreateFileHandler struct {
 func (h CreateFileHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	projectID, err := getProjectID(r)
 	if err != nil {
-		http.Error(w, "invalid project ID", http.StatusBadRequest)
+		http.Error(w, fmt.Sprintf("Invalid project ID: %s", err), http.StatusBadRequest)
 		return
 	}
 
 	var request CreateFileRequest
 
 	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
-		http.Error(w, "Failed parsing request body", http.StatusBadRequest)
+		http.Error(w, fmt.Sprintf("Failed parsing request body: %s", err), http.StatusBadRequest)
 		return
 	}
 
@@ -39,7 +40,7 @@ func (h CreateFileHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		http.Error(w, "Failed to create file", http.StatusInternalServerError)
+		http.Error(w, fmt.Sprintf("Failed to create file: %s", err), http.StatusInternalServerError)
 		return
 	}
 
