@@ -47,7 +47,7 @@ func (s *ServiceImpl) StartServer(ctx context.Context, languageId LanguageId) er
 
 	command, ok := s.lspServerExecutables[languageId]
 	if !ok {
-		return LanguageNotSupportedError{LanguageId: languageId}
+		return NewLanguageNotSupportedError(languageId)
 	}
 
 	// Start the language server
@@ -151,7 +151,7 @@ func (s *ServiceImpl) NotifyDidClose(ctx context.Context, file model.File) error
 		return fmt.Errorf("Project not found in context")
 	}
 
-	languageId := s.languageDetector.DetectLanguage(file)
+	languageId := s.languageDetector.DetectLanguage(&file)
 	client, ok := s.getClient(ctx, languageId)
 
 	if !ok {
@@ -179,7 +179,7 @@ func (s *ServiceImpl) NotifyDidOpen(ctx context.Context, file model.File) error 
 		return fmt.Errorf("Project not found in context")
 	}
 
-	languageId := s.languageDetector.DetectLanguage(file)
+	languageId := s.languageDetector.DetectLanguage(&file)
 	client, ok := s.getClient(ctx, languageId)
 
 	if !ok {
@@ -194,7 +194,7 @@ func (s *ServiceImpl) NotifyDidOpen(ctx context.Context, file model.File) error 
 			URI:        PathToURI(fullPath),
 			LanguageID: languageId,
 			Version:    1,
-			Text:       file.Content,
+			Text:       file.GetContent(),
 		},
 	})
 

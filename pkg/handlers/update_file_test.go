@@ -33,8 +33,12 @@ func TestUpdateFileHandler_Success(t *testing.T) {
 				},
 			},
 			expected: model.File{
-				Path:    "test.txt",
-				Content: "line1\nline20\nline3\n",
+				Path: "test.txt",
+				Lines: []model.Line{
+					{Number: 1, Content: "line1"},
+					{Number: 2, Content: "line20"},
+					{Number: 3, Content: "line3"},
+				},
 			},
 		},
 		{
@@ -48,8 +52,12 @@ func TestUpdateFileHandler_Success(t *testing.T) {
 				},
 			},
 			expected: model.File{
-				Path:    "test.txt",
-				Content: "line11\nline12\nline3\n",
+				Path: "test.txt",
+				Lines: []model.Line{
+					{Number: 1, Content: "line11"},
+					{Number: 2, Content: "line12"},
+					{Number: 3, Content: "line3"},
+				},
 			},
 		},
 		{
@@ -61,8 +69,12 @@ func TestUpdateFileHandler_Success(t *testing.T) {
 				},
 			},
 			expected: model.File{
-				Path:    "test.txt",
-				Content: "line1\nline2\nline3\n",
+				Path: "test.txt",
+				Lines: []model.Line{
+					{Number: 1, Content: "line1"},
+					{Number: 2, Content: "line2"},
+					{Number: 3, Content: "line3"},
+				},
 			},
 		},
 	}
@@ -70,14 +82,14 @@ func TestUpdateFileHandler_Success(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mockManager := &project_mocks.MockProjectManager{
-				ApplyPatchFunc: func(ctx context.Context, projectId string, path, patch string) (model.File, error) {
-					return tt.expected, nil
+				ApplyPatchFunc: func(ctx context.Context, projectId string, path, patch string) (*model.File, error) {
+					return &tt.expected, nil
 				},
-				UpdateLinesFunc: func(ctx context.Context, projectId string, path string, lineDiff files.LineDiffChunk) (model.File, error) {
-					return tt.expected, nil
+				UpdateLinesFunc: func(ctx context.Context, projectId string, path string, lineDiff files.LineDiffChunk) (*model.File, error) {
+					return &tt.expected, nil
 				},
-				UpdateFileFunc: func(ctx context.Context, projectId string, path, content string) (model.File, error) {
-					return tt.expected, nil
+				UpdateFileFunc: func(ctx context.Context, projectId string, path, content string) (*model.File, error) {
+					return &tt.expected, nil
 				},
 			}
 
@@ -210,8 +222,8 @@ func TestUpdateFileHandler_RespondsWithBadRequest_IfRequestIsInvalid(t *testing.
 
 func TestUpdateFileHandler_RespondsWithInternalServerError_IfFileManagerFails(t *testing.T) {
 	mockManager := &project_mocks.MockProjectManager{
-		ApplyPatchFunc: func(ctx context.Context, projectId string, path, patch string) (model.File, error) {
-			return model.File{}, errors.New("file manager error")
+		ApplyPatchFunc: func(ctx context.Context, projectId string, path, patch string) (*model.File, error) {
+			return nil, errors.New("file manager error")
 		},
 	}
 
@@ -242,8 +254,8 @@ func TestUpdateFileHandler_RespondsWithInternalServerError_IfFileManagerFails(t 
 
 func TestUpdateFileHandler_RespondsWithNotFound_IfProjectNotFound(t *testing.T) {
 	mockManager := &project_mocks.MockProjectManager{
-		ApplyPatchFunc: func(ctx context.Context, projectId string, path, patch string) (model.File, error) {
-			return model.File{}, &project.ProjectNotFoundError{ProjectId: projectId}
+		ApplyPatchFunc: func(ctx context.Context, projectId string, path, patch string) (*model.File, error) {
+			return nil, project.NewProjectNotFoundError(projectId)
 		},
 	}
 
@@ -276,8 +288,8 @@ func TestPathStartingWithSlash(t *testing.T) {
 	t.Run("Update file with invalid path should return 400", func(t *testing.T) {
 		// Setup
 		mockManager := &project_mocks.MockProjectManager{
-			UpdateLinesFunc: func(ctx context.Context, projectId string, path string, lineDiff files.LineDiffChunk) (model.File, error) {
-				return model.File{}, nil
+			UpdateLinesFunc: func(ctx context.Context, projectId string, path string, lineDiff files.LineDiffChunk) (*model.File, error) {
+				return nil, nil
 			},
 		}
 
@@ -310,8 +322,8 @@ func TestEmptyPath(t *testing.T) {
 	t.Run("Update file with invalid path should return 400", func(t *testing.T) {
 		// Setup
 		mockManager := &project_mocks.MockProjectManager{
-			UpdateLinesFunc: func(ctx context.Context, projectId string, path string, lineDiff files.LineDiffChunk) (model.File, error) {
-				return model.File{}, nil
+			UpdateLinesFunc: func(ctx context.Context, projectId string, path string, lineDiff files.LineDiffChunk) (*model.File, error) {
+				return nil, nil
 			},
 		}
 

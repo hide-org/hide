@@ -24,7 +24,7 @@ func (s *InMemoryStore) GetProject(id string) (*model.Project, error) {
 	project, ok := s.projects[id]
 
 	if !ok {
-		return nil, ProjectNotFoundError{ProjectId: id}
+		return nil, NewProjectNotFoundError(id)
 	}
 
 	return project, nil
@@ -42,7 +42,7 @@ func (s *InMemoryStore) GetProjects() ([]*model.Project, error) {
 
 func (s *InMemoryStore) CreateProject(project *model.Project) error {
 	if _, ok := s.projects[project.Id]; ok {
-		return ProjectAlreadyExistsError{ProjectId: project.Id}
+		return NewProjectAlreadyExistsError(project.Id)
 	}
 
 	s.projects[project.Id] = project
@@ -52,7 +52,7 @@ func (s *InMemoryStore) CreateProject(project *model.Project) error {
 
 func (s *InMemoryStore) UpdateProject(project *model.Project) error {
 	if _, ok := s.projects[project.Id]; !ok {
-		return ProjectNotFoundError{ProjectId: project.Id}
+		return NewProjectNotFoundError(project.Id)
 	}
 
 	s.projects[project.Id] = project

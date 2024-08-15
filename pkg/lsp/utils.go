@@ -7,9 +7,9 @@ import (
 )
 
 type LanguageDetector interface {
-	DetectLanguage(file model.File) string
-	DetectLanguages(files []model.File) map[string]int
-	DetectMainLanguage(files []model.File) string
+	DetectLanguage(file *model.File) string
+	DetectLanguages(files []*model.File) map[string]int
+	DetectMainLanguage(files []*model.File) string
 }
 
 // Naive implementation that detects the language based on the file extension
@@ -20,7 +20,7 @@ func NewFileExtensionBasedLanguageDetector() LanguageDetector {
 }
 
 // Return the language id as per https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocumentItem
-func (ld FileExtensionBasedLanguageDetector) DetectLanguage(file model.File) LanguageId {
+func (ld FileExtensionBasedLanguageDetector) DetectLanguage(file *model.File) LanguageId {
 	extension := filepath.Ext(file.Path)
 	switch extension {
 	case ".c":
@@ -74,7 +74,7 @@ func (ld FileExtensionBasedLanguageDetector) DetectLanguage(file model.File) Lan
 	}
 }
 
-func (ld FileExtensionBasedLanguageDetector) DetectLanguages(files []model.File) map[string]int {
+func (ld FileExtensionBasedLanguageDetector) DetectLanguages(files []*model.File) map[string]int {
 	languages := make(map[string]int)
 	for _, file := range files {
 		language := ld.DetectLanguage(file)
@@ -83,7 +83,7 @@ func (ld FileExtensionBasedLanguageDetector) DetectLanguages(files []model.File)
 	return languages
 }
 
-func (ld FileExtensionBasedLanguageDetector) DetectMainLanguage(files []model.File) string {
+func (ld FileExtensionBasedLanguageDetector) DetectMainLanguage(files []*model.File) string {
 	languages := ld.DetectLanguages(files)
 	var maxLanguage string
 	maxCount := 0

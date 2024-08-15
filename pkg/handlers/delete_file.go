@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 
+	"github.com/artmoskvin/hide/pkg/files"
 	"github.com/artmoskvin/hide/pkg/project"
 )
 
@@ -28,6 +29,12 @@ func (h DeleteFileHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		var projectNotFoundError *project.ProjectNotFoundError
 		if errors.As(err, &projectNotFoundError) {
 			http.Error(w, projectNotFoundError.Error(), http.StatusNotFound)
+			return
+		}
+
+		var fileNotFoundError *files.FileNotFoundError
+		if errors.As(err, &fileNotFoundError) {
+			http.Error(w, fileNotFoundError.Error(), http.StatusNotFound)
 			return
 		}
 

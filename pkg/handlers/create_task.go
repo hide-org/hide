@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/artmoskvin/hide/pkg/model"
 	"github.com/artmoskvin/hide/pkg/project"
 )
 
@@ -54,7 +55,19 @@ func (h CreateTaskHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if request.Alias != nil {
 		task, err := h.Manager.ResolveTaskAlias(projectID, *request.Alias)
 		if err != nil {
-			http.Error(w, fmt.Sprintf("Failed to resolve task alias: %s", err), http.StatusBadRequest)
+			var projectNotFoundError *project.ProjectNotFoundError
+			if errors.As(err, &projectNotFoundError) {
+				http.Error(w, projectNotFoundError.Error(), http.StatusNotFound)
+				return
+			}
+
+			var taskNotFoundError *model.TaskNotFoundError
+			if errors.As(err, &taskNotFoundError) {
+				http.Error(w, taskNotFoundError.Error(), http.StatusNotFound)
+				return
+			}
+
+			http.Error(w, fmt.Sprintf("Failed to resolve task alias: %s", err), http.StatusInternalServerError)
 			return
 		}
 		command = task.Command
@@ -64,6 +77,12 @@ func (h CreateTaskHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	taskResult, err := h.Manager.CreateTask(projectID, command)
 	if err != nil {
+		var projectNotFoundError *project.ProjectNotFoundError
+		if errors.As(err, &projectNotFoundError) {
+			http.Error(w, projectNotFoundError.Error(), http.StatusNotFound)
+			return
+		}
+
 		http.Error(w, fmt.Sprintf("Failed to run task %s", err), http.StatusInternalServerError)
 		return
 	}

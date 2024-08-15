@@ -9,7 +9,7 @@ import (
 	"github.com/artmoskvin/hide/pkg/project"
 )
 
-type FileResponse struct {
+type FileInfo struct {
 	Path string `json:"path"`
 }
 
@@ -20,14 +20,14 @@ type ListFilesHandler struct {
 func (h ListFilesHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	projectID, err := getProjectID(r)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("invalid project ID: %s", err), http.StatusBadRequest)
+		http.Error(w, fmt.Sprintf("Invalid project ID: %s", err), http.StatusBadRequest)
 		return
 	}
 
 	showHidden, err := parseBoolQueryParam(r.URL.Query(), "showHidden", false)
 
 	if err != nil {
-		http.Error(w, fmt.Sprintf("invalid showHidden query parameter: %s", err), http.StatusBadRequest)
+		http.Error(w, fmt.Sprintf("Invalid `showHidden` query parameter: %s", err), http.StatusBadRequest)
 		return
 	}
 
@@ -43,13 +43,13 @@ func (h ListFilesHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var fileResponses []FileResponse
+	var response []FileInfo
 
 	for _, file := range files {
-		fileResponses = append(fileResponses, FileResponse{Path: file.Path})
+		response = append(response, FileInfo{Path: file.Path})
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(fileResponses)
+	json.NewEncoder(w).Encode(response)
 }

@@ -54,6 +54,10 @@ func (r *UpdateFileRequest) Validate() error {
 		if r.LineDiff == nil {
 			return errors.New("lineDiff must be provided")
 		}
+
+		if r.LineDiff.StartLine == r.LineDiff.EndLine {
+			return errors.New("start line must be less than end line")
+		}
 	case Overwrite:
 		if r.Overwrite == nil {
 			return errors.New("overwrite must be provided")
@@ -73,13 +77,13 @@ func (h UpdateFileHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("received update files request")
 	projectID, err := getProjectID(r)
 	if err != nil {
-		http.Error(w, "invalid project ID", http.StatusBadRequest)
+		http.Error(w, fmt.Sprintf("Invalid project ID: %s", err), http.StatusBadRequest)
 		return
 	}
 
 	filePath, err := getFilePath(r)
 	if err != nil {
-		http.Error(w, "invalid file path", http.StatusBadRequest)
+		http.Error(w, fmt.Sprintf("Invalid file path: %s", err), http.StatusBadRequest)
 		return
 	}
 
@@ -95,7 +99,7 @@ func (h UpdateFileHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var file model.File
+	var file *model.File
 
 	switch request.Type {
 	case Udiff:
@@ -104,6 +108,12 @@ func (h UpdateFileHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			var projectNotFoundError *project.ProjectNotFoundError
 			if errors.As(err, &projectNotFoundError) {
 				http.Error(w, projectNotFoundError.Error(), http.StatusNotFound)
+				return
+			}
+
+			var fileNotFoundError *files.FileNotFoundError
+			if errors.As(err, &fileNotFoundError) {
+				http.Error(w, fileNotFoundError.Error(), http.StatusNotFound)
 				return
 			}
 
@@ -121,6 +131,12 @@ func (h UpdateFileHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
+			var fileNotFoundError *files.FileNotFoundError
+			if errors.As(err, &fileNotFoundError) {
+				http.Error(w, fileNotFoundError.Error(), http.StatusNotFound)
+				return
+			}
+
 			http.Error(w, fmt.Sprintf("Failed to update file: %s", err), http.StatusInternalServerError)
 			return
 		}
@@ -131,6 +147,12 @@ func (h UpdateFileHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			var projectNotFoundError *project.ProjectNotFoundError
 			if errors.As(err, &projectNotFoundError) {
 				http.Error(w, projectNotFoundError.Error(), http.StatusNotFound)
+				return
+			}
+
+			var fileNotFoundError *files.FileNotFoundError
+			if errors.As(err, &fileNotFoundError) {
+				http.Error(w, fileNotFoundError.Error(), http.StatusNotFound)
 				return
 			}
 
