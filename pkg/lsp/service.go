@@ -47,7 +47,7 @@ func (s *ServiceImpl) StartServer(ctx context.Context, languageId LanguageId) er
 
 	command, ok := s.lspServerExecutables[languageId]
 	if !ok {
-		return LanguageNotSupportedError{LanguageId: languageId}
+		return NewLanguageNotSupportedError(languageId)
 	}
 
 	// Start the language server

@@ -517,7 +517,7 @@ func (pm ManagerImpl) configFromProject(fileSystem fs.FS) (devcontainer.Config, 
 
 func (pm ManagerImpl) getDiagnostics(ctx context.Context, file model.File, waitFor time.Duration) ([]protocol.Diagnostic, error) {
 	if err := pm.lspService.NotifyDidOpen(ctx, file); err != nil {
-		var lspLanguageServerNotFoundError lsp.LanguageServerNotFoundError
+		var lspLanguageServerNotFoundError *lsp.LanguageServerNotFoundError
 		if errors.As(err, &lspLanguageServerNotFoundError) {
 			return nil, nil
 		}
@@ -530,7 +530,7 @@ func (pm ManagerImpl) getDiagnostics(ctx context.Context, file model.File, waitF
 
 	diagnostics, err := pm.lspService.GetDiagnostics(ctx, file)
 	if err != nil {
-		var lspLanguageServerNotFoundError lsp.LanguageServerNotFoundError
+		var lspLanguageServerNotFoundError *lsp.LanguageServerNotFoundError
 		if errors.As(err, &lspLanguageServerNotFoundError) {
 			return nil, nil
 		}
@@ -539,7 +539,7 @@ func (pm ManagerImpl) getDiagnostics(ctx context.Context, file model.File, waitF
 	}
 
 	if err := pm.lspService.NotifyDidClose(ctx, file); err != nil {
-		var lspLanguageServerNotFoundError lsp.LanguageServerNotFoundError
+		var lspLanguageServerNotFoundError *lsp.LanguageServerNotFoundError
 		if errors.As(err, &lspLanguageServerNotFoundError) {
 			return nil, nil
 		}

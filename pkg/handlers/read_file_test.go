@@ -139,7 +139,7 @@ func TestReadFileHandler_Returns404_WhenProjectNotFound(t *testing.T) {
 	t.Run("Read file with invalid project ID", func(t *testing.T) {
 		mockManager := &project_mocks.MockProjectManager{
 			ReadFileFunc: func(ctx context.Context, projectId string, path string) (*model.File, error) {
-				return nil, &project.ProjectNotFoundError{ProjectId: projectId}
+				return nil, project.NewProjectNotFoundError(projectId)
 			},
 		}
 

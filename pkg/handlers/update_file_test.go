@@ -255,7 +255,7 @@ func TestUpdateFileHandler_RespondsWithInternalServerError_IfFileManagerFails(t 
 func TestUpdateFileHandler_RespondsWithNotFound_IfProjectNotFound(t *testing.T) {
 	mockManager := &project_mocks.MockProjectManager{
 		ApplyPatchFunc: func(ctx context.Context, projectId string, path, patch string) (*model.File, error) {
-			return nil, &project.ProjectNotFoundError{ProjectId: projectId}
+			return nil, project.NewProjectNotFoundError(projectId)
 		},
 	}
 

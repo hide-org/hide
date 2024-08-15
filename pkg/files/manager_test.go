@@ -39,7 +39,7 @@ func TestReadNonExistentFile(t *testing.T) {
 		t.Fatalf("Expected error, got nil")
 	}
 
-	if !strings.Contains(err.Error(), "file does not exist") {
+	if !strings.Contains(err.Error(), "file non-existent.txt not found") {
 		t.Errorf("Expected error to contain 'file does not exist', got %s", err.Error())
 	}
 }
@@ -113,7 +113,7 @@ func TestFileManagerImpl_ApplyPatch_Failure(t *testing.T) {
 			name:          "File not found",
 			file:          "not-found.txt",
 			patch:         "",
-			expectedError: "failed to read file",
+			expectedError: "file not-found.txt not found",
 		},
 		{
 			name: "Patch with multiple files",
@@ -325,7 +325,7 @@ func TestUpdateFile_Failure(t *testing.T) {
 		{
 			name:     "File not found",
 			content:  "whatever",
-			expected: "file test.txt does not exist",
+			expected: "file test.txt not found",
 		},
 	}
 

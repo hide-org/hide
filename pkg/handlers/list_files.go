@@ -33,7 +33,7 @@ func (h ListFilesHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	files, err := h.ProjectManager.ListFiles(r.Context(), projectID, showHidden)
 	if err != nil {
-		var projectNotFoundError project.ProjectNotFoundError
+		var projectNotFoundError *project.ProjectNotFoundError
 		if errors.As(err, &projectNotFoundError) {
 			http.Error(w, projectNotFoundError.Error(), http.StatusNotFound)
 			return

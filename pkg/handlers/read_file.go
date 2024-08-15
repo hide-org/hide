@@ -44,13 +44,13 @@ func (h ReadFileHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	file, err := h.ProjectManager.ReadFile(r.Context(), projectID, filePath)
 
 	if err != nil {
-		var projectNotFoundError project.ProjectNotFoundError
+		var projectNotFoundError *project.ProjectNotFoundError
 		if errors.As(err, &projectNotFoundError) {
 			http.Error(w, projectNotFoundError.Error(), http.StatusNotFound)
 			return
 		}
 
-		var fileNotFoundError files.FileNotFoundError
+		var fileNotFoundError *files.FileNotFoundError
 		if errors.As(err, &fileNotFoundError) {
 			http.Error(w, fileNotFoundError.Error(), http.StatusNotFound)
 			return

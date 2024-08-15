@@ -26,13 +26,13 @@ func (h DeleteFileHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.ProjectManager.DeleteFile(r.Context(), projectID, filePath); err != nil {
-		var projectNotFoundError project.ProjectNotFoundError
+		var projectNotFoundError *project.ProjectNotFoundError
 		if errors.As(err, &projectNotFoundError) {
 			http.Error(w, projectNotFoundError.Error(), http.StatusNotFound)
 			return
 		}
 
-		var fileNotFoundError files.FileNotFoundError
+		var fileNotFoundError *files.FileNotFoundError
 		if errors.As(err, &fileNotFoundError) {
 			http.Error(w, fileNotFoundError.Error(), http.StatusNotFound)
 			return
