@@ -54,6 +54,10 @@ func (r *UpdateFileRequest) Validate() error {
 		if r.LineDiff == nil {
 			return errors.New("lineDiff must be provided")
 		}
+
+		if r.LineDiff.StartLine == r.LineDiff.EndLine {
+			return errors.New("start line must be less than end line")
+		}
 	case Overwrite:
 		if r.Overwrite == nil {
 			return errors.New("overwrite must be provided")
@@ -101,9 +105,15 @@ func (h UpdateFileHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case Udiff:
 		updatedFile, err := h.ProjectManager.ApplyPatch(r.Context(), projectID, filePath, request.Udiff.Patch)
 		if err != nil {
-			var projectNotFoundError *project.ProjectNotFoundError
+			var projectNotFoundError project.ProjectNotFoundError
 			if errors.As(err, &projectNotFoundError) {
 				http.Error(w, projectNotFoundError.Error(), http.StatusNotFound)
+				return
+			}
+
+			var fileNotFoundError files.FileNotFoundError
+			if errors.As(err, &fileNotFoundError) {
+				http.Error(w, fileNotFoundError.Error(), http.StatusNotFound)
 				return
 			}
 
@@ -115,9 +125,15 @@ func (h UpdateFileHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		lineDiff := request.LineDiff
 		updatedFile, err := h.ProjectManager.UpdateLines(r.Context(), projectID, filePath, files.LineDiffChunk{StartLine: lineDiff.StartLine, EndLine: lineDiff.EndLine, Content: lineDiff.Content})
 		if err != nil {
-			var projectNotFoundError *project.ProjectNotFoundError
+			var projectNotFoundError project.ProjectNotFoundError
 			if errors.As(err, &projectNotFoundError) {
 				http.Error(w, projectNotFoundError.Error(), http.StatusNotFound)
+				return
+			}
+
+			var fileNotFoundError files.FileNotFoundError
+			if errors.As(err, &fileNotFoundError) {
+				http.Error(w, fileNotFoundError.Error(), http.StatusNotFound)
 				return
 			}
 
@@ -128,9 +144,15 @@ func (h UpdateFileHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case Overwrite:
 		updatedFile, err := h.ProjectManager.UpdateFile(r.Context(), projectID, filePath, request.Overwrite.Content)
 		if err != nil {
-			var projectNotFoundError *project.ProjectNotFoundError
+			var projectNotFoundError project.ProjectNotFoundError
 			if errors.As(err, &projectNotFoundError) {
 				http.Error(w, projectNotFoundError.Error(), http.StatusNotFound)
+				return
+			}
+
+			var fileNotFoundError files.FileNotFoundError
+			if errors.As(err, &fileNotFoundError) {
+				http.Error(w, fileNotFoundError.Error(), http.StatusNotFound)
 				return
 			}
 

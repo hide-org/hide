@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/artmoskvin/hide/pkg/files"
 	"github.com/artmoskvin/hide/pkg/project"
 )
 
@@ -34,9 +35,16 @@ func (h CreateFileHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	file, err := h.ProjectManager.CreateFile(r.Context(), projectID, request.Path, request.Content)
 	if err != nil {
-		var projectNotFoundError *project.ProjectNotFoundError
+		fmt.Printf("Error type: %T, message: %v\n", err, err)
+		var projectNotFoundError project.ProjectNotFoundError
 		if errors.As(err, &projectNotFoundError) {
 			http.Error(w, projectNotFoundError.Error(), http.StatusNotFound)
+			return
+		}
+
+		var fileAlreadyExistsError files.FileAlreadyExistsError
+		if errors.As(err, &fileAlreadyExistsError) {
+			http.Error(w, fileAlreadyExistsError.Error(), http.StatusConflict)
 			return
 		}
 

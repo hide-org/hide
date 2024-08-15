@@ -84,6 +84,10 @@ func (f *File) WithLineRange(start, end int) *File {
 }
 
 func (f *File) ReplaceLineRange(start, end int, content string) (*File, error) {
+	if start == end {
+		return f, nil
+	}
+
 	replacement, err := NewLines(content)
 	if err != nil {
 		return f, err
