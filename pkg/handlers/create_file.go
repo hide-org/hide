@@ -35,7 +35,6 @@ func (h CreateFileHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	file, err := h.ProjectManager.CreateFile(r.Context(), projectID, request.Path, request.Content)
 	if err != nil {
-		fmt.Printf("Error type: %T, message: %v\n", err, err)
 		var projectNotFoundError *project.ProjectNotFoundError
 		if errors.As(err, &projectNotFoundError) {
 			http.Error(w, projectNotFoundError.Error(), http.StatusNotFound)
