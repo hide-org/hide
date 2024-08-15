@@ -2,7 +2,7 @@ package model
 
 import (
 	"context"
-	"errors"
+	"fmt"
 
 	"github.com/artmoskvin/hide/pkg/devcontainer"
 )
@@ -26,7 +26,7 @@ func NewProject(id ProjectId, path string, config Config, containerId string) Pr
 
 func (project *Project) FindTaskByAlias(alias string) (devcontainer.Task, error) {
 	if project.Config.DevContainerConfig.Customizations.Hide == nil {
-		return devcontainer.Task{}, errors.New("task not found")
+		return devcontainer.Task{}, NewTaskNotFoundError(alias)
 	}
 
 	for _, task := range project.Config.DevContainerConfig.Customizations.Hide.Tasks {
@@ -34,7 +34,7 @@ func (project *Project) FindTaskByAlias(alias string) (devcontainer.Task, error)
 			return task, nil
 		}
 	}
-	return devcontainer.Task{}, errors.New("task not found")
+	return devcontainer.Task{}, NewTaskNotFoundError(alias)
 }
 
 func (project *Project) GetTasks() []devcontainer.Task {
@@ -60,4 +60,16 @@ func NewContextWithProject(ctx context.Context, project *Project) context.Contex
 func ProjectFromContext(ctx context.Context) (*Project, bool) {
 	project, ok := ctx.Value(projectKey).(*Project)
 	return project, ok
+}
+
+type TaskNotFoundError struct {
+	taskId string
+}
+
+func (e TaskNotFoundError) Error() string {
+	return fmt.Sprintf("task %s not found", e.taskId)
+}
+
+func NewTaskNotFoundError(taskId string) *TaskNotFoundError {
+	return &TaskNotFoundError{taskId: taskId}
 }

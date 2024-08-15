@@ -240,7 +240,7 @@ func (pm ManagerImpl) ResolveTaskAlias(projectId string, alias string) (devconta
 
 	if err != nil {
 		log.Error().Err(err).Msgf("Task with alias %s for project %s not found", alias, projectId)
-		return devcontainer.Task{}, fmt.Errorf("Task with alias %s not found", alias)
+		return devcontainer.Task{}, err
 	}
 
 	log.Debug().Msgf("Resolved task alias %s for project %s: %+v", alias, projectId, task)

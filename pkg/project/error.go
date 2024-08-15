@@ -15,13 +15,13 @@ func NewProjectNotFoundError(projectId string) *ProjectNotFoundError {
 }
 
 type ProjectAlreadyExistsError struct {
-	ProjectId string
+	projectId string
 }
 
 func (e ProjectAlreadyExistsError) Error() string {
-	return fmt.Sprintf("project %s already exists", e.ProjectId)
+	return fmt.Sprintf("project %s already exists", e.projectId)
 }
 
 func NewProjectAlreadyExistsError(projectId string) *ProjectAlreadyExistsError {
-	return &ProjectAlreadyExistsError{ProjectId: projectId}
+	return &ProjectAlreadyExistsError{projectId: projectId}
 }
