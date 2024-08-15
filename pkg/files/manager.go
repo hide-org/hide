@@ -152,12 +152,11 @@ func (fm *FileManagerImpl) UpdateLines(ctx context.Context, fs afero.Fs, path st
 		return nil, fmt.Errorf("Start line must be less than or equal to %d", numLines)
 	}
 
-	if lineDiff.EndLine > numLines {
-		return nil, fmt.Errorf("End line must be less than or equal to %d", numLines)
+	if lineDiff.EndLine > numLines+1 {
+		return nil, fmt.Errorf("End line must be less than or equal to %d", numLines+1)
 	}
 
-	// slicing is 0-based so we need to subtract 1 from the start line number; end line is exclusive so remains the same
-	file, err = file.ReplaceLineRange(lineDiff.StartLine-1, lineDiff.EndLine, lineDiff.Content)
+	file, err = file.ReplaceLineRange(lineDiff.StartLine, lineDiff.EndLine, lineDiff.Content)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to replace lines: %w", err)
 	}

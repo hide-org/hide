@@ -8,7 +8,6 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/artmoskvin/hide/pkg/files"
 	"github.com/artmoskvin/hide/pkg/handlers"
 	"github.com/artmoskvin/hide/pkg/model"
 	"github.com/artmoskvin/hide/pkg/project"
@@ -26,41 +25,51 @@ func TestReadFileHandler_Success(t *testing.T) {
 			name:  "Read file with default params",
 			query: "",
 			expectedFile: model.File{
-				Path:    "test.txt",
-				Content: "line1\nline2\nline3\n",
-			},
-		},
-		{
-			name:  "Read file with showLineNumbers=true",
-			query: "showLineNumbers=true",
-			expectedFile: model.File{
-				Path:    "test.txt",
-				Content: "1:line1\n2:line2\n3:line3\n",
+				Path: "test.txt",
+				Lines: []model.Line{
+					{Number: 1, Content: "line1"},
+					{Number: 2, Content: "line2"},
+					{Number: 3, Content: "line3"},
+				},
 			},
 		},
 		{
 			name:  "Read file with startLine=2",
 			query: "startLine=2",
 			expectedFile: model.File{
-				Path:    "test.txt",
-				Content: "2:line2\n3:line3\n",
+				Path: "test.txt",
+				Lines: []model.Line{
+					{Number: 2, Content: "line2"},
+					{Number: 3, Content: "line3"},
+				},
 			},
 		},
 		{
 			name:  "Read file with numLines=2",
 			query: "numLines=2",
 			expectedFile: model.File{
-				Path:    "test.txt",
-				Content: "line1\nline2\n",
+				Path: "test.txt",
+				Lines: []model.Line{
+					{Number: 1, Content: "line1"},
+					{Number: 2, Content: "line2"},
+				},
 			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			file := &model.File{
+				Path: "test.txt",
+				Lines: []model.Line{
+					{Number: 1, Content: "line1"},
+					{Number: 2, Content: "line2"},
+					{Number: 3, Content: "line3"},
+				},
+			}
 			mockManager := &project_mocks.MockProjectManager{
-				ReadFileFunc: func(ctx context.Context, projectId string, path string, props files.ReadProps) (model.File, error) {
-					return tt.expectedFile, nil
+				ReadFileFunc: func(ctx context.Context, projectId string, path string) (*model.File, error) {
+					return file, nil
 				},
 			}
 
@@ -96,11 +105,6 @@ func TestReadFileHandler_Fails_WithInvalidQueryParams(t *testing.T) {
 		expectedCode int
 	}{
 		{
-			name:         "Read file with invalid showLineNumbers param",
-			query:        "showLineNumbers=invalid",
-			expectedCode: http.StatusBadRequest,
-		},
-		{
 			name:         "Read file with invalid startLine param",
 			query:        "startLine=invalid",
 			expectedCode: http.StatusBadRequest,
@@ -134,8 +138,8 @@ func TestReadFileHandler_Fails_WithInvalidQueryParams(t *testing.T) {
 func TestReadFileHandler_Returns404_WhenProjectNotFound(t *testing.T) {
 	t.Run("Read file with invalid project ID", func(t *testing.T) {
 		mockManager := &project_mocks.MockProjectManager{
-			ReadFileFunc: func(ctx context.Context, projectId string, path string, props files.ReadProps) (model.File, error) {
-				return model.File{}, &project.ProjectNotFoundError{ProjectId: projectId}
+			ReadFileFunc: func(ctx context.Context, projectId string, path string) (*model.File, error) {
+				return nil, &project.ProjectNotFoundError{ProjectId: projectId}
 			},
 		}
 
@@ -157,8 +161,8 @@ func TestReadFileHandler_Returns404_WhenProjectNotFound(t *testing.T) {
 func TestReadFileHandler_Returns500_WhenReadFileFails(t *testing.T) {
 	t.Run("Read file with invalid file path", func(t *testing.T) {
 		mockManager := &project_mocks.MockProjectManager{
-			ReadFileFunc: func(ctx context.Context, projectId string, path string, props files.ReadProps) (model.File, error) {
-				return model.File{}, errors.New("file not found")
+			ReadFileFunc: func(ctx context.Context, projectId string, path string) (*model.File, error) {
+				return nil, errors.New("file not found")
 			},
 		}
 

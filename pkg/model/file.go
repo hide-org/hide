@@ -64,15 +64,19 @@ func (f *File) GetLine(lineNumber int) Line {
 }
 
 func (f *File) GetLineRange(start, end int) []Line {
-	if start < 1 {
-		start = 1
+	// Convert to 0-based indexing
+	start -= 1
+	end -= 1
+
+	if start < 0 {
+		start = 0
 	}
 
 	if end > len(f.Lines) {
 		end = len(f.Lines)
 	}
 
-	return f.Lines[start-1 : end]
+	return f.Lines[start:end]
 }
 
 func (f *File) WithLineRange(start, end int) *File {
@@ -88,11 +92,17 @@ func (f *File) ReplaceLineRange(start, end int, content string) (*File, error) {
 	newLength := len(f.Lines) - (end - start) + len(replacement)
 	result := make([]Line, newLength)
 
+	// Convert to 0-based indexing
+	start -= 1
+	end -= 1
+
 	copy(result, f.Lines[:start])
 	copy(result[start:], replacement)
-	copy(result[start+len(replacement):], f.Lines[end:])
+	if end < len(f.Lines) {
+		copy(result[start+len(replacement):], f.Lines[end:])
+	}
 
-	for i := start - 1; i < len(result); i++ {
+	for i := start; i < len(result); i++ {
 		result[i].Number = i + 1
 	}
 

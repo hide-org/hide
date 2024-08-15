@@ -63,11 +63,11 @@ func (h ReadFileHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			startLine = 1
 		}
 
-		endLine := len(file.Lines)
+		endLine := len(file.Lines) + 1
 		if numLinesPresent {
-			endLine = startLine + numLines - 1
-			if endLine > len(file.Lines) {
-				endLine = len(file.Lines)
+			endLine = startLine + numLines
+			if endLine > len(file.Lines)+1 {
+				endLine = len(file.Lines) + 1
 			}
 		}
 

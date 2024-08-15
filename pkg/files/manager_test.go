@@ -10,244 +10,37 @@ import (
 	"github.com/spf13/afero"
 )
 
-func TestNewReadProps(t *testing.T) {
-	tests := []struct {
-		name     string
-		props    []files.ReadPropsSetter
-		expected files.ReadProps
-	}{
-		{
-			name: "ShowLineNumbers",
-			props: []files.ReadPropsSetter{
-				func(props *files.ReadProps) {
-					props.ShowLineNumbers = true
-				},
-			},
-			expected: files.ReadProps{
-				ShowLineNumbers: true,
-				StartLine:       files.DefaultStartLine,
-				NumLines:        files.DefaultNumLines,
-			},
-		},
-		{
-			name: "StartLine",
-			props: []files.ReadPropsSetter{
-				func(props *files.ReadProps) {
-					props.StartLine = 10
-				},
-			},
-			expected: files.ReadProps{
-				ShowLineNumbers: files.DefaultShowLineNumbers,
-				StartLine:       10,
-				NumLines:        files.DefaultNumLines,
-			},
-		},
-		{
-			name: "NumLines",
-			props: []files.ReadPropsSetter{
-				func(props *files.ReadProps) {
-					props.NumLines = 20
-				},
-			},
-			expected: files.ReadProps{
-				ShowLineNumbers: files.DefaultShowLineNumbers,
-				StartLine:       files.DefaultStartLine,
-				NumLines:        20,
-			},
-		},
-		{
-			name: "All",
-			props: []files.ReadPropsSetter{
-				func(props *files.ReadProps) {
-					props.ShowLineNumbers = true
-					props.StartLine = 10
-					props.NumLines = 20
-				},
-			},
-			expected: files.ReadProps{
-				ShowLineNumbers: true,
-				StartLine:       10,
-				NumLines:        20,
-			},
-		},
-		{
-			name:  "Default",
-			props: []files.ReadPropsSetter{},
-			expected: files.ReadProps{
-				ShowLineNumbers: files.DefaultShowLineNumbers,
-				StartLine:       files.DefaultStartLine,
-				NumLines:        files.DefaultNumLines,
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			actual := files.NewReadProps(tt.props...)
-			if actual != tt.expected {
-				t.Errorf("Expected %+v, got %+v", tt.expected, actual)
-			}
-		})
-	}
-}
-
-func TestFileManagerImpl_ReadFile_Success(t *testing.T) {
-	filesystem := afero.NewMemMapFs()
-	afero.WriteFile(filesystem, "test.txt", []byte("line1\nline2\nline3\nline4\nline5\nline6\nline7\nline8\nline9\nline10"), 0644)
-
-	tests := []struct {
-		name     string
-		fs       afero.Fs
-		filePath string
-		props    files.ReadPropsSetter
-		expected model.File
-	}{
-		{
-			name:     "ShowLineNumbers = true",
-			fs:       filesystem,
-			filePath: "test.txt",
-			props: func(props *files.ReadProps) {
-				props.ShowLineNumbers = true
-				props.StartLine = 2
-				props.NumLines = 3
-			},
-			expected: model.File{
-				Path:    "test.txt",
-				Content: "2:line2\n3:line3\n4:line4\n",
-			},
-		},
-		{
-			name:     "ShowLineNumbers = false",
-			fs:       filesystem,
-			filePath: "test.txt",
-			props: func(props *files.ReadProps) {
-				props.ShowLineNumbers = false
-				props.StartLine = 4
-				props.NumLines = 4
-			},
-			expected: model.File{
-				Path:    "test.txt",
-				Content: "line4\nline5\nline6\nline7\n",
-			},
-		},
-		{
-			name:     "NumLines = 0",
-			fs:       filesystem,
-			filePath: "test.txt",
-			props: func(props *files.ReadProps) {
-				props.ShowLineNumbers = true
-				props.StartLine = 2
-				props.NumLines = 0
-			},
-			expected: model.File{
-				Path:    "test.txt",
-				Content: "",
-			},
-		},
-		{
-			name:     "If StartLine + NumLines > number of lines then show all lines",
-			fs:       filesystem,
-			filePath: "test.txt",
-			props: func(props *files.ReadProps) {
-				props.ShowLineNumbers = true
-				props.StartLine = 5
-				props.NumLines = 10
-			},
-			expected: model.File{
-				Path:    "test.txt",
-				Content: " 5:line5\n 6:line6\n 7:line7\n 8:line8\n 9:line9\n10:line10\n",
-			},
-		},
-		{
-			name:     "Line numbers are padded with spaces",
-			fs:       filesystem,
-			filePath: "test.txt",
-			props: func(props *files.ReadProps) {
-				props.ShowLineNumbers = true
-				props.StartLine = 5
-				props.NumLines = 10
-			},
-			expected: model.File{
-				Path:    "test.txt",
-				Content: " 5:line5\n 6:line6\n 7:line7\n 8:line8\n 9:line9\n10:line10\n",
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			fm := files.NewFileManager()
-			actual, err := fm.ReadFile(context.Background(), tt.fs, tt.filePath, files.NewReadProps(tt.props))
-			if err != nil {
-				t.Fatalf("Unexpected error: %v", err)
-			}
-
-			if !actual.Equals(&tt.expected) {
-				t.Errorf("Expected %+v, got %+v", tt.expected, actual)
-			}
-		})
-	}
-}
-
-func TestFileManagerImpl_ReadFile_Failure(t *testing.T) {
+func TestReadFile(t *testing.T) {
 	fs := afero.NewMemMapFs()
-	afero.WriteFile(fs, "test.txt", []byte("line1\nline2\nline3\nline4\nline5\nline6\nline7\nline8\nline9\nline10"), 0644)
+	path := "test.txt"
+	content := "line1\nline2\nline3\n"
+	afero.WriteFile(fs, path, []byte(content), 0644)
 
-	tests := []struct {
-		name     string
-		fs       afero.Fs
-		filePath string
-		props    files.ReadPropsSetter
-		expected string
-	}{
-		{
-			name:     "StartLine < 1",
-			fs:       fs,
-			filePath: "test.txt",
-			props: func(props *files.ReadProps) {
-				props.StartLine = 0
-			},
-			expected: "Start line must be greater than or equal to 1",
-		},
-		{
-			name:     "StartLine > number of lines",
-			fs:       fs,
-			filePath: "test.txt",
-			props: func(props *files.ReadProps) {
-				props.StartLine = 11
-			},
-			expected: "Start line must be less than or equal to 10",
-		},
-		{
-			name:     "NumLines < 0",
-			fs:       fs,
-			filePath: "test.txt",
-			props: func(props *files.ReadProps) {
-				props.NumLines = -1
-			},
-			expected: "Number of lines must be greater than or equal to 0",
-		},
-		{
-			name:     "Failed to read file",
-			fs:       afero.NewMemMapFs(),
-			filePath: "test.txt",
-			props:    func(props *files.ReadProps) {},
-			expected: "Failed to open file",
-		},
+	fm := files.NewFileManager()
+	actual, err := fm.ReadFile(context.Background(), fs, path)
+	expected, _ := model.NewFile(path, content)
+
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			fm := files.NewFileManager()
-			_, err := fm.ReadFile(context.Background(), tt.fs, tt.filePath, files.NewReadProps(tt.props))
-			if err == nil {
-				t.Fatalf("Expected error, got nil")
-			}
+	if !actual.Equals(expected) {
+		t.Errorf("Expected %+v, got %+v", expected, actual)
+	}
+}
 
-			if !strings.Contains(err.Error(), tt.expected) {
-				t.Errorf("Expected error to contain '%s', got %s", tt.expected, err.Error())
-			}
-		})
+func TestReadNonExistentFile(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	afero.WriteFile(fs, "test.txt", []byte("line1\nline2\nline3\n"), 0644)
+
+	fm := files.NewFileManager()
+	_, err := fm.ReadFile(context.Background(), fs, "non-existent.txt")
+	if err == nil {
+		t.Fatalf("Expected error, got nil")
+	}
+
+	if !strings.Contains(err.Error(), "file does not exist") {
+		t.Errorf("Expected error to contain 'file does not exist', got %s", err.Error())
 	}
 }
 
@@ -276,8 +69,18 @@ func TestFileManagerImpl_ApplyPatch_Success(t *testing.T) {
  line10
 +line11`,
 			expected: model.File{
-				Path:    "test.txt",
-				Content: "line1\nline20\nline3\nline40\nline5\nline7\nline8\nline10\nline11",
+				Path: "test.txt",
+				Lines: []model.Line{
+					{Number: 1, Content: "line1"},
+					{Number: 2, Content: "line20"},
+					{Number: 3, Content: "line3"},
+					{Number: 4, Content: "line40"},
+					{Number: 5, Content: "line5"},
+					{Number: 6, Content: "line7"},
+					{Number: 7, Content: "line8"},
+					{Number: 8, Content: "line10"},
+					{Number: 9, Content: "line11"},
+				},
 			},
 		},
 	}
@@ -375,36 +178,50 @@ func TestFileManagerImpl_UpdateLines_Success(t *testing.T) {
 			name: "Update 1 line",
 			lineDiff: files.LineDiffChunk{
 				StartLine: 1,
-				EndLine:   1,
+				EndLine:   2,
 				Content:   "line11",
 			},
 			expected: model.File{
-				Path:    "test.txt",
-				Content: "line11\nline2\nline3\n",
+				Path: "test.txt",
+				Lines: []model.Line{
+					{Number: 1, Content: "line11"},
+					{Number: 2, Content: "line2"},
+					{Number: 3, Content: "line3"},
+				},
 			},
 		},
 		{
 			name: "Update multiple lines",
 			lineDiff: files.LineDiffChunk{
 				StartLine: 1,
-				EndLine:   2,
+				EndLine:   3,
 				Content:   "line11\nline12\n",
 			},
 			expected: model.File{
-				Path:    "test.txt",
-				Content: "line11\nline12\nline3\n",
+				Path: "test.txt",
+				Lines: []model.Line{
+					{Number: 1, Content: "line11"},
+					{Number: 2, Content: "line12"},
+					{Number: 3, Content: "line3"},
+				},
 			},
 		},
 		{
 			name: "Add multiple lines at the end",
 			lineDiff: files.LineDiffChunk{
 				StartLine: 3,
-				EndLine:   3,
-				Content:   "line3\nline11\nline12\n",
+				EndLine:   4,
+				Content:   "line10\nline11\nline12\n",
 			},
 			expected: model.File{
-				Path:    "test.txt",
-				Content: "line1\nline2\nline3\nline11\nline12\n",
+				Path: "test.txt",
+				Lines: []model.Line{
+					{Number: 1, Content: "line1"},
+					{Number: 2, Content: "line2"},
+					{Number: 3, Content: "line10"},
+					{Number: 4, Content: "line11"},
+					{Number: 5, Content: "line12"},
+				},
 			},
 		},
 	}
@@ -442,13 +259,13 @@ func TestFileManagerImpl_UpdateLines_Failure(t *testing.T) {
 			expected: "Start line must be less than or equal to 3",
 		},
 		{
-			name: "End line > number of lines",
+			name: "End line > number of lines + 1",
 			lineDiff: files.LineDiffChunk{
 				StartLine: 1,
 				EndLine:   11,
 				Content:   "line11",
 			},
-			expected: "End line must be less than or equal to 3",
+			expected: "End line must be less than or equal to 4",
 		},
 	}
 
@@ -478,7 +295,7 @@ func TestUpdateFile_Success(t *testing.T) {
 		{
 			name:     "Update file",
 			content:  "line1\nline2\nline3\n",
-			expected: model.File{Path: "test.txt", Content: "line1\nline2\nline3\n"},
+			expected: model.File{Path: "test.txt", Lines: []model.Line{{Number: 1, Content: "line1"}, {Number: 2, Content: "line2"}, {Number: 3, Content: "line3"}}},
 		},
 	}
 
