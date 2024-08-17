@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"errors"
-	"flag"
 	"fmt"
 	"net/http"
 	"os"
@@ -15,7 +14,9 @@ import (
 	"github.com/docker/docker/client"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+	"github.com/spf13/cobra"
 
+	"github.com/artmoskvin/hide/cmd/hide/pkg/config"
 	"github.com/artmoskvin/hide/pkg/devcontainer"
 	"github.com/artmoskvin/hide/pkg/files"
 	"github.com/artmoskvin/hide/pkg/handlers"
@@ -30,24 +31,51 @@ const (
 	DefaultDotEnvPath = ".env"
 )
 
+var (
+	envPath string
+	debug   bool
+	port    int
+)
+
+var root = &cobra.Command{
+	Use:   "hide",
+	Short: "Hide is a headless IDE for coding agents",
+	// Long:              Splash,
+	CompletionOptions: cobra.CompletionOptions{
+		// HiddenDefaultCmd: true,
+	},
+	SilenceUsage:  true,
+	SilenceErrors: true,
+	Version:       config.Version(),
+	Run: func(cmd *cobra.Command, args []string) {
+	},
+}
+
+func init() {
+	cobra.EnableTraverseRunHooks = true
+
+	pf := root.PersistentFlags()
+	pf.StringVar(&envPath, "env", DefaultDotEnvPath, "path to the .env file")
+	pf.BoolVar(&debug, "debug", false, "run service in a debug mode")
+	pf.IntVar(&port, "port", 8080, "service port")
+}
+
 func main() {
-	fmt.Print(Splash)
+	setupLogger(debug)
 
-	envPath := flag.String("env", DefaultDotEnvPath, "path to the .env file")
-	debug := flag.Bool("debug", false, "run service in a debug mode")
-	port := flag.Int("port", 8080, "service port")
-	flag.Parse()
+	ctx := context.Background()
+	if err := root.ExecuteContext(ctx); err != nil {
+		log.Fatal().Err(err)
+	}
 
-	setupLogger(*debug)
-
-	_, err := os.Stat(*envPath)
+	_, err := os.Stat(envPath)
 
 	if os.IsNotExist(err) {
-		log.Debug().Msgf("Environment file %s does not exist.", *envPath)
+		log.Debug().Msgf("Environment file %s does not exist.", envPath)
 	}
 
 	if err == nil {
-		dir, file := filepath.Split(*envPath)
+		dir, file := filepath.Split(envPath)
 
 		if dir == "" {
 			dir = "."
@@ -55,7 +83,7 @@ func main() {
 
 		err := util.LoadEnv(os.DirFS(dir), file)
 		if err != nil {
-			log.Error().Err(err).Msgf("Cannot load environment variables from %s", *envPath)
+			log.Error().Err(err).Msgf("Cannot load environment variables from %s", envPath)
 		}
 	}
 
@@ -71,7 +99,6 @@ func main() {
 		log.Fatal().Err(err).Msg("Cannot initialize docker client")
 	}
 
-	ctx := context.Background()
 	containerRunner := devcontainer.NewDockerRunner(dockerClient, util.NewExecutorImpl(), ctx, devcontainer.DockerRunnerConfig{Username: dockerUser, Password: dockerToken})
 	projectStore := project.NewInMemoryStore(make(map[string]*model.Project))
 	home, err := os.UserHomeDir()
@@ -92,7 +119,7 @@ func main() {
 
 	router := handlers.Router(projectManager)
 
-	addr := fmt.Sprintf("127.0.0.1:%d", *port)
+	addr := fmt.Sprintf("127.0.0.1:%d", port)
 
 	server := &http.Server{
 		Handler:      router,
