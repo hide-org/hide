@@ -1,6 +1,6 @@
-package main
+package cmd
 
-const Splash = `
+const splash = `
 
           _____                    _____                    _____                    _____
          /\    \                  /\    \                  /\    \                  /\    \
@@ -27,7 +27,7 @@ const Splash = `
 `
 
 // In case the bigger one turns out to be too big
-const SplashSmall = `
+const splashSmall = `
       ___                       ___           ___     
      /\__\          ___        /\  \         /\  \    
     /:/  /         /\  \      /::\  \       /::\  \   
@@ -42,7 +42,7 @@ const SplashSmall = `
 `
 
 // Nice alternative, especially in color
-const SplashAlt = `
+const splashAlt = `
 
 ██╗  ██╗██╗██████╗ ███████╗
 ██║  ██║██║██╔══██╗██╔════╝
