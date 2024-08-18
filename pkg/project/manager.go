@@ -37,8 +37,8 @@ type CreateProjectRequest struct {
 }
 
 type TaskResult struct {
-	StdOut   string `json:"stdOut"`
-	StdErr   string `json:"stdErr"`
+	StdOut   string `json:"stdout"`
+	StdErr   string `json:"stderr"`
 	ExitCode int    `json:"exitCode"`
 }
 

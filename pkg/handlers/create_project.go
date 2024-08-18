@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 
 	"github.com/artmoskvin/hide/pkg/project"
@@ -22,7 +23,7 @@ func (h CreateProjectHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 	result := <-h.Manager.CreateProject(request)
 
 	if result.IsFailure() {
-		http.Error(w, "Failed to create project", http.StatusInternalServerError)
+		http.Error(w, fmt.Sprintf("Failed to create project: %s", result.Error), http.StatusInternalServerError)
 		return
 	}
 
