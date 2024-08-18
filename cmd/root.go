@@ -7,7 +7,7 @@ import (
 	"github.com/savioxavier/termlink"
 	"github.com/spf13/cobra"
 
-	"github.com/artmoskvin/hide/cmd/hide/pkg/config"
+	"github.com/artmoskvin/hide/pkg/config"
 )
 
 func init() {
