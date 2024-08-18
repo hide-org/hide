@@ -47,19 +47,20 @@ func init() {
 }
 
 var rootCmd = &cobra.Command{
-	Use:               "hide",
-	Short:             "Hide is a headless IDE for coding agents",
-	Long:              splash,
+	Use: "hide",
+	Long: fmt.Sprintf(`%s
+Hide is a headless IDE for coding agents
+	`, splash),
 	CompletionOptions: cobra.CompletionOptions{
-		// HiddenDefaultCmd: true,
+		HiddenDefaultCmd: true,
 	},
-	// SilenceUsage:  true,
-	// SilenceErrors: true,
 	Version: config.Version(),
 	PreRun: func(cmd *cobra.Command, args []string) {
 		setupLogger(debug)
 	},
 	Run: func(cmd *cobra.Command, args []string) {
+		fmt.Print(splash)
+
 		_, err := os.Stat(envPath)
 
 		if os.IsNotExist(err) {
