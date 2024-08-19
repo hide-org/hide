@@ -1,22 +1,22 @@
 .SILENT:
 
 debug:
-	go run ./cmd/hide -debug
+	go run . run --debug
 
 run:
-	go run ./cmd/hide
+	go run . run
 
 test:
 	go test ./...
 
 build:
-	go build ./cmd/hide
+	go build . 
 
 clean:
 	rm hide
 
 install:
-	go install ./cmd/hide
+	go install .
 
 format:
 	go fmt ./...
