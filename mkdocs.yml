@@ -64,6 +64,7 @@ theme:
     - navigation.footer
     - toc.follow
     - search.highlight
+    - content.code.copy
 markdown_extensions:
   - admonition
   - toc:
