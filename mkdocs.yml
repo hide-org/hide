@@ -43,9 +43,14 @@ theme:
     # Palette toggle for dark mode
     - media: "(prefers-color-scheme: dark)"
       scheme: slate
+      primary: deep purple
+      accent: green
       toggle:
         icon: material/toggle-switch
         name: Switch to system preference
+  font:
+    text: Roboto
+    code: Roboto Mono
   icon:
     logo: octicons/hubot-24
     repo: fontawesome/brands/github
