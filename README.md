@@ -3,6 +3,8 @@
   <img src="docs/assets/hide-quickstart.png" alt="Hide Quickstart"/>
 </div>
 
+## Description
+
 Hide provides containerized development environments for codebases and exposes APIs for agents to interact with them. When given a code repo, Hide spins up a devcontainer, installs the dependencies and provides APIs for codebase interaction. Developers can craft custom toolkits using Hide APIs or use Hide's pre-built toolkits for popular frameworks like Langchain.
 
 A typical installation for Hide consists of 2 parts: a runtime that runs on a local or remote Docker host, and an SDK that interacts with it. Runtime is the backend system responsible for managing development containers and executing tasks. SDK is a set of APIs and toolkits designed for coding agents to interact with the codebase.
