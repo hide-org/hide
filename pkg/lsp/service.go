@@ -24,14 +24,13 @@ type Service interface {
 	// TODO: check if any LSP server supports this
 	// PullDiagnostics(ctx context.Context, params DocumentDiagnosticParams) (DocumentDiagnosticReport, error)
 	GetDiagnostics(ctx context.Context, file model.File) ([]protocol.Diagnostic, error)
-	Cleanup(ctx context.Context) error
 	CleanupProject(ctx context.Context, projectId ProjectId) error
 }
 
 type ServiceImpl struct {
 	languageDetector     LanguageDetector
-	lspClients           LspClientStore
-	lspDiagnostics       LspDiagnostics
+	clientPool           *ClientPool
+	diagnosticsStore     *DiagnosticsStore
 	lspServerExecutables map[LanguageId]Command
 }
 
@@ -106,12 +105,7 @@ func (s *ServiceImpl) StartServer(ctx context.Context, languageId LanguageId) er
 		return fmt.Errorf("Failed to notify initialized: %w", err)
 	}
 
-	if clients, ok := s.lspClients[projectId]; ok {
-		clients[languageId] = client
-	} else {
-		s.lspClients[projectId] = make(map[LanguageId]Client)
-		s.lspClients[projectId][languageId] = client
-	}
+	s.clientPool.Set(projectId, languageId, client)
 
 	// TODO: kill this goroutine when the project is deleted
 	go s.listenForDiagnostics(projectId, diagnosticsChannel)
@@ -137,7 +131,7 @@ func (s *ServiceImpl) StopServer(ctx context.Context, languageId LanguageId) err
 		return fmt.Errorf("Failed to stop language server: %w", err)
 	}
 
-	delete(s.lspClients[project.Id], languageId)
+	s.clientPool.Delete(project.Id, languageId)
 
 	return nil
 }
@@ -210,25 +204,15 @@ func (s *ServiceImpl) GetDiagnostics(ctx context.Context, file model.File) ([]pr
 	}
 
 	uri := PathToURI(filepath.Join(project.Path, file.Path))
-	if diagnostics, ok := s.lspDiagnostics[project.Id]; ok {
-		return diagnostics[uri], nil
+	if diagnostics, ok := s.diagnosticsStore.Get(project.Id, uri); ok {
+		return diagnostics, nil
 	}
 
 	return nil, nil
 }
 
-func (s *ServiceImpl) Cleanup(ctx context.Context) error {
-	for projectId := range s.lspClients {
-		if err := s.CleanupProject(ctx, projectId); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
 func (s *ServiceImpl) CleanupProject(ctx context.Context, projectId ProjectId) error {
-	clients, ok := s.lspClients[projectId]
+	clients, ok := s.clientPool.GetAllForProject(projectId)
 	if !ok {
 		return nil
 	}
@@ -239,8 +223,8 @@ func (s *ServiceImpl) CleanupProject(ctx context.Context, projectId ProjectId) e
 		}
 	}
 
-	delete(s.lspClients, projectId)
-	delete(s.lspDiagnostics, projectId)
+	s.clientPool.DeleteAllForProject(projectId)
+	s.diagnosticsStore.DeleteAllForProject(projectId)
 	return nil
 }
 
@@ -251,17 +235,11 @@ func (s *ServiceImpl) getClient(ctx context.Context, languageId LanguageId) (Cli
 		return nil, false
 	}
 
-	clients, ok := s.lspClients[project.Id]
-	if !ok {
-		return nil, false
+	if client, ok := s.clientPool.Get(project.Id, languageId); ok {
+		return client, true
 	}
 
-	client, ok := clients[languageId]
-	if !ok {
-		return nil, false
-	}
-
-	return client, true
+	return nil, false
 }
 
 func (s *ServiceImpl) listenForDiagnostics(projectId ProjectId, channel chan protocol.PublishDiagnosticsParams) {
@@ -277,22 +255,18 @@ func (s *ServiceImpl) listenForDiagnostics(projectId ProjectId, channel chan pro
 }
 
 func (s *ServiceImpl) updateDiagnostics(projectId ProjectId, diagnostics protocol.PublishDiagnosticsParams) {
-	if _, ok := s.lspDiagnostics[projectId]; !ok {
-		s.lspDiagnostics[projectId] = make(map[protocol.DocumentUri][]protocol.Diagnostic)
-	}
-
-	s.lspDiagnostics[projectId][diagnostics.URI] = diagnostics.Diagnostics
+	s.diagnosticsStore.Set(projectId, diagnostics.URI, diagnostics.Diagnostics)
 }
 
 func PathToURI(path string) protocol.DocumentUri {
 	return protocol.DocumentUri("file://" + path)
 }
 
-func NewService(languageDetector LanguageDetector, lspServerExecutables map[LanguageId]Command) Service {
+func NewService(languageDetector LanguageDetector, lspServerExecutables map[LanguageId]Command, diagnosticsStore *DiagnosticsStore, clientPool *ClientPool) Service {
 	return &ServiceImpl{
 		languageDetector:     languageDetector,
-		lspClients:           make(LspClientStore),
-		lspDiagnostics:       make(LspDiagnostics),
+		clientPool:           clientPool,
+		diagnosticsStore:     diagnosticsStore,
 		lspServerExecutables: lspServerExecutables,
 	}
 }
