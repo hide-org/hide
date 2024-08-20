@@ -10,7 +10,6 @@ import (
 	"path/filepath"
 	"strconv"
 
-	"log"
 	"os"
 
 	"github.com/artmoskvin/hide/pkg/util"
@@ -23,6 +22,7 @@ import (
 
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/pkg/archive"
+	"github.com/rs/zerolog/log"
 )
 
 const DefaultShell = "/bin/sh"
@@ -183,7 +183,7 @@ func (r *DockerRunner) Exec(containerID string, command []string) (ExecResult, e
 
 func (r *DockerRunner) executeLifecycleCommand(lifecycleCommand LifecycleCommand, workingDir string) error {
 	for _, command := range lifecycleCommand {
-		log.Printf("Running command '%s'", command)
+		log.Debug().Str("command", fmt.Sprintf("%s", command)).Msg("Running command")
 
 		if err := r.commandExecutor.Run(command, workingDir, os.Stdout, os.Stderr); err != nil {
 			return err
@@ -195,7 +195,7 @@ func (r *DockerRunner) executeLifecycleCommand(lifecycleCommand LifecycleCommand
 
 func (r *DockerRunner) executeLifecycleCommandInContainer(lifecycleCommand LifecycleCommand, containerId string) error {
 	for _, command := range lifecycleCommand {
-		log.Printf("Running command %s in container %s", command, containerId)
+		log.Debug().Str("command", fmt.Sprintf("%s", command)).Msg("Running command")
 
 		result, err := r.Exec(containerId, command)
 
@@ -254,12 +254,12 @@ func (r *DockerRunner) pullOrBuildImage(workingDir string, config Config) (strin
 }
 
 func (r *DockerRunner) pullImage(_image string) error {
-	log.Println("Pulling image", _image)
+	log.Debug().Str("image", _image).Msg("Pulling image")
 
 	authStr, err := r.encodeRegistryAuth(r.config.Username, r.config.Password)
 
 	if err != nil {
-		log.Printf("Failed to encode registry auth: %s", err)
+		log.Error().Err(err).Msg("Failed to encode registry auth")
 		return fmt.Errorf("Failed to encode registry auth: %w", err)
 	}
 
@@ -272,18 +272,18 @@ func (r *DockerRunner) pullImage(_image string) error {
 	defer output.Close()
 
 	if err := util.ReadOutput(output, os.Stdout); err != nil {
-		log.Printf("Error streaming output: %v\n", err)
+		log.Error().Err(err).Msg("Error streaming output")
 	}
 
-	log.Println("Pulled image", _image)
+	log.Debug().Str("image", _image).Msg("Pulled image")
 
 	return nil
 }
 
 func (r *DockerRunner) buildImage(buildContextPath string, dockerFilePath string, buildProps *BuildProps, containerName string) (string, error) {
-	log.Println("Building image from", buildContextPath)
+	log.Debug().Str("buildContextPath", buildContextPath).Msg("Building image")
 
-	log.Println("Warning: building images is not stable yet")
+	log.Warn().Msg("Building images is not stable yet")
 
 	buildContext, err := archive.TarWithOptions(buildContextPath, &archive.TarOptions{})
 
@@ -316,16 +316,16 @@ func (r *DockerRunner) buildImage(buildContextPath string, dockerFilePath string
 	defer imageBuildResponse.Body.Close()
 
 	if err := util.ReadOutput(imageBuildResponse.Body, os.Stdout); err != nil {
-		log.Printf("Error streaming output: %v\n", err)
+		log.Error().Err(err).Msg("Error streaming output")
 	}
 
-	log.Println("Built image with tag", tag)
+	log.Debug().Str("tag", tag).Msg("Built image")
 
 	return tag, nil
 }
 
 func (r *DockerRunner) createContainer(image string, projectPath string, config Config) (string, error) {
-	log.Println("Creating container...")
+	log.Debug().Msg("Creating container")
 
 	env := []string{}
 
@@ -405,13 +405,13 @@ func (r *DockerRunner) createContainer(image string, projectPath string, config 
 
 	containerId := createResponse.ID
 
-	log.Println("Created container", containerId)
+	log.Debug().Str("containerId", containerId).Msg("Created container")
 
 	return containerId, nil
 }
 
 func (r *DockerRunner) startContainer(containerId string) error {
-	log.Println("Starting container...")
+	log.Debug().Msg("Starting container")
 
 	err := r.dockerClient.ContainerStart(r.context, containerId, container.StartOptions{})
 
@@ -419,7 +419,7 @@ func (r *DockerRunner) startContainer(containerId string) error {
 		return err
 	}
 
-	log.Println("Started container", containerId)
+	log.Debug().Str("containerId", containerId).Msg("Started container")
 
 	return nil
 }

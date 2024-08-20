@@ -3,8 +3,9 @@ package util
 import (
 	"fmt"
 	"io"
-	"log"
 	"os/exec"
+
+	"github.com/rs/zerolog/log"
 )
 
 type Executor interface {
@@ -19,25 +20,25 @@ func NewExecutorImpl() Executor {
 }
 
 func (e *ExecutorImpl) Run(command []string, dir string, stdout, stderr io.Writer) error {
-	log.Println("> ", command)
+	log.Debug().Msgf("> %s", command)
 
 	cmd := exec.Command(command[0], command[1:]...)
 	cmd.Dir = dir
 	cmdStdout, err := cmd.StdoutPipe()
 
 	if err != nil {
-		log.Printf("Error creating StdoutPipe: %v\n", err)
+		log.Error().Err(err).Msg("Error creating StdoutPipe")
 		return fmt.Errorf("Error creating StdoutPipe: %w", err)
 	}
 
 	cmdStderr, err := cmd.StderrPipe()
 	if err != nil {
-		log.Printf("Error creating StderrPipe: %v\n", err)
+		log.Error().Err(err).Msg("Error creating StderrPipe")
 		return fmt.Errorf("Error creating StderrPipe: %w", err)
 	}
 
 	if err := cmd.Start(); err != nil {
-		log.Printf("Error starting command: %v\n", err)
+		log.Error().Err(err).Msg("Error starting command")
 		return fmt.Errorf("Error starting command: %w", err)
 	}
 
@@ -49,7 +50,7 @@ func (e *ExecutorImpl) Run(command []string, dir string, stdout, stderr io.Write
 	// Wait for the command to complete
 	// TODO: do async wait
 	if err := cmd.Wait(); err != nil {
-		log.Printf("Error waiting for command: %v\n", err)
+		log.Error().Err(err).Msg("Error waiting for command")
 		return fmt.Errorf("Error waiting for command: %w", err)
 	}
 

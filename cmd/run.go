@@ -99,7 +99,9 @@ var runCmd = &cobra.Command{
 
 		fileManager := files.NewFileManager()
 		languageDetector := lsp.NewFileExtensionBasedLanguageDetector()
-		lspService := lsp.NewService(languageDetector, lspServerExecutables)
+		diagnosticsStore := lsp.NewDiagnosticsStore()
+		clientPool := lsp.NewClientPool()
+		lspService := lsp.NewService(languageDetector, lspServerExecutables, diagnosticsStore, clientPool)
 		projectManager := project.NewProjectManager(containerRunner, projectStore, projectsDir, fileManager, lspService, languageDetector)
 
 		router := handlers.Router(projectManager)
