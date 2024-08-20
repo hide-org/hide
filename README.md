@@ -79,7 +79,7 @@ See [CONTRIBUTING.md](./docs/CONTRIBUTING.md) for information on how to contribu
 
 ## Development
 
-See [DEVELOPMENT.md](./docs/DEVELOPMENT.md) for information on how to develop Hide.
+See [DEVELOPMENT.md](./docs/development.md) for information on how to develop Hide.
 
 ## License
 
