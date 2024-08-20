@@ -25,7 +25,8 @@ import (
 )
 
 const (
-	ProjectsDir       = "hide-projects"
+	HidePath          = ".hide"
+	ProjectsDir       = "projects"
 	DefaultDotEnvPath = ".env"
 )
 
@@ -91,7 +92,7 @@ var runCmd = &cobra.Command{
 			log.Fatal().Err(err).Msg("User's home directory is not set")
 		}
 
-		projectsDir := filepath.Join(home, ProjectsDir)
+		projectsDir := filepath.Join(home, HidePath, ProjectsDir)
 
 		lspServerExecutables := make(map[lsp.LanguageId]lsp.Command)
 		lspServerExecutables[lsp.LanguageId("go")] = lsp.NewCommand("gopls", []string{})
