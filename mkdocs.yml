@@ -4,7 +4,7 @@ repo_url: https://github.com/artmoskvin/hide
 repo_name: artmoskvin/hide
 nav:
   - Home: 
-    - README.md
+    - index.md
   - Installation: installation.md
   - Quickstart: quickstart.md
   - Usage: 

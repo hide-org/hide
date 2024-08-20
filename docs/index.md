@@ -3,7 +3,7 @@
   <img src="assets/hide-quickstart.png" alt="Hide Quickstart"/>
 </div>
 
-Hide is a headless IDE for coding agents. It provides containerized development environments with your codebase inside and exposes APIs for agents to interact with it.
+Hide is a headless IDE for coding agents. It provides containerized development environments for codebases and exposes APIs for agents to interact with them.
 
 ## Features
 

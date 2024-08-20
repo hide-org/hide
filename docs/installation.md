@@ -12,7 +12,7 @@ SDK is a set of APIs and toolkits designed for coding agents to interact with th
 
 Hide Runtime requires Docker Engine to be installed on your system. Note that if you intend to use Hide with a remote Docker host, you will need to install Docker Engine on that host.
 
-For installation instructions for your OS, see to the [Docker Engine documentation](https://docs.docker.com/engine/install/).
+For installation instructions for your OS, see the [Docker Engine documentation](https://docs.docker.com/engine/install/).
 
 ## Runtime
 

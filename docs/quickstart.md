@@ -1,37 +1,39 @@
 # Quickstart
 
-In this quickstart, we will demonstrate how to create new Hide projects and let agents interact with them.
+In this quickstart, we will demonstrate how to create new Hide projects and let agents interact with them. We will explore Hide APIs and build a real coding agent using Langchain.
 
-!!! note
+This quickstart assumes that you have already installed Hide Runtime and SDK, and have Runtime running on your local machine. If you haven't done so, please refer to the [Installation](installation.md) guide.
 
-    This quickstart assumes that you have already installed Hide Runtime and SDK, and have Runtime running on your local machine. If you haven't done so, please refer to the [Installation](installation.md) guide.
+## Requirements
+
+- Python 3.10+
+- Hide Runtime running on your local machine
+- Hide SDK installed (`pip install hide-py`)
 
 ## Creating a Client
 
-To interact with the Hide server, we need to create a client. We can do this by importing `hide` and creating an instance of `hide.Client`:
+To interact with the Hide Runtime, we need to create a client. We can do this by importing `hide` and creating an instance of `hide.Client`:
 
 ```python
 import hide
-from hide.devcontainer.model import ImageDevContainer
-from hide.model import FileUpdateType, UdiffUpdate, Repository
-from hide.toolkit import Toolkit
+from hide import model
 
 hc = hide.Client()
 ```
 
-By default, the client will connect to the Hide runtime running on `http://localhost:8080`. If you have Hide running on a different host or port, you can specify it when creating the client:
+By default, the client will connect to the runtime running on `http://localhost:8080`. If you have Hide running on a different host or port, you can specify it when creating the client:
 
 ```python
-hc = hide.Client(base_url="https://my-hide-server:8081")
+hc = hide.Client(base_url="https://my-hide-runtime:8081")
 ```
 
 ## Creating a Project
 
-A project is a containerized development environment for a specific codebase. Creating a project consists of cloning the repository and setting up a devcontainer. We can do this by calling the `create_project` method on the client and passing a URL of the project on GitHub:
+A project is a containerized development environment for a specific codebase. Creating a project consists of cloning the repository, setting up a devcontainer, and initializing the development environment. We can do this by calling the `create_project` method on the client and passing a URL of the project on GitHub:
 
 ```python
 project = hc.create_project(
-    Repository(url="https://github.com/artmoskvin/tiny-math-service.git")
+    repository=model.Repository(url="https://github.com/artmoskvin/tiny-math-service.git")
 )
 ```
 
@@ -41,11 +43,13 @@ Here, we use the [Tiny Math Service](https://github.com/artmoskvin/tiny-math-ser
 
     [Devcontainers](https://containers.dev/) is a specification for creating reproducible development environments.
 
-If your project doesn't have a devcontainer configuration, you can define one as part of the project creation request using the `devcontainer` parameter:
+If your repository doesn't have a devcontainer configuration, you can define one as part of the project creation request using the `devcontainer` parameter:
 
 ```python
+from hide.devcontainer.model import ImageDevContainer
+
 project = hc.create_project(
-    repository=Repository(url="https://github.com/artmoskvin/tiny-math-service.git"),
+    repository=model.Repository(url="https://github.com/artmoskvin/tiny-math-service.git"),
     devcontainer=ImageDevContainer(
         image="mcr.microsoft.com/devcontainers/python:3.12-bullseye",
         onCreateCommand="pip install poetry && poetry install",
@@ -65,11 +69,11 @@ Creating a project can take some time. Under the hood, Hide clones the repositor
 
 ## Using the Client
 
-Before we jump to the coding agents, let's take a look at how we can interact with the project we created in the previous section. It is important to develop intuition for how the Hide APIs work and how agents can interact with them.
+Before we jump to the coding agents, let's take a look at how you can interact with the project created in the previous section. This will help you develop an intuition for how the Hide APIs work and how agents can interact with them.
 
 ### Running Tasks
 
-You could notice that the devcontainer [configuration](https://github.com/artmoskvin/tiny-math-service/blob/main/.devcontainer.json) for the [Tiny Math Service](https://github.com/artmoskvin/tiny-math-service) contains a `customizations` section that defines a custom task called `test`. We can use this task to run tests in our project:
+You could notice that the devcontainer [configuration](https://github.com/artmoskvin/tiny-math-service/blob/main/.devcontainer.json) for the [Tiny Math Service](https://github.com/artmoskvin/tiny-math-service) contains a `customizations` section that defines a custom task called `test`. We can use this alias to run tests in our project:
 
 ```python
 result = hc.run_task(
@@ -104,7 +108,7 @@ The tasks are executed from the project root so the print statement outputs the 
 
 ### Reading and Updating Files
 
-We can also read and update files in the project. For example, we can read the `maths.py` file and add a new endpoint in it. First, let's read the file:
+We can also read and update files in the project. For example, let's read the `maths.py` file and add a new endpoint in it. First, let's read the file:
 
 ```python
 file = hc.get_file(
@@ -128,9 +132,13 @@ print(file)
 #115 |         ) from e
 ```
 
-The file includes line numbers which can be useful when coding agents update files by adding/replacing lines or by applying unified diffs.
+The file includes line numbers which can be useful when coding agents update files. Updating files can be done in three ways: by replacing the entire file, by manipulating lines, or by applying unified diffs.
 
-Updating files can be done in three ways: by replacing the entire file, by manipulating lines, or by applying unified diffs. For now, let's use the unified diff:
+!!! note
+
+    The [Unified Diff](https://en.wikipedia.org/wiki/Diff_utility#Unified_format) is a format for comparing two files or versions of a file.
+
+Let's see how the unified diff works:
 
 ```python
 
@@ -153,14 +161,14 @@ patch = """\
 +    return MathsResult(
 +        **maths_input.dict(),
 +        operation="exp",
-+        result=maths_input.number1 ** maths_input.number2,
++        result=maths_input.number1 ** maths_input.number,
 +    )
 """
 
 file = hc.update_file(
     project_id=project.id, 
     path='my_tiny_service/api/routers/maths.py',
-    update=UdiffUpdate(patch=patch)
+    update=model.UdiffUpdate(patch=patch)
 )
 
 print(file)
@@ -178,9 +186,18 @@ print(file)
 #125 |     return MathsResult(
 #126 |         **maths_input.dict(),
 #127 |         operation="exp",
-#128 |         result=maths_input.number1 ** maths_input.number2,
+#128 |         result=maths_input.number1 ** maths_input.number,
+#                                                        ^^^^^^ Error: Cannot access attribute "number" for class "MathsIn"
+#  Attribute "number" is unknown
+#
 #129 |     )
 ```
+
+It turns out there was a typo in my patch but Hide noticed it and highlighted the line with the error. Like a normal IDE, Hide runs continuous diagnostics on the code using LSP servers and highlights errors. Currently, Hide provides diagnostics for Python, JavaScript, TypeScript, and Go, and we can add more languages if needed. Let us know in the GitHub Issues if you need support for other languages.
+
+!!! note
+
+    The [Language Server Protocol (LSP)](https://microsoft.github.io/language-server-protocol/) defines the protocol used between an editor or IDE and a language server that provides language features like auto complete, go to definition, find all references etc.
 
 For more information on all the available update types and their parameters, see the [Files API](usage/files.md#updating-a-file) documentation.
 
@@ -188,13 +205,7 @@ For more information on all the available update types and their parameters, see
 
 Finally, let's take a look at how we can use the Hide toolkit to build a coding agent. For this quickstart, we will use the [Langchain](https://www.langchain.com/langchain) framework to build a simple coding agent that can solve coding problems based on a given prompt.
 
-First, let's install Langchain:
-
-```bash
-pip install langchain
-```
-
-Next, let's initialize the toolkit:
+First, let's initialize the toolkit:
 
 ```python
 from hide.toolkit import Toolkit
@@ -235,7 +246,7 @@ os.environ["OPENAI_API_KEY"] = "YOUR_OPENAI_API_KEY"
 
 from langchain_openai import ChatOpenAI
 
-llm = ChatOpenAI(model="gpt-4o")
+llm = ChatOpenAI(model="gpt-4o", seed=128)
 prompt = hub.pull("hwchase17/openai-tools-agent")
 tools = lc_toolkit.get_tools()
 
@@ -267,6 +278,6 @@ print(response["output"])
 
 This task will require the agent to use multiple tools from the Hide toolkit. The agent will first read the content of the `maths.py` and `test_api.py` files, then update them according to the instructions, and finally run the tests. If the tests fail the agent will try to fix them. It can take few rounds but eventually the agent will succeed.
 
-## Conclusion
+## Next Steps
 
-In this quickstart, we demonstrated how to create new Hide projects and let agents interact with them. For more details, check out our [Guides](./usage/index.md) and [Tutorials](./tutorials/index.md).
+In this quickstart, we demonstrated how to create new Hide projects and let agents interact with them. For more details on how to use Hide, check out our [Guides](./usage/index.md) and [Tutorials](./tutorials/index.md).
