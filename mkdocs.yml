@@ -4,7 +4,7 @@ repo_url: https://github.com/artmoskvin/hide
 repo_name: artmoskvin/hide
 nav:
   - Home: 
-    - README.md
+    - index.md
   - Installation: installation.md
   - Quickstart: quickstart.md
   - Usage: 
@@ -43,9 +43,14 @@ theme:
     # Palette toggle for dark mode
     - media: "(prefers-color-scheme: dark)"
       scheme: slate
+      primary: deep purple
+      accent: green
       toggle:
         icon: material/toggle-switch
         name: Switch to system preference
+  font:
+    text: Roboto
+    code: Roboto Mono
   icon:
     logo: octicons/hubot-24
     repo: fontawesome/brands/github
@@ -73,6 +78,7 @@ markdown_extensions:
   - pymdownx.tabbed:
       alternate_style: true
   - attr_list
+  - md_in_html
   - pymdownx.emoji:
       emoji_index: !!python/name:material.extensions.emoji.twemoji
       emoji_generator: !!python/name:material.extensions.emoji.to_svg

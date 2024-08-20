@@ -1,16 +1,22 @@
 # Installation
 
-A typical setup for Hide consists of 2 parts: a server that runs on a local or remote Docker host, and a client that interacts with it.
+A typical installation for Hide consists of 2 parts: a runtime that runs on a local or remote Docker host, and an SDK that interacts with it.
+
+Runtime is the backend system responsible for managing development containers and executing tasks.
+
+SDK is a set of APIs and toolkits designed for coding agents to interact with the codebase.
 
 ## Prerequisites
 
 ### Docker
 
-If you don't have Docker installed, follow the instructions on the [Docker website](https://docs.docker.com/get-docker/) to install it.
+Hide Runtime requires Docker Engine to be installed on your system. Note that if you intend to use Hide with a remote Docker host, you will need to install Docker Engine on that host.
 
-## Server
+For installation instructions for your OS, see the [Docker Engine documentation](https://docs.docker.com/engine/install/).
 
-The server is responsible for managing the development environments, executing tasks, and providing APIs for interacting with the codebase. It can be installed using [Homebrew](https://brew.sh/) or built from source.
+## Runtime
+
+The runtime is responsible for managing the development environments, executing tasks, and providing APIs for interacting with the codebase. Runtime can be installed using [Homebrew](https://brew.sh/) or built from source.
 
 ### Using Homebrew
 
@@ -26,19 +32,23 @@ The server is responsible for managing the development environments, executing t
     brew install hide
     ```
 
-After installing Hide, you can start the server by running the following command:
+After installing Hide, you can start the runtime by running the following command:
 
 ```bash
-hide
+hide run
 ```
 
-You should see logs indicating that the server is running, something like: `Server started on :8080`.
+You should see logs indicating that the server is running, something like: `Server started on 127.0.0.1:8080`. For more options, including how to specify the port, see help:
+
+```bash
+hide --help
+```
 
 ### Building from Source
 
 To build Hide from source, follow these steps:
 
-1. Ensure you have [Go 1.22](https://go.dev/) or later installed on your system.
+1. Ensure you have [Go 1.22+](https://go.dev/) or later installed on your system.
 2. Clone the Hide repository:
 
     ```bash
@@ -61,27 +71,30 @@ To build Hide from source, follow these steps:
 After building from source, you can run Hide by running the following command from the project directory:
 
 ```bash
-./hide
+./hide run
 ```
 
 or if you've installed it to your `$GOPATH/bin`:
 
 ```bash
-hide
+hide run
+```
+You should see logs indicating that the server is running, something like: `Server started on 127.0.0.1:8080`. For more options, including how to specify the port, see help:
+
+```bash
+hide --help
 ```
 
-You should see logs indicating that the server is running, something like: `Server started on :8080`.
+## SDK
 
-## Client
+The SDK is a set of APIs and toolkits designed for coding agents to interact with the codebase. It is best used for creating new projects and implementing toolkits for coding agents.
 
-The client is responsible for interacting with the server. It is best used for creating new projects and implementing toolkits for coding agents.
-
-We provide a Python package containing the client and some pre-built toolkits:
+We provide a Python package containing the SDK and some pre-built toolkits:
 
 ```bash
 pip install hide-py
 ```
 
-You can also implement your own client by calling the server's APIs directly (see [API Reference](api.md)).
+You can also implement your own toolkit by calling the Runtime's APIs directly (see [API Reference](api.md)).
 
 For a quickstart on how to create new projects and interact with them, see the [Quickstart](quickstart.md) guide.
