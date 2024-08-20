@@ -3,11 +3,11 @@ package config
 import "fmt"
 
 var (
-	VersionBranch = "branch"
-	VersionCommit = "commit"
-	VersionDate   = "0000-00-00 00:00:00+00:00"
+	Major = 0
+	Minor = 3
+	Patch = 0
 )
 
 func Version() string {
-	return fmt.Sprintf("%s/%s (%s)", VersionBranch, VersionCommit, VersionDate)
+	return fmt.Sprintf("v%d.%d.%d", Major, Minor, Patch)
 }
