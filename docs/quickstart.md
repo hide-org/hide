@@ -246,7 +246,8 @@ os.environ["OPENAI_API_KEY"] = "YOUR_OPENAI_API_KEY"
 
 from langchain_openai import ChatOpenAI
 
-llm = ChatOpenAI(model="gpt-4o", seed=128)
+# Using seed for reproducible results
+llm = ChatOpenAI(model="gpt-4o", model_kwargs={"seed": 128})
 prompt = hub.pull("hwchase17/openai-tools-agent")
 tools = lc_toolkit.get_tools()
 
@@ -276,7 +277,7 @@ print(response["output"])
 # All tests, including the new one for exponentiation, have passed.
 ```
 
-This task will require the agent to use multiple tools from the Hide toolkit. The agent will first read the content of the `maths.py` and `test_api.py` files, then update them according to the instructions, and finally run the tests. If the tests fail the agent will try to fix them. It can take few rounds but eventually the agent will succeed.
+This task will require the agent to use multiple tools from the Hide toolkit. The agent will first read the content of the `maths.py` and `test_api.py` files, then update them according to the instructions (fixing the typo we introduced earlier), and finally run the tests. If the tests fail the agent will try to fix them. It can take few rounds but eventually the agent will succeed.
 
 ## Next Steps
 
