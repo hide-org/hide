@@ -3,25 +3,16 @@ package devcontainer
 import (
 	"bytes"
 	"context"
-	"encoding/base64"
-	"encoding/json"
 	"fmt"
 	"io"
-	"path/filepath"
-	"strconv"
-
 	"os"
+	"strconv"
 
 	"github.com/artmoskvin/hide/pkg/util"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/api/types/mount"
-	"github.com/docker/docker/api/types/registry"
 	"github.com/docker/go-connections/nat"
-
-	"github.com/docker/docker/client"
-	"github.com/docker/docker/pkg/archive"
 	"github.com/rs/zerolog/log"
 )
 
@@ -41,28 +32,28 @@ type ExecResult struct {
 }
 
 type Runner interface {
-	Run(projectPath string, config Config) (string, error)
-	Stop(containerId string) error
-	Exec(containerId string, command []string) (ExecResult, error)
+	Run(ctx context.Context, projectPath string, config Config) (string, error)
+	Stop(ctx context.Context, containerId string) error
+	Exec(ctx context.Context, containerId string, command []string) (ExecResult, error)
 }
 
 type DockerRunner struct {
-	dockerClient    *client.Client
+	dockerClient    DockerClient
 	commandExecutor util.Executor
-	context         context.Context
 	config          DockerRunnerConfig
+	imageManager    ImageManager
 }
 
-func NewDockerRunner(client *client.Client, commandExecutor util.Executor, context context.Context, config DockerRunnerConfig) Runner {
+func NewDockerRunner(client DockerClient, commandExecutor util.Executor, config DockerRunnerConfig, imageManager ImageManager) Runner {
 	return &DockerRunner{
 		dockerClient:    client,
 		commandExecutor: commandExecutor,
-		context:         context,
 		config:          config,
+		imageManager:    imageManager,
 	}
 }
 
-func (r *DockerRunner) Run(projectPath string, config Config) (string, error) {
+func (r *DockerRunner) Run(ctx context.Context, projectPath string, config Config) (string, error) {
 	// Run initialize commands
 	if command := config.LifecycleProps.InitializeCommand; command != nil {
 		if err := r.executeLifecycleCommand(command, projectPath); err != nil {
@@ -77,41 +68,41 @@ func (r *DockerRunner) Run(projectPath string, config Config) (string, error) {
 	}
 
 	// Pull or build image
-	imageId, err := r.pullOrBuildImage(projectPath, config)
+	imageId, err := r.imageManager.PullOrBuildImage(ctx, projectPath, config)
 
 	if err != nil {
 		return "", fmt.Errorf("Failed to pull or build image: %w", err)
 	}
 
 	// Create container
-	containerId, err := r.createContainer(imageId, projectPath, config)
+	containerId, err := r.createContainer(ctx, imageId, projectPath, config)
 
 	if err != nil {
 		return "", fmt.Errorf("Failed to create container: %w", err)
 	}
 
 	// Start container
-	if err := r.startContainer(containerId); err != nil {
+	if err := r.startContainer(ctx, containerId); err != nil {
 		return "", fmt.Errorf("Failed to start container: %w", err)
 	}
 
 	// Run onCreate commands
 	if command := config.LifecycleProps.OnCreateCommand; command != nil {
-		if err := r.executeLifecycleCommandInContainer(command, containerId); err != nil {
+		if err := r.executeLifecycleCommandInContainer(ctx, command, containerId); err != nil {
 			return "", fmt.Errorf("Failed to run onCreate command %s: %w", command, err)
 		}
 	}
 
 	// Run updateContent commands
 	if command := config.LifecycleProps.UpdateContentCommand; command != nil {
-		if err := r.executeLifecycleCommandInContainer(command, containerId); err != nil {
+		if err := r.executeLifecycleCommandInContainer(ctx, command, containerId); err != nil {
 			return "", fmt.Errorf("Failed to run updateContent command %s: %w", command, err)
 		}
 	}
 
 	// Run postCreate commands
 	if command := config.LifecycleProps.PostCreateCommand; command != nil {
-		if err := r.executeLifecycleCommandInContainer(command, containerId); err != nil {
+		if err := r.executeLifecycleCommandInContainer(ctx, command, containerId); err != nil {
 			return "", fmt.Errorf("Failed to run postCreate command %s: %w", command, err)
 		}
 	}
@@ -133,21 +124,21 @@ func (r *DockerRunner) Run(projectPath string, config Config) (string, error) {
 	return containerId, nil
 }
 
-func (r *DockerRunner) Stop(containerId string) error {
-	if err := r.dockerClient.ContainerStop(context.Background(), containerId, container.StopOptions{}); err != nil {
+func (r *DockerRunner) Stop(ctx context.Context, containerId string) error {
+	if err := r.dockerClient.ContainerStop(ctx, containerId, container.StopOptions{}); err != nil {
 		return fmt.Errorf("Failed to stop container %s: %w", containerId, err)
 	}
 
 	return nil
 }
 
-func (r *DockerRunner) Exec(containerID string, command []string) (ExecResult, error) {
+func (r *DockerRunner) Exec(ctx context.Context, containerID string, command []string) (ExecResult, error) {
 	execConfig := types.ExecConfig{
 		Cmd:          command,
 		AttachStdout: true,
 		AttachStderr: true,
 	}
-	execIDResp, err := r.dockerClient.ContainerExecCreate(r.context, containerID, execConfig)
+	execIDResp, err := r.dockerClient.ContainerExecCreate(ctx, containerID, execConfig)
 
 	if err != nil {
 		return ExecResult{}, fmt.Errorf("Failed to create execute configuration for command %s in container %s: %w", command, containerID, err)
@@ -155,7 +146,7 @@ func (r *DockerRunner) Exec(containerID string, command []string) (ExecResult, e
 
 	execID := execIDResp.ID
 
-	resp, err := r.dockerClient.ContainerExecAttach(r.context, execID, types.ExecStartCheck{})
+	resp, err := r.dockerClient.ContainerExecAttach(ctx, execID, types.ExecStartCheck{})
 
 	if err != nil {
 		return ExecResult{}, fmt.Errorf("Failed to attach to exec process %s in container %s: %w", execID, containerID, err)
@@ -172,7 +163,7 @@ func (r *DockerRunner) Exec(containerID string, command []string) (ExecResult, e
 		return ExecResult{}, fmt.Errorf("Error reading output from container: %w", err)
 	}
 
-	inspectResp, err := r.dockerClient.ContainerExecInspect(context.Background(), execID)
+	inspectResp, err := r.dockerClient.ContainerExecInspect(ctx, execID)
 
 	if err != nil {
 		return ExecResult{}, fmt.Errorf("Failed to inspect exec process %s in container %s: %w", execID, containerID, err)
@@ -193,11 +184,11 @@ func (r *DockerRunner) executeLifecycleCommand(lifecycleCommand LifecycleCommand
 	return nil
 }
 
-func (r *DockerRunner) executeLifecycleCommandInContainer(lifecycleCommand LifecycleCommand, containerId string) error {
+func (r *DockerRunner) executeLifecycleCommandInContainer(ctx context.Context, lifecycleCommand LifecycleCommand, containerId string) error {
 	for _, command := range lifecycleCommand {
 		log.Debug().Str("command", fmt.Sprintf("%s", command)).Msg("Running command")
 
-		result, err := r.Exec(containerId, command)
+		result, err := r.Exec(ctx, containerId, command)
 
 		if err != nil {
 			return err
@@ -212,119 +203,7 @@ func (r *DockerRunner) executeLifecycleCommandInContainer(lifecycleCommand Lifec
 	return nil
 }
 
-func (r *DockerRunner) pullOrBuildImage(workingDir string, config Config) (string, error) {
-	if config.Image != "" {
-		if err := r.pullImage(config.Image); err != nil {
-			return "", fmt.Errorf("Failed to pull image %s: %w", config.Image, err)
-		}
-
-		return config.Image, nil
-	}
-
-	var dockerFile, context string
-
-	if config.Dockerfile != "" {
-		dockerFile = config.Dockerfile
-	} else if config.Build != nil && config.Build.Dockerfile != "" {
-		dockerFile = config.Build.Dockerfile
-	} else {
-		return "", fmt.Errorf("Dockerfile not found")
-	}
-
-	if config.Context != "" {
-		context = config.Context
-	} else if config.Build != nil && config.Build.Context != "" {
-		context = config.Build.Context
-	} else {
-		// default value
-		// NOTE: this is bad; default values should be set during parsing
-		context = "."
-	}
-
-	dockerFilePath := filepath.Join(workingDir, config.Path, dockerFile)
-	contextPath := filepath.Join(workingDir, config.Path, context)
-	imageId, err := r.buildImage(contextPath, dockerFilePath, config.Build, config.Name)
-
-	if err != nil {
-		return "", fmt.Errorf("Failed to build image: %w", err)
-	}
-
-	return imageId, nil
-
-}
-
-func (r *DockerRunner) pullImage(_image string) error {
-	log.Debug().Str("image", _image).Msg("Pulling image")
-
-	authStr, err := r.encodeRegistryAuth(r.config.Username, r.config.Password)
-
-	if err != nil {
-		log.Error().Err(err).Msg("Failed to encode registry auth")
-		return fmt.Errorf("Failed to encode registry auth: %w", err)
-	}
-
-	output, err := r.dockerClient.ImagePull(r.context, _image, image.PullOptions{RegistryAuth: authStr})
-
-	if err != nil {
-		return err
-	}
-
-	defer output.Close()
-
-	if err := util.ReadOutput(output, os.Stdout); err != nil {
-		log.Error().Err(err).Msg("Error streaming output")
-	}
-
-	log.Debug().Str("image", _image).Msg("Pulled image")
-
-	return nil
-}
-
-func (r *DockerRunner) buildImage(buildContextPath string, dockerFilePath string, buildProps *BuildProps, containerName string) (string, error) {
-	log.Debug().Str("buildContextPath", buildContextPath).Msg("Building image")
-
-	log.Warn().Msg("Building images is not stable yet")
-
-	buildContext, err := archive.TarWithOptions(buildContextPath, &archive.TarOptions{})
-
-	if err != nil {
-		return "", fmt.Errorf("Failed to create tar archive from %s for Docker build context: %w", buildContextPath, err)
-	}
-
-	var tag string
-
-	if containerName != "" {
-		tag = fmt.Sprintf("%s-%s:%s", containerName, util.RandomString(6), "latest")
-	} else {
-		tag = fmt.Sprintf("%s:%s", util.RandomString(6), "latest")
-	}
-
-	imageBuildResponse, err := r.dockerClient.ImageBuild(r.context, buildContext, types.ImageBuildOptions{
-		Tags:       []string{tag},
-		Dockerfile: dockerFilePath,
-		BuildArgs:  buildProps.Args,
-		Context:    buildContext,
-		CacheFrom:  buildProps.CacheFrom,
-		Target:     buildProps.Target,
-		// NOTE: other options are ignored because in the devcontainer spec they are defined as []string and it's too cumbersome to parse them into types.ImageBuildOptions{}
-	})
-
-	if err != nil {
-		return "", fmt.Errorf("Failed to build Docker image: %w", err)
-	}
-
-	defer imageBuildResponse.Body.Close()
-
-	if err := util.ReadOutput(imageBuildResponse.Body, os.Stdout); err != nil {
-		log.Error().Err(err).Msg("Error streaming output")
-	}
-
-	log.Debug().Str("tag", tag).Msg("Built image")
-
-	return tag, nil
-}
-
-func (r *DockerRunner) createContainer(image string, projectPath string, config Config) (string, error) {
+func (r *DockerRunner) createContainer(ctx context.Context, image string, projectPath string, config Config) (string, error) {
 	log.Debug().Msg("Creating container")
 
 	env := []string{}
@@ -397,7 +276,7 @@ func (r *DockerRunner) createContainer(image string, projectPath string, config 
 		SecurityOpt:  config.SecurityOpt,
 	}
 
-	createResponse, err := r.dockerClient.ContainerCreate(r.context, containerConfig, &hostConfig, nil, nil, "")
+	createResponse, err := r.dockerClient.ContainerCreate(ctx, containerConfig, &hostConfig, nil, nil, "")
 
 	if err != nil {
 		return "", err
@@ -410,10 +289,10 @@ func (r *DockerRunner) createContainer(image string, projectPath string, config 
 	return containerId, nil
 }
 
-func (r *DockerRunner) startContainer(containerId string) error {
+func (r *DockerRunner) startContainer(ctx context.Context, containerId string) error {
 	log.Debug().Msg("Starting container")
 
-	err := r.dockerClient.ContainerStart(r.context, containerId, container.StartOptions{})
+	err := r.dockerClient.ContainerStart(ctx, containerId, container.StartOptions{})
 
 	if err != nil {
 		return err
@@ -422,23 +301,6 @@ func (r *DockerRunner) startContainer(containerId string) error {
 	log.Debug().Str("containerId", containerId).Msg("Started container")
 
 	return nil
-}
-
-func (r *DockerRunner) encodeRegistryAuth(username, password string) (string, error) {
-	authConfig := registry.AuthConfig{
-		Username: username,
-		Password: password,
-	}
-
-	encodedJSON, err := json.Marshal(authConfig)
-
-	if err != nil {
-		return "", err
-	}
-
-	authStr := base64.URLEncoding.EncodeToString(encodedJSON)
-
-	return authStr, nil
 }
 
 func stringToType(s string) (mount.Type, error) {
