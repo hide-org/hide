@@ -2,6 +2,7 @@ package handlers_test
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -24,7 +25,7 @@ func TestCreateProjectHandler_Success(t *testing.T) {
 
 	// Setup
 	mockManager := &mocks.MockProjectManager{
-		CreateProjectFunc: func(req project.CreateProjectRequest) <-chan result.Result[model.Project] {
+		CreateProjectFunc: func(ctx context.Context, req project.CreateProjectRequest) <-chan result.Result[model.Project] {
 			ch := make(chan result.Result[model.Project], 1)
 			ch <- result.Success(expectedProject)
 			return ch
@@ -59,7 +60,7 @@ func TestCreateProjectHandler_Success(t *testing.T) {
 func TestCreateProjectHandler_Failure(t *testing.T) {
 	// Setup
 	mockManager := &mocks.MockProjectManager{
-		CreateProjectFunc: func(req project.CreateProjectRequest) <-chan result.Result[model.Project] {
+		CreateProjectFunc: func(ctx context.Context, req project.CreateProjectRequest) <-chan result.Result[model.Project] {
 			ch := make(chan result.Result[model.Project], 1)
 			ch <- result.Failure[model.Project](errors.New("Test error"))
 			return ch

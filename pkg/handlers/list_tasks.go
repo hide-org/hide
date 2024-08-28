@@ -17,7 +17,7 @@ func (h ListTasksHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid project ID", http.StatusBadRequest)
 	}
 
-	project, err := h.Manager.GetProject(projectID)
+	project, err := h.Manager.GetProject(r.Context(), projectID)
 
 	if err != nil {
 		http.Error(w, "Project not found", http.StatusNotFound)

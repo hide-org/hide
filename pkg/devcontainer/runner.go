@@ -20,11 +20,6 @@ const DefaultShell = "/bin/sh"
 
 var DefaultContainerCommand = []string{DefaultShell, "-c", "while sleep 1000; do :; done"}
 
-type DockerRunnerConfig struct {
-	Username string
-	Password string
-}
-
 type ExecResult struct {
 	StdOut   string
 	StdErr   string
@@ -40,15 +35,13 @@ type Runner interface {
 type DockerRunner struct {
 	dockerClient    DockerClient
 	commandExecutor util.Executor
-	config          DockerRunnerConfig
 	imageManager    ImageManager
 }
 
-func NewDockerRunner(client DockerClient, commandExecutor util.Executor, config DockerRunnerConfig, imageManager ImageManager) Runner {
+func NewDockerRunner(client DockerClient, commandExecutor util.Executor, imageManager ImageManager) Runner {
 	return &DockerRunner{
 		dockerClient:    client,
 		commandExecutor: commandExecutor,
-		config:          config,
 		imageManager:    imageManager,
 	}
 }

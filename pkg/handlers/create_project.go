@@ -20,7 +20,7 @@ func (h CreateProjectHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	result := <-h.Manager.CreateProject(request)
+	result := <-h.Manager.CreateProject(r.Context(), request)
 
 	if result.IsFailure() {
 		http.Error(w, fmt.Sprintf("Failed to create project: %s", result.Error), http.StatusInternalServerError)

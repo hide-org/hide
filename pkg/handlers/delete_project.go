@@ -19,7 +19,7 @@ func (h DeleteProjectHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// TODO: check if project exists
-	result := <-h.Manager.DeleteProject(projectID)
+	result := <-h.Manager.DeleteProject(r.Context(), projectID)
 
 	if result.IsFailure() {
 		http.Error(w, fmt.Sprintf("Failed to delete project: %s", result.Error), http.StatusInternalServerError)

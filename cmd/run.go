@@ -17,6 +17,7 @@ import (
 	"github.com/artmoskvin/hide/pkg/lsp"
 	"github.com/artmoskvin/hide/pkg/model"
 	"github.com/artmoskvin/hide/pkg/project"
+	"github.com/artmoskvin/hide/pkg/random"
 	"github.com/artmoskvin/hide/pkg/util"
 	"github.com/docker/docker/client"
 	"github.com/rs/zerolog"
@@ -83,9 +84,7 @@ var runCmd = &cobra.Command{
 			log.Fatal().Err(err).Msg("Cannot initialize docker client")
 		}
 
-		ctx := cmd.Context()
-
-		containerRunner := devcontainer.NewDockerRunner(dockerClient, util.NewExecutorImpl(), ctx, devcontainer.DockerRunnerConfig{Username: dockerUser, Password: dockerToken})
+		containerRunner := devcontainer.NewDockerRunner(dockerClient, util.NewExecutorImpl(), devcontainer.NewImageManager(dockerClient, random.String, devcontainer.NewDockerHubRegistryCredentials(dockerUser, dockerToken), devcontainer.NewLogger(log.Logger, zerolog.DebugLevel)))
 		projectStore := project.NewInMemoryStore(make(map[string]*model.Project))
 		home, err := os.UserHomeDir()
 		if err != nil {
@@ -103,7 +102,7 @@ var runCmd = &cobra.Command{
 		diagnosticsStore := lsp.NewDiagnosticsStore()
 		clientPool := lsp.NewClientPool()
 		lspService := lsp.NewService(languageDetector, lspServerExecutables, diagnosticsStore, clientPool)
-		projectManager := project.NewProjectManager(containerRunner, projectStore, projectsDir, fileManager, lspService, languageDetector)
+		projectManager := project.NewProjectManager(containerRunner, projectStore, projectsDir, fileManager, lspService, languageDetector, random.String)
 
 		router := handlers.Router(projectManager)
 

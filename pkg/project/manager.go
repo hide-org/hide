@@ -16,7 +16,6 @@ import (
 	"github.com/artmoskvin/hide/pkg/lsp"
 	"github.com/artmoskvin/hide/pkg/model"
 	"github.com/artmoskvin/hide/pkg/result"
-	"github.com/artmoskvin/hide/pkg/util"
 	protocol "github.com/tliron/glsp/protocol_3_16"
 
 	"github.com/rs/zerolog/log"
@@ -43,12 +42,12 @@ type TaskResult struct {
 }
 
 type Manager interface {
-	CreateProject(request CreateProjectRequest) <-chan result.Result[model.Project]
-	GetProject(projectId model.ProjectId) (model.Project, error)
-	GetProjects() ([]*model.Project, error)
-	DeleteProject(projectId model.ProjectId) <-chan result.Empty
-	ResolveTaskAlias(projectId model.ProjectId, alias string) (devcontainer.Task, error)
-	CreateTask(projectId model.ProjectId, command string) (TaskResult, error)
+	CreateProject(ctx context.Context, request CreateProjectRequest) <-chan result.Result[model.Project]
+	GetProject(ctx context.Context, projectId model.ProjectId) (model.Project, error)
+	GetProjects(ctx context.Context) ([]*model.Project, error)
+	DeleteProject(ctx context.Context, projectId model.ProjectId) <-chan result.Empty
+	ResolveTaskAlias(ctx context.Context, projectId model.ProjectId, alias string) (devcontainer.Task, error)
+	CreateTask(ctx context.Context, projectId model.ProjectId, command string) (TaskResult, error)
 	Cleanup(ctx context.Context) error
 	CreateFile(ctx context.Context, projectId, path, content string) (*model.File, error)
 	ReadFile(ctx context.Context, projectId, path string) (*model.File, error)
@@ -60,12 +59,13 @@ type Manager interface {
 }
 
 type ManagerImpl struct {
-	DevContainerRunner devcontainer.Runner
-	Store              Store
-	ProjectsRoot       string
+	devContainerRunner devcontainer.Runner
+	store              Store
+	projectsRoot       string
 	fileManager        files.FileManager
 	lspService         lsp.Service
 	languageDetector   lsp.LanguageDetector
+	randomString       func(int) string
 }
 
 func NewProjectManager(
@@ -75,25 +75,27 @@ func NewProjectManager(
 	fileManager files.FileManager,
 	lspService lsp.Service,
 	languageDetector lsp.LanguageDetector,
+	randomString func(int) string,
 ) Manager {
 	return ManagerImpl{
-		DevContainerRunner: devContainerRunner,
-		Store:              projectStore,
-		ProjectsRoot:       projectsRoot,
+		devContainerRunner: devContainerRunner,
+		store:              projectStore,
+		projectsRoot:       projectsRoot,
 		fileManager:        fileManager,
 		lspService:         lspService,
 		languageDetector:   languageDetector,
+		randomString:       randomString,
 	}
 }
 
-func (pm ManagerImpl) CreateProject(request CreateProjectRequest) <-chan result.Result[model.Project] {
+func (pm ManagerImpl) CreateProject(ctx context.Context, request CreateProjectRequest) <-chan result.Result[model.Project] {
 	c := make(chan result.Result[model.Project])
 
 	go func() {
 		log.Debug().Msgf("Creating project for repo %s", request.Repository.Url)
 
-		projectId := util.RandomString(10)
-		projectPath := path.Join(pm.ProjectsRoot, projectId)
+		projectId := pm.randomString(10)
+		projectPath := path.Join(pm.projectsRoot, projectId)
 
 		// Clone git repo
 		if err := pm.createProjectDir(projectPath); err != nil {
@@ -127,7 +129,7 @@ func (pm ManagerImpl) CreateProject(request CreateProjectRequest) <-chan result.
 			devContainerConfig = config
 		}
 
-		containerId, err := pm.DevContainerRunner.Run(projectPath, devContainerConfig)
+		containerId, err := pm.devContainerRunner.Run(ctx, projectPath, devContainerConfig)
 
 		if err != nil {
 			log.Error().Err(err).Msg("Failed to launch devcontainer")
@@ -155,7 +157,7 @@ func (pm ManagerImpl) CreateProject(request CreateProjectRequest) <-chan result.
 		}
 
 		// Save project in store
-		if err := pm.Store.CreateProject(&project); err != nil {
+		if err := pm.store.CreateProject(&project); err != nil {
 			log.Error().Err(err).Msg("Failed to save project")
 			removeProjectDir(projectPath)
 			c <- result.Failure[model.Project](fmt.Errorf("Failed to save project: %w", err))
@@ -170,8 +172,8 @@ func (pm ManagerImpl) CreateProject(request CreateProjectRequest) <-chan result.
 	return c
 }
 
-func (pm ManagerImpl) GetProject(projectId string) (model.Project, error) {
-	project, err := pm.Store.GetProject(projectId)
+func (pm ManagerImpl) GetProject(ctx context.Context, projectId string) (model.Project, error) {
+	project, err := pm.store.GetProject(projectId)
 
 	if err != nil {
 		log.Error().Err(err).Msgf("Failed to get project with id %s", projectId)
@@ -181,8 +183,8 @@ func (pm ManagerImpl) GetProject(projectId string) (model.Project, error) {
 	return *project, nil
 }
 
-func (pm ManagerImpl) GetProjects() ([]*model.Project, error) {
-	projects, err := pm.Store.GetProjects()
+func (pm ManagerImpl) GetProjects(ctx context.Context) ([]*model.Project, error) {
+	projects, err := pm.store.GetProjects()
 
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to get projects")
@@ -192,13 +194,13 @@ func (pm ManagerImpl) GetProjects() ([]*model.Project, error) {
 	return projects, nil
 }
 
-func (pm ManagerImpl) DeleteProject(projectId string) <-chan result.Empty {
+func (pm ManagerImpl) DeleteProject(ctx context.Context, projectId string) <-chan result.Empty {
 	c := make(chan result.Empty)
 
 	go func() {
 		log.Debug().Msgf("Deleting project %s", projectId)
 
-		project, err := pm.GetProject(projectId)
+		project, err := pm.GetProject(ctx, projectId)
 
 		if err != nil {
 			log.Error().Err(err).Msgf("Failed to get project with id %s", projectId)
@@ -206,13 +208,13 @@ func (pm ManagerImpl) DeleteProject(projectId string) <-chan result.Empty {
 			return
 		}
 
-		if err := pm.DevContainerRunner.Stop(project.ContainerId); err != nil {
+		if err := pm.devContainerRunner.Stop(ctx, project.ContainerId); err != nil {
 			log.Error().Err(err).Msgf("Failed to stop container %s", project.ContainerId)
 			c <- result.EmptyFailure(fmt.Errorf("Failed to stop container: %w", err))
 			return
 		}
 
-		if err := pm.Store.DeleteProject(projectId); err != nil {
+		if err := pm.store.DeleteProject(projectId); err != nil {
 			log.Error().Err(err).Msgf("Failed to delete project %s", projectId)
 			c <- result.EmptyFailure(fmt.Errorf("Failed to delete project: %w", err))
 			return
@@ -226,10 +228,10 @@ func (pm ManagerImpl) DeleteProject(projectId string) <-chan result.Empty {
 	return c
 }
 
-func (pm ManagerImpl) ResolveTaskAlias(projectId string, alias string) (devcontainer.Task, error) {
+func (pm ManagerImpl) ResolveTaskAlias(ctx context.Context, projectId string, alias string) (devcontainer.Task, error) {
 	log.Debug().Msgf("Resolving task alias %s for project %s", alias, projectId)
 
-	project, err := pm.GetProject(projectId)
+	project, err := pm.GetProject(ctx, projectId)
 
 	if err != nil {
 		log.Error().Err(err).Msgf("Failed to get project with id %s", projectId)
@@ -248,17 +250,17 @@ func (pm ManagerImpl) ResolveTaskAlias(projectId string, alias string) (devconta
 	return task, nil
 }
 
-func (pm ManagerImpl) CreateTask(projectId string, command string) (TaskResult, error) {
+func (pm ManagerImpl) CreateTask(ctx context.Context, projectId string, command string) (TaskResult, error) {
 	log.Debug().Msgf("Creating task for project %s. Command: %s", projectId, command)
 
-	project, err := pm.GetProject(projectId)
+	project, err := pm.GetProject(ctx, projectId)
 
 	if err != nil {
 		log.Error().Err(err).Msgf("Failed to get project with id %s", projectId)
 		return TaskResult{}, fmt.Errorf("Failed to get project with id %s: %w", projectId, err)
 	}
 
-	execResult, err := pm.DevContainerRunner.Exec(project.ContainerId, []string{"/bin/bash", "-c", command})
+	execResult, err := pm.devContainerRunner.Exec(ctx, project.ContainerId, []string{"/bin/bash", "-c", command})
 
 	if err != nil {
 		log.Error().Err(err).Msgf("Failed to execute command '%s' in container %s", command, project.ContainerId)
@@ -273,7 +275,7 @@ func (pm ManagerImpl) CreateTask(projectId string, command string) (TaskResult, 
 func (pm ManagerImpl) Cleanup(ctx context.Context) error {
 	log.Info().Msg("Cleaning up projects")
 
-	projects, err := pm.GetProjects()
+	projects, err := pm.GetProjects(ctx)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to get projects")
 		return fmt.Errorf("Failed to get projects: %w", err)
@@ -288,7 +290,7 @@ func (pm ManagerImpl) Cleanup(ctx context.Context) error {
 			defer wg.Done()
 			log.Debug().Msgf("Cleaning up project %s", p.Id)
 
-			if err := pm.DevContainerRunner.Stop(p.ContainerId); err != nil {
+			if err := pm.devContainerRunner.Stop(ctx, p.ContainerId); err != nil {
 				errChan <- fmt.Errorf("Failed to stop container for project %s: %w", p.Id, err)
 				return
 			}
@@ -298,7 +300,7 @@ func (pm ManagerImpl) Cleanup(ctx context.Context) error {
 				return
 			}
 
-			if err := pm.Store.DeleteProject(p.Id); err != nil {
+			if err := pm.store.DeleteProject(p.Id); err != nil {
 				errChan <- fmt.Errorf("Failed to delete project %s: %w", p.Id, err)
 				return
 			}
@@ -324,7 +326,7 @@ func (pm ManagerImpl) Cleanup(ctx context.Context) error {
 func (pm ManagerImpl) CreateFile(ctx context.Context, projectId, path, content string) (*model.File, error) {
 	log.Debug().Str("projectId", projectId).Str("path", path).Msg("Creating file")
 
-	project, err := pm.GetProject(projectId)
+	project, err := pm.GetProject(ctx, projectId)
 
 	if err != nil {
 		log.Error().Err(err).Str("projectId", projectId).Msg("Failed to get project")
@@ -352,7 +354,7 @@ func (pm ManagerImpl) CreateFile(ctx context.Context, projectId, path, content s
 func (pm ManagerImpl) ReadFile(ctx context.Context, projectId, path string) (*model.File, error) {
 	log.Debug().Str("projectId", projectId).Str("path", path).Msg("Reading file")
 
-	project, err := pm.GetProject(projectId)
+	project, err := pm.GetProject(ctx, projectId)
 
 	if err != nil {
 		log.Error().Err(err).Str("projectId", projectId).Msg("Failed to get project")
@@ -379,7 +381,7 @@ func (pm ManagerImpl) ReadFile(ctx context.Context, projectId, path string) (*mo
 func (pm ManagerImpl) UpdateFile(ctx context.Context, projectId, path, content string) (*model.File, error) {
 	log.Debug().Msgf("Updating file %s in project %s", path, projectId)
 
-	project, err := pm.GetProject(projectId)
+	project, err := pm.GetProject(ctx, projectId)
 
 	if err != nil {
 		log.Error().Err(err).Str("projectId", projectId).Msg("Failed to get project")
@@ -407,7 +409,7 @@ func (pm ManagerImpl) UpdateFile(ctx context.Context, projectId, path, content s
 func (pm ManagerImpl) DeleteFile(ctx context.Context, projectId, path string) error {
 	log.Debug().Msgf("Deleting file %s in project %s", path, projectId)
 
-	project, err := pm.GetProject(projectId)
+	project, err := pm.GetProject(ctx, projectId)
 
 	if err != nil {
 		log.Error().Err(err).Str("projectId", projectId).Msg("Failed to get project")
@@ -420,7 +422,7 @@ func (pm ManagerImpl) DeleteFile(ctx context.Context, projectId, path string) er
 func (pm ManagerImpl) ListFiles(ctx context.Context, projectId string, showHidden bool) ([]*model.File, error) {
 	log.Debug().Str("projectId", projectId).Msg("Listing files")
 
-	project, err := pm.GetProject(projectId)
+	project, err := pm.GetProject(ctx, projectId)
 
 	if err != nil {
 		log.Error().Err(err).Str("projectId", projectId).Msg("Failed to get project")
@@ -441,7 +443,7 @@ func (pm ManagerImpl) ListFiles(ctx context.Context, projectId string, showHidde
 func (pm ManagerImpl) ApplyPatch(ctx context.Context, projectId, path, patch string) (*model.File, error) {
 	log.Debug().Str("projectId", projectId).Str("path", path).Msg("Patching file")
 
-	project, err := pm.GetProject(projectId)
+	project, err := pm.GetProject(ctx, projectId)
 	if err != nil {
 		log.Error().Err(err).Str("projectId", projectId).Msg("Failed to get project")
 		return nil, fmt.Errorf("Failed to get project with id %s: %w", projectId, err)
@@ -467,7 +469,7 @@ func (pm ManagerImpl) ApplyPatch(ctx context.Context, projectId, path, patch str
 func (pm ManagerImpl) UpdateLines(ctx context.Context, projectId, path string, lineDiff files.LineDiffChunk) (*model.File, error) {
 	log.Debug().Str("projectId", projectId).Str("path", path).Msg("Replacing lines in file")
 
-	project, err := pm.GetProject(projectId)
+	project, err := pm.GetProject(ctx, projectId)
 	if err != nil {
 		log.Error().Err(err).Str("projectId", projectId).Msg("Failed to get project")
 		return nil, fmt.Errorf("Failed to get project with id %s: %w", projectId, err)

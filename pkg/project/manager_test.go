@@ -1,6 +1,7 @@
 package project_test
 
 import (
+	"context"
 	"errors"
 	"reflect"
 	"testing"
@@ -69,8 +70,8 @@ func TestManagerImpl_CreateProject(t *testing.T) {
 
 func TestManagerImpl_GetProject_Succeeds(t *testing.T) {
 	_project := model.Project{Id: "test-project", Path: "/tmp/test-project", Config: model.Config{}}
-	pm := project.NewProjectManager(nil, project.NewInMemoryStore(map[string]*model.Project{"test-project": &_project}), "/tmp", nil, nil, nil)
-	project, err := pm.GetProject("test-project")
+	pm := project.NewProjectManager(nil, project.NewInMemoryStore(map[string]*model.Project{"test-project": &_project}), "/tmp", nil, nil, nil, nil)
+	project, err := pm.GetProject(context.Background(), "test-project")
 
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
@@ -82,8 +83,8 @@ func TestManagerImpl_GetProject_Succeeds(t *testing.T) {
 }
 
 func TestManagerImpl_GetProject_Fails(t *testing.T) {
-	pm := project.NewProjectManager(nil, project.NewInMemoryStore(map[string]*model.Project{}), "/tmp", nil, nil, nil)
-	_, err := pm.GetProject("missing-project")
+	pm := project.NewProjectManager(nil, project.NewInMemoryStore(map[string]*model.Project{}), "/tmp", nil, nil, nil, nil)
+	_, err := pm.GetProject(context.Background(), "missing-project")
 
 	if err == nil {
 		t.Errorf("Expected error, got nil")
@@ -107,8 +108,8 @@ func TestManagerImpl_ResolveTaskAlias_Succeeds(t *testing.T) {
 			},
 		},
 	}
-	pm := project.NewProjectManager(nil, project.NewInMemoryStore(map[string]*model.Project{"test-project": &_project}), "/tmp", nil, nil, nil)
-	resolvedTask, err := pm.ResolveTaskAlias("test-project", "test-alias")
+	pm := project.NewProjectManager(nil, project.NewInMemoryStore(map[string]*model.Project{"test-project": &_project}), "/tmp", nil, nil, nil, nil)
+	resolvedTask, err := pm.ResolveTaskAlias(context.Background(), "test-project", "test-alias")
 
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
@@ -120,8 +121,8 @@ func TestManagerImpl_ResolveTaskAlias_Succeeds(t *testing.T) {
 }
 
 func TestManagerImpl_ResolveTaskAlias_ProjectNotFound(t *testing.T) {
-	pm := project.NewProjectManager(nil, project.NewInMemoryStore(map[string]*model.Project{}), "/tmp", nil, nil, nil)
-	_, err := pm.ResolveTaskAlias("missing-project", "test-alias")
+	pm := project.NewProjectManager(nil, project.NewInMemoryStore(map[string]*model.Project{}), "/tmp", nil, nil, nil, nil)
+	_, err := pm.ResolveTaskAlias(context.Background(), "missing-project", "test-alias")
 
 	if err == nil {
 		t.Errorf("Expected error, got nil")
@@ -130,8 +131,8 @@ func TestManagerImpl_ResolveTaskAlias_ProjectNotFound(t *testing.T) {
 
 func TestManagerImpl_ResolveTaskAlias_TaskNotFound(t *testing.T) {
 	_project := model.Project{Id: "test-project", Path: "/tmp/test-project", Config: model.Config{}}
-	pm := project.NewProjectManager(nil, project.NewInMemoryStore(map[string]*model.Project{"test-project": &_project}), "/tmp", nil, nil, nil)
-	_, err := pm.ResolveTaskAlias("test-project", "missing-alias")
+	pm := project.NewProjectManager(nil, project.NewInMemoryStore(map[string]*model.Project{"test-project": &_project}), "/tmp", nil, nil, nil, nil)
+	_, err := pm.ResolveTaskAlias(context.Background(), "test-project", "missing-alias")
 
 	if err == nil {
 		t.Errorf("Expected error, got nil")
@@ -142,12 +143,12 @@ func TestManagerImpl_CreateTask(t *testing.T) {
 	const projectId = "test-project"
 	_project := model.NewProject(projectId, "/tmp/test-project", model.Config{}, "test-container")
 	devContainerRunner := &mocks.MockDevContainerRunner{
-		ExecFunc: func(containerId string, command []string) (devcontainer.ExecResult, error) {
+		ExecFunc: func(ctx context.Context, containerId string, command []string) (devcontainer.ExecResult, error) {
 			return devcontainer.ExecResult{StdOut: "test-stdout", StdErr: "test-stderr", ExitCode: 1}, nil
 		}}
-	pm := project.NewProjectManager(devContainerRunner, project.NewInMemoryStore(map[string]*model.Project{projectId: &_project}), "/tmp", nil, nil, nil)
+	pm := project.NewProjectManager(devContainerRunner, project.NewInMemoryStore(map[string]*model.Project{projectId: &_project}), "/tmp", nil, nil, nil, nil)
 
-	taskResult, err := pm.CreateTask(projectId, "echo test")
+	taskResult, err := pm.CreateTask(context.Background(), projectId, "echo test")
 
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
@@ -161,8 +162,8 @@ func TestManagerImpl_CreateTask(t *testing.T) {
 }
 
 func TestManagerImpl_CreateTask_ProjectNotFound(t *testing.T) {
-	pm := project.NewProjectManager(nil, project.NewInMemoryStore(map[string]*model.Project{}), "/tmp", nil, nil, nil)
-	_, err := pm.CreateTask("missing-project", "echo test")
+	pm := project.NewProjectManager(nil, project.NewInMemoryStore(map[string]*model.Project{}), "/tmp", nil, nil, nil, nil)
+	_, err := pm.CreateTask(context.Background(), "missing-project", "echo test")
 
 	if err == nil {
 		t.Errorf("Expected error, got nil")
@@ -173,13 +174,13 @@ func TestManagerImpl_CreateTask_ExecError(t *testing.T) {
 	const projectId = "test-project"
 	_project := model.NewProject(projectId, "/tmp/test-project", model.Config{}, "test-container")
 	devContainerRunner := &mocks.MockDevContainerRunner{
-		ExecFunc: func(containerId string, command []string) (devcontainer.ExecResult, error) {
+		ExecFunc: func(ctx context.Context, containerId string, command []string) (devcontainer.ExecResult, error) {
 			return devcontainer.ExecResult{}, errors.New("exec error")
 		},
 	}
-	pm := project.NewProjectManager(devContainerRunner, project.NewInMemoryStore(map[string]*model.Project{projectId: &_project}), "/tmp", nil, nil, nil)
+	pm := project.NewProjectManager(devContainerRunner, project.NewInMemoryStore(map[string]*model.Project{projectId: &_project}), "/tmp", nil, nil, nil, nil)
 
-	_, err := pm.CreateTask(projectId, "echo test")
+	_, err := pm.CreateTask(context.Background(), projectId, "echo test")
 
 	if err == nil {
 		t.Errorf("Expected error, got nil")

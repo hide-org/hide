@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"path/filepath"
 
 	"github.com/artmoskvin/hide/pkg/jsonc"
 )
@@ -66,7 +67,7 @@ func ParseConfig(configFile File) (*Config, error) {
 		return nil, err
 	}
 
-	config.Path = configFile.Path
+	config.Path = filepath.Dir(configFile.Path)
 
 	return config, nil
 }
