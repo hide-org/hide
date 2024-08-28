@@ -96,6 +96,8 @@ var runCmd = &cobra.Command{
 		lspServerExecutables := make(map[lsp.LanguageId]lsp.Command)
 		lspServerExecutables[lsp.LanguageId("go")] = lsp.NewCommand("gopls", []string{})
 		lspServerExecutables[lsp.LanguageId("python")] = lsp.NewCommand("pyright-langserver", []string{"--stdio"})
+		lspServerExecutables[lsp.LanguageId("javascript")] = lsp.NewCommand("typescript-language-server", []string{"--stdio"})
+		lspServerExecutables[lsp.LanguageId("typescript")] = lsp.NewCommand("typescript-language-server", []string{"--stdio"})
 
 		fileManager := files.NewFileManager()
 		languageDetector := lsp.NewFileExtensionBasedLanguageDetector()

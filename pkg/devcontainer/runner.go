@@ -47,6 +47,7 @@ func NewDockerRunner(client DockerClient, commandExecutor util.Executor, imageMa
 }
 
 func (r *DockerRunner) Run(ctx context.Context, projectPath string, config Config) (string, error) {
+	log.Debug().Any("config", config).Msg("Running container")
 	// Run initialize commands
 	if command := config.LifecycleProps.InitializeCommand; command != nil {
 		if err := r.executeLifecycleCommand(command, projectPath); err != nil {

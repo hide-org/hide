@@ -367,6 +367,14 @@ func (m *Mount) UnmarshalJSON(data []byte) error {
 			case "destination", "dst", "target":
 				m.Destination = value
 			}
+
+			if m.Type == "" {
+				if strings.HasPrefix(m.Source, "/") {
+					m.Type = "bind"
+				} else {
+					m.Type = "volume"
+				}
+			}
 		}
 
 		return nil

@@ -53,7 +53,8 @@ func (im *DockerImageManager) PullOrBuildImage(ctx context.Context, workingDir s
 
 	dockerFilePath := filepath.Join(workingDir, config.Path, dockerFile)
 	contextPath := filepath.Join(workingDir, config.Path, context)
-	imageId, err := im.buildImage(ctx, contextPath, dockerFilePath, config.Build, config.Name)
+	dockerFileRelativePath, _ := filepath.Rel(contextPath, dockerFilePath)
+	imageId, err := im.buildImage(ctx, contextPath, dockerFileRelativePath, config.Build, config.Name)
 
 	if err != nil {
 		return "", fmt.Errorf("Failed to build image: %w", err)
