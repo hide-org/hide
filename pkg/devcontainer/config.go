@@ -19,6 +19,24 @@ type Config struct {
 	GeneralProperties
 }
 
+type ImageDevContainer struct {
+	DockerImageProps
+	LifecycleProps
+	GeneralProperties
+}
+
+func (c *Config) IsImageDevContainer() bool {
+	return c.DockerImageProps.Image != ""
+}
+
+func (c *Config) IsDockerfileDevContainer() bool {
+	return (c.DockerImageProps.Dockerfile != "") || (c.DockerImageProps.Build != nil && c.DockerImageProps.Build.Dockerfile != "")
+}
+
+func (c *Config) IsComposeDevContainer() bool {
+	return c.DockerComposeProps.DockerComposeFile != nil && len(c.DockerComposeProps.DockerComposeFile) > 0 && c.DockerComposeProps.Service != ""
+}
+
 func (c *Config) Equals(other *Config) bool {
 	return c.DockerImageProps.Equals(&other.DockerImageProps) &&
 		c.DockerComposeProps.Equals(&other.DockerComposeProps) &&

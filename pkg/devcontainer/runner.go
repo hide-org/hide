@@ -12,6 +12,7 @@ import (
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/mount"
+	"github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
 	"github.com/rs/zerolog/log"
 )
@@ -33,16 +34,19 @@ type Runner interface {
 }
 
 type DockerRunner struct {
-	dockerClient    DockerClient
+	client.ContainerAPIClient
 	commandExecutor util.Executor
 	imageManager    ImageManager
+	// containerManager   ContainerManager
+	// hostCommandExecutor util.Executor
+	// containerCommandExecutor util.Executor
 }
 
-func NewDockerRunner(client DockerClient, commandExecutor util.Executor, imageManager ImageManager) Runner {
+func NewDockerRunner(dockerContainerCli client.ContainerAPIClient, commandExecutor util.Executor, imageManager ImageManager) Runner {
 	return &DockerRunner{
-		dockerClient:    client,
-		commandExecutor: commandExecutor,
-		imageManager:    imageManager,
+		ContainerAPIClient: dockerContainerCli,
+		commandExecutor:    commandExecutor,
+		imageManager:       imageManager,
 	}
 }
 
@@ -62,7 +66,26 @@ func (r *DockerRunner) Run(ctx context.Context, projectPath string, config Confi
 	}
 
 	// Pull or build image
-	imageId, err := r.imageManager.PullOrBuildImage(ctx, projectPath, config)
+	var imageId string
+	var err error
+
+	switch {
+	case config.IsImageDevContainer():
+		err = r.imageManager.PullImage(ctx, config.DockerImageProps.Image)
+		if err != nil {
+			err = fmt.Errorf("Failed to pull image: %w", err)
+		}
+	case config.IsDockerfileDevContainer():
+		imageId, err = r.imageManager.BuildImage(ctx, projectPath, config)
+		if err != nil {
+			err = fmt.Errorf("Failed to build image: %w", err)
+		}
+	case config.IsComposeDevContainer():
+		// TODO: build docker-compose file
+		err = fmt.Errorf("Docker Compose is not supported yet")
+	default:
+		err = fmt.Errorf("Invalid devcontainer configuration")
+	}
 
 	if err != nil {
 		return "", fmt.Errorf("Failed to pull or build image: %w", err)
@@ -119,7 +142,7 @@ func (r *DockerRunner) Run(ctx context.Context, projectPath string, config Confi
 }
 
 func (r *DockerRunner) Stop(ctx context.Context, containerId string) error {
-	if err := r.dockerClient.ContainerStop(ctx, containerId, container.StopOptions{}); err != nil {
+	if err := r.ContainerStop(ctx, containerId, container.StopOptions{}); err != nil {
 		return fmt.Errorf("Failed to stop container %s: %w", containerId, err)
 	}
 
@@ -132,7 +155,7 @@ func (r *DockerRunner) Exec(ctx context.Context, containerID string, command []s
 		AttachStdout: true,
 		AttachStderr: true,
 	}
-	execIDResp, err := r.dockerClient.ContainerExecCreate(ctx, containerID, execConfig)
+	execIDResp, err := r.ContainerExecCreate(ctx, containerID, execConfig)
 
 	if err != nil {
 		return ExecResult{}, fmt.Errorf("Failed to create execute configuration for command %s in container %s: %w", command, containerID, err)
@@ -140,7 +163,7 @@ func (r *DockerRunner) Exec(ctx context.Context, containerID string, command []s
 
 	execID := execIDResp.ID
 
-	resp, err := r.dockerClient.ContainerExecAttach(ctx, execID, types.ExecStartCheck{})
+	resp, err := r.ContainerExecAttach(ctx, execID, types.ExecStartCheck{})
 
 	if err != nil {
 		return ExecResult{}, fmt.Errorf("Failed to attach to exec process %s in container %s: %w", execID, containerID, err)
@@ -157,7 +180,7 @@ func (r *DockerRunner) Exec(ctx context.Context, containerID string, command []s
 		return ExecResult{}, fmt.Errorf("Error reading output from container: %w", err)
 	}
 
-	inspectResp, err := r.dockerClient.ContainerExecInspect(ctx, execID)
+	inspectResp, err := r.ContainerExecInspect(ctx, execID)
 
 	if err != nil {
 		return ExecResult{}, fmt.Errorf("Failed to inspect exec process %s in container %s: %w", execID, containerID, err)
@@ -270,7 +293,7 @@ func (r *DockerRunner) createContainer(ctx context.Context, image string, projec
 		SecurityOpt:  config.SecurityOpt,
 	}
 
-	createResponse, err := r.dockerClient.ContainerCreate(ctx, containerConfig, &hostConfig, nil, nil, "")
+	createResponse, err := r.ContainerCreate(ctx, containerConfig, &hostConfig, nil, nil, "")
 
 	if err != nil {
 		return "", err
@@ -286,7 +309,7 @@ func (r *DockerRunner) createContainer(ctx context.Context, image string, projec
 func (r *DockerRunner) startContainer(ctx context.Context, containerId string) error {
 	log.Debug().Msg("Starting container")
 
-	err := r.dockerClient.ContainerStart(ctx, containerId, container.StartOptions{})
+	err := r.ContainerStart(ctx, containerId, container.StartOptions{})
 
 	if err != nil {
 		return err
