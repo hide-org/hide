@@ -9,6 +9,8 @@ import (
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/api/types/network"
 	"github.com/stretchr/testify/mock"
+
+	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
 type MockDockerClient struct {
@@ -16,173 +18,161 @@ type MockDockerClient struct {
 }
 
 func (m *MockDockerClient) ContainerAttach(ctx context.Context, container string, options container.AttachOptions) (types.HijackedResponse, error) {
-	panic("not implemented") // TODO: Implement
+	args := m.Called(ctx, container, options)
+	return args.Get(0).(types.HijackedResponse), args.Error(1)
 }
 
 func (m *MockDockerClient) ContainerCommit(ctx context.Context, container string, options container.CommitOptions) (types.IDResponse, error) {
-	panic("not implemented") // TODO: Implement
+	args := m.Called(ctx, container, options)
+	return args.Get(0).(types.IDResponse), args.Error(1)
 }
 
 func (m *MockDockerClient) ContainerCreate(ctx context.Context, config *container.Config, hostConfig *container.HostConfig, networkingConfig *network.NetworkingConfig, platform *ocispec.Platform, containerName string) (container.CreateResponse, error) {
-	panic("not implemented") // TODO: Implement
+	args := m.Called(ctx, config, hostConfig, networkingConfig, platform, containerName)
+	return args.Get(0).(container.CreateResponse), args.Error(1)
 }
 
-func (m *MockDockerClient) ContainerDiff(ctx context.Context, container string) ([]container.FilesystemChange, error) {
-	panic("not implemented") // TODO: Implement
+func (m *MockDockerClient) ContainerDiff(ctx context.Context, cntnr string) ([]container.FilesystemChange, error) {
+	args := m.Called(ctx, cntnr)
+	return args.Get(0).([]container.FilesystemChange), args.Error(1)
 }
 
 func (m *MockDockerClient) ContainerExecAttach(ctx context.Context, execID string, config types.ExecStartCheck) (types.HijackedResponse, error) {
-	panic("not implemented") // TODO: Implement
+	args := m.Called(ctx, execID, config)
+	return args.Get(0).(types.HijackedResponse), args.Error(1)
 }
 
 func (m *MockDockerClient) ContainerExecCreate(ctx context.Context, container string, config types.ExecConfig) (types.IDResponse, error) {
-	panic("not implemented") // TODO: Implement
+	args := m.Called(ctx, container, config)
+	return args.Get(0).(types.IDResponse), args.Error(1)
 }
 
 func (m *MockDockerClient) ContainerExecInspect(ctx context.Context, execID string) (types.ContainerExecInspect, error) {
-	panic("not implemented") // TODO: Implement
+	args := m.Called(ctx, execID)
+	return args.Get(0).(types.ContainerExecInspect), args.Error(1)
 }
 
 func (m *MockDockerClient) ContainerExecResize(ctx context.Context, execID string, options container.ResizeOptions) error {
-	panic("not implemented") // TODO: Implement
+	args := m.Called(ctx, execID, options)
+	return args.Error(0)
 }
 
 func (m *MockDockerClient) ContainerExecStart(ctx context.Context, execID string, config types.ExecStartCheck) error {
-	panic("not implemented") // TODO: Implement
+	args := m.Called(ctx, execID, config)
+	return args.Error(0)
 }
 
 func (m *MockDockerClient) ContainerExport(ctx context.Context, container string) (io.ReadCloser, error) {
-	panic("not implemented") // TODO: Implement
+	args := m.Called(ctx, container)
+	return args.Get(0).(io.ReadCloser), args.Error(1)
 }
 
 func (m *MockDockerClient) ContainerInspect(ctx context.Context, container string) (types.ContainerJSON, error) {
-	panic("not implemented") // TODO: Implement
+	args := m.Called(ctx, container)
+	return args.Get(0).(types.ContainerJSON), args.Error(1)
 }
 
 func (m *MockDockerClient) ContainerInspectWithRaw(ctx context.Context, container string, getSize bool) (types.ContainerJSON, []byte, error) {
-	panic("not implemented") // TODO: Implement
+	args := m.Called(ctx, container, getSize)
+	return args.Get(0).(types.ContainerJSON), args.Get(1).([]byte), args.Error(2)
 }
 
 func (m *MockDockerClient) ContainerKill(ctx context.Context, container string, signal string) error {
-	panic("not implemented") // TODO: Implement
+	args := m.Called(ctx, container, signal)
+	return args.Error(0)
 }
 
 func (m *MockDockerClient) ContainerList(ctx context.Context, options container.ListOptions) ([]types.Container, error) {
-	panic("not implemented") // TODO: Implement
+	args := m.Called(ctx, options)
+	return args.Get(0).([]types.Container), args.Error(1)
 }
 
 func (m *MockDockerClient) ContainerLogs(ctx context.Context, container string, options container.LogsOptions) (io.ReadCloser, error) {
-	panic("not implemented") // TODO: Implement
+	args := m.Called(ctx, container, options)
+	return args.Get(0).(io.ReadCloser), args.Error(1)
 }
 
 func (m *MockDockerClient) ContainerPause(ctx context.Context, container string) error {
-	panic("not implemented") // TODO: Implement
+	args := m.Called(ctx, container)
+	return args.Error(0)
 }
 
 func (m *MockDockerClient) ContainerRemove(ctx context.Context, container string, options container.RemoveOptions) error {
-	panic("not implemented") // TODO: Implement
+	args := m.Called(ctx, container, options)
+	return args.Error(0)
 }
 
 func (m *MockDockerClient) ContainerRename(ctx context.Context, container string, newContainerName string) error {
-	panic("not implemented") // TODO: Implement
+	args := m.Called(ctx, container, newContainerName)
+	return args.Error(0)
 }
 
 func (m *MockDockerClient) ContainerResize(ctx context.Context, container string, options container.ResizeOptions) error {
-	panic("not implemented") // TODO: Implement
+	args := m.Called(ctx, container, options)
+	return args.Error(0)
 }
 
 func (m *MockDockerClient) ContainerRestart(ctx context.Context, container string, options container.StopOptions) error {
-	panic("not implemented") // TODO: Implement
+	args := m.Called(ctx, container, options)
+	return args.Error(0)
 }
 
 func (m *MockDockerClient) ContainerStatPath(ctx context.Context, container string, path string) (types.ContainerPathStat, error) {
-	panic("not implemented") // TODO: Implement
+	args := m.Called(ctx, container, path)
+	return args.Get(0).(types.ContainerPathStat), args.Error(1)
 }
 
 func (m *MockDockerClient) ContainerStats(ctx context.Context, container string, stream bool) (types.ContainerStats, error) {
-	panic("not implemented") // TODO: Implement
+	args := m.Called(ctx, container, stream)
+	return args.Get(0).(types.ContainerStats), args.Error(1)
 }
 
 func (m *MockDockerClient) ContainerStatsOneShot(ctx context.Context, container string) (types.ContainerStats, error) {
-	panic("not implemented") // TODO: Implement
+	args := m.Called(ctx, container)
+	return args.Get(0).(types.ContainerStats), args.Error(1)
 }
 
 func (m *MockDockerClient) ContainerStart(ctx context.Context, container string, options container.StartOptions) error {
-	panic("not implemented") // TODO: Implement
+	args := m.Called(ctx, container, options)
+	return args.Error(0)
 }
 
 func (m *MockDockerClient) ContainerStop(ctx context.Context, container string, options container.StopOptions) error {
-	panic("not implemented") // TODO: Implement
+	args := m.Called(ctx, container, options)
+	return args.Error(0)
 }
 
-func (m *MockDockerClient) ContainerTop(ctx context.Context, container string, arguments []string) (container.ContainerTopOKBody, error) {
-	panic("not implemented") // TODO: Implement
+func (m *MockDockerClient) ContainerTop(ctx context.Context, cntnr string, arguments []string) (container.ContainerTopOKBody, error) {
+	args := m.Called(ctx, cntnr, arguments)
+	return args.Get(0).(container.ContainerTopOKBody), args.Error(1)
 }
 
 func (m *MockDockerClient) ContainerUnpause(ctx context.Context, container string) error {
-	panic("not implemented") // TODO: Implement
+	args := m.Called(ctx, container)
+	return args.Error(0)
 }
 
-func (m *MockDockerClient) ContainerUpdate(ctx context.Context, container string, updateConfig container.UpdateConfig) (container.ContainerUpdateOKBody, error) {
-	panic("not implemented") // TODO: Implement
+func (m *MockDockerClient) ContainerUpdate(ctx context.Context, cntnr string, updateConfig container.UpdateConfig) (container.ContainerUpdateOKBody, error) {
+	args := m.Called(ctx, cntnr, updateConfig)
+	return args.Get(0).(container.ContainerUpdateOKBody), args.Error(1)
 }
 
-func (m *MockDockerClient) ContainerWait(ctx context.Context, container string, condition container.WaitCondition) (<-chan container.WaitResponse, <-chan error) {
-	panic("not implemented") // TODO: Implement
+func (m *MockDockerClient) ContainerWait(ctx context.Context, cntnr string, condition container.WaitCondition) (<-chan container.WaitResponse, <-chan error) {
+	args := m.Called(ctx, cntnr, condition)
+	return args.Get(0).(<-chan container.WaitResponse), args.Get(1).(<-chan error)
 }
 
 func (m *MockDockerClient) CopyFromContainer(ctx context.Context, container string, srcPath string) (io.ReadCloser, types.ContainerPathStat, error) {
-	panic("not implemented") // TODO: Implement
+	args := m.Called(ctx, container, srcPath)
+	return args.Get(0).(io.ReadCloser), args.Get(1).(types.ContainerPathStat), args.Error(2)
 }
 
 func (m *MockDockerClient) CopyToContainer(ctx context.Context, container string, path string, content io.Reader, options types.CopyToContainerOptions) error {
-	panic("not implemented") // TODO: Implement
+	args := m.Called(ctx, container, path, content, options)
+	return args.Error(0)
 }
 
 func (m *MockDockerClient) ContainersPrune(ctx context.Context, pruneFilters filters.Args) (types.ContainersPruneReport, error) {
-	panic("not implemented") // TODO: Implement
+	args := m.Called(ctx, pruneFilters)
+	return args.Get(0).(types.ContainersPruneReport), args.Error(1)
 }
-
-// // MockDockerClient is a mock implementation of the DockerClient interface for testing
-// type MockDockerClient struct {
-// 	ContainerCreateFunc         func(ctx context.Context, config *container.Config, hostConfig *container.HostConfig, networkingConfig *network.NetworkingConfig, platform *v1.Platform, containerName string) (container.CreateResponse, error)
-// 	ContainerStartFunc          func(ctx context.Context, containerID string, options container.StartOptions) error
-// 	ContainerStopFunc           func(ctx context.Context, containerID string, options container.StopOptions) error
-// 	ContainerExecCreateFunc     func(ctx context.Context, container string, config types.ExecConfig) (types.IDResponse, error)
-// 	ContainerExecAttachFunc     func(ctx context.Context, execID string, config types.ExecStartCheck) (types.HijackedResponse, error)
-// 	ContainerExecInspectFunc    func(ctx context.Context, execID string) (types.ContainerExecInspect, error)
-// 	ImagePullFunc               func(ctx context.Context, refStr string, options image.PullOptions) (io.ReadCloser, error)
-// 	ImageBuildFunc              func(ctx context.Context, buildContext io.Reader, options types.ImageBuildOptions) (types.ImageBuildResponse, error)
-// }
-
-// func (m *MockDockerClient) ContainerCreate(ctx context.Context, config *container.Config, hostConfig *container.HostConfig, networkingConfig *network.NetworkingConfig, platform *v1.Platform, containerName string) (container.CreateResponse, error) {
-// 	return m.ContainerCreateFunc(ctx, config, hostConfig, networkingConfig, platform, containerName)
-// }
-
-// func (m *MockDockerClient) ContainerStart(ctx context.Context, containerID string, options container.StartOptions) error {
-// 	return m.ContainerStartFunc(ctx, containerID, options)
-// }
-
-// func (m *MockDockerClient) ContainerStop(ctx context.Context, containerID string, options container.StopOptions) error {
-// 	return m.ContainerStopFunc(ctx, containerID, options)
-// }
-
-// func (m *MockDockerClient) ContainerExecCreate(ctx context.Context, container string, config types.ExecConfig) (types.IDResponse, error) {
-// 	return m.ContainerExecCreateFunc(ctx, container, config)
-// }
-
-// func (m *MockDockerClient) ContainerExecAttach(ctx context.Context, execID string, config types.ExecStartCheck) (types.HijackedResponse, error) {
-// 	return m.ContainerExecAttachFunc(ctx, execID, config)
-// }
-
-// func (m *MockDockerClient) ContainerExecInspect(ctx context.Context, execID string) (types.ContainerExecInspect, error) {
-// 	return m.ContainerExecInspectFunc(ctx, execID)
-// }
-
-// func (m *MockDockerClient) ImagePull(ctx context.Context, refStr string, options image.PullOptions) (io.ReadCloser, error) {
-// 	return m.ImagePullFunc(ctx, refStr, options)
-// }
-
-// func (m *MockDockerClient) ImageBuild(ctx context.Context, buildContext io.Reader, options types.ImageBuildOptions) (types.ImageBuildResponse, error) {
-// 	return m.ImageBuildFunc(ctx, buildContext, options)
-// }
