@@ -45,7 +45,9 @@ func (im *DockerImageManager) PullImage(ctx context.Context, name string) error 
 	}
 	defer output.Close()
 
-	im.logger.Log(output)
+	if err := im.logger.Log(output); err != nil {
+		log.Error().Err(err)
+	}
 
 	log.Debug().Str("image", name).Msg("Pulled image")
 	return nil
@@ -105,7 +107,9 @@ func (im *DockerImageManager) BuildImage(ctx context.Context, workingDir string,
 	}
 	defer imageBuildResponse.Body.Close()
 
-	im.logger.Log(imageBuildResponse.Body)
+	if err := im.logger.Log(imageBuildResponse.Body); err != nil {
+		log.Error().Err(err)
+	}
 
 	log.Debug().Str("tag", tag).Msg("Built image")
 	return tag, nil
