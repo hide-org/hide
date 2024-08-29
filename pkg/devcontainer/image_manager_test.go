@@ -63,7 +63,7 @@ func TestDockerImageManager_PullImage(t *testing.T) {
 				credentials = tt.credentials
 			}
 
-			imageManager := devcontainer.NewImageManager(mockClient, random.FixedString, credentials, devcontainer.NopLogger())
+			imageManager := devcontainer.NewImageManager(mockClient, random.FixedString, credentials)
 
 			err := imageManager.PullImage(context.Background(), tt.imageName)
 
@@ -242,7 +242,7 @@ func TestDockerImageManager_BuildImage(t *testing.T) {
 			mockClient := &mocks.MockDockerImageClient{}
 			tt.mockSetup(mockClient)
 
-			imageManager := devcontainer.NewImageManager(mockClient, random.FixedString, nil, devcontainer.NopLogger())
+			imageManager := devcontainer.NewImageManager(mockClient, random.FixedString, nil)
 
 			result, err := imageManager.BuildImage(context.Background(), "/workdir", tt.config)
 

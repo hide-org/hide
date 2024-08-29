@@ -56,7 +56,7 @@ func (im *DockerImageManager) BuildImage(ctx context.Context, workingDir string,
 
 	if config.Dockerfile != "" {
 		dockerFile = config.Dockerfile
-	} 
+	}
 
 	if config.Build != nil && config.Build.Dockerfile != "" {
 		dockerFile = config.Build.Dockerfile
@@ -91,6 +91,7 @@ func (im *DockerImageManager) BuildImage(ctx context.Context, workingDir string,
 	if err != nil {
 		return "", fmt.Errorf("Failed to create tar archive from %s for Docker build context: %w", contextPath, err)
 	}
+	defer buildContext.Close()
 
 	var tag string
 	if config.Name != "" {
@@ -104,7 +105,6 @@ func (im *DockerImageManager) BuildImage(ctx context.Context, workingDir string,
 	options := types.ImageBuildOptions{
 		Tags:       []string{tag},
 		Dockerfile: dockerFileRelativePath,
-		Context:    buildContext,
 	}
 
 	if config.Build != nil {
