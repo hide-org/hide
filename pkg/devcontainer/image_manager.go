@@ -22,12 +22,10 @@ type DockerImageManager struct {
 	client.ImageAPIClient
 	randomString func(int) string
 	credentials  RegistryCredentials
-	// logger for docker build and pull logs
-	logger Logger
 }
 
-func NewImageManager(dockerImageCli client.ImageAPIClient, randomString func(int) string, credentials RegistryCredentials, logger Logger) ImageManager {
-	return &DockerImageManager{ImageAPIClient: dockerImageCli, randomString: randomString, credentials: credentials, logger: logger}
+func NewImageManager(dockerImageCli client.ImageAPIClient, randomString func(int) string, credentials RegistryCredentials) ImageManager {
+	return &DockerImageManager{ImageAPIClient: dockerImageCli, randomString: randomString, credentials: credentials}
 }
 
 func (im *DockerImageManager) PullImage(ctx context.Context, name string) error {
@@ -45,7 +43,7 @@ func (im *DockerImageManager) PullImage(ctx context.Context, name string) error 
 	}
 	defer output.Close()
 
-	if err := im.logger.Log(output); err != nil {
+	if err := logResponse(output); err != nil {
 		log.Error().Err(err)
 	}
 
@@ -107,7 +105,7 @@ func (im *DockerImageManager) BuildImage(ctx context.Context, workingDir string,
 	}
 	defer imageBuildResponse.Body.Close()
 
-	if err := im.logger.Log(imageBuildResponse.Body); err != nil {
+	if err := logResponse(imageBuildResponse.Body); err != nil {
 		log.Error().Err(err)
 	}
 
