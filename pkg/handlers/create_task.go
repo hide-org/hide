@@ -53,7 +53,7 @@ func (h CreateTaskHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	var command string
 
 	if request.Alias != nil {
-		task, err := h.Manager.ResolveTaskAlias(projectID, *request.Alias)
+		task, err := h.Manager.ResolveTaskAlias(r.Context(), projectID, *request.Alias)
 		if err != nil {
 			var projectNotFoundError *project.ProjectNotFoundError
 			if errors.As(err, &projectNotFoundError) {
@@ -75,7 +75,7 @@ func (h CreateTaskHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		command = *request.Command
 	}
 
-	taskResult, err := h.Manager.CreateTask(projectID, command)
+	taskResult, err := h.Manager.CreateTask(r.Context(), projectID, command)
 	if err != nil {
 		var projectNotFoundError *project.ProjectNotFoundError
 		if errors.As(err, &projectNotFoundError) {

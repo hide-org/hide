@@ -12,12 +12,12 @@ import (
 
 // MockProjectManager is a mock of the project.Manager interface for testing
 type MockProjectManager struct {
-	CreateProjectFunc    func(request project.CreateProjectRequest) <-chan result.Result[model.Project]
-	GetProjectFunc       func(projectId string) (model.Project, error)
-	GetProjectsFunc      func() ([]*model.Project, error)
-	DeleteProjectFunc    func(projectId string) <-chan result.Empty
-	ResolveTaskAliasFunc func(projectId string, alias string) (devcontainer.Task, error)
-	CreateTaskFunc       func(projectId string, command string) (project.TaskResult, error)
+	CreateProjectFunc    func(ctx context.Context, request project.CreateProjectRequest) <-chan result.Result[model.Project]
+	GetProjectFunc       func(ctx context.Context, projectId string) (model.Project, error)
+	GetProjectsFunc      func(ctx context.Context) ([]*model.Project, error)
+	DeleteProjectFunc    func(ctx context.Context, projectId string) <-chan result.Empty
+	ResolveTaskAliasFunc func(ctx context.Context, projectId string, alias string) (devcontainer.Task, error)
+	CreateTaskFunc       func(ctx context.Context, projectId string, command string) (project.TaskResult, error)
 	CleanupFunc          func(ctx context.Context) error
 	CreateFileFunc       func(ctx context.Context, projectId, path, content string) (*model.File, error)
 	ReadFileFunc         func(ctx context.Context, projectId, path string) (*model.File, error)
@@ -28,28 +28,28 @@ type MockProjectManager struct {
 	UpdateLinesFunc      func(ctx context.Context, projectId, path string, lineDiff files.LineDiffChunk) (*model.File, error)
 }
 
-func (m *MockProjectManager) CreateProject(request project.CreateProjectRequest) <-chan result.Result[model.Project] {
-	return m.CreateProjectFunc(request)
+func (m *MockProjectManager) CreateProject(ctx context.Context, request project.CreateProjectRequest) <-chan result.Result[model.Project] {
+	return m.CreateProjectFunc(ctx, request)
 }
 
-func (m *MockProjectManager) GetProject(projectId string) (model.Project, error) {
-	return m.GetProjectFunc(projectId)
+func (m *MockProjectManager) GetProject(ctx context.Context, projectId string) (model.Project, error) {
+	return m.GetProjectFunc(ctx, projectId)
 }
 
-func (m *MockProjectManager) GetProjects() ([]*model.Project, error) {
-	return m.GetProjectsFunc()
+func (m *MockProjectManager) GetProjects(ctx context.Context) ([]*model.Project, error) {
+	return m.GetProjectsFunc(ctx)
 }
 
-func (m *MockProjectManager) DeleteProject(projectId string) <-chan result.Empty {
-	return m.DeleteProjectFunc(projectId)
+func (m *MockProjectManager) DeleteProject(ctx context.Context, projectId string) <-chan result.Empty {
+	return m.DeleteProjectFunc(ctx, projectId)
 }
 
-func (m *MockProjectManager) ResolveTaskAlias(projectId string, alias string) (devcontainer.Task, error) {
-	return m.ResolveTaskAliasFunc(projectId, alias)
+func (m *MockProjectManager) ResolveTaskAlias(ctx context.Context, projectId string, alias string) (devcontainer.Task, error) {
+	return m.ResolveTaskAliasFunc(ctx, projectId, alias)
 }
 
-func (m *MockProjectManager) CreateTask(projectId string, command string) (project.TaskResult, error) {
-	return m.CreateTaskFunc(projectId, command)
+func (m *MockProjectManager) CreateTask(ctx context.Context, projectId string, command string) (project.TaskResult, error) {
+	return m.CreateTaskFunc(ctx, projectId, command)
 }
 
 func (m *MockProjectManager) Cleanup(ctx context.Context) error {

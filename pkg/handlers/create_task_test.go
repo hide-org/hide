@@ -2,6 +2,7 @@ package handlers_test
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -21,7 +22,7 @@ func TestCreateTaskHandler_Command_Success(t *testing.T) {
 
 	// Setup
 	mockManager := &mocks.MockProjectManager{
-		CreateTaskFunc: func(projectId string, command string) (project.TaskResult, error) {
+		CreateTaskFunc: func(ctx context.Context, projectId string, command string) (project.TaskResult, error) {
 			return expectedResult, nil
 		},
 	}
@@ -61,10 +62,10 @@ func TestCreateTaskHandler_Alias_Success(t *testing.T) {
 
 	// Setup
 	mockManager := &mocks.MockProjectManager{
-		ResolveTaskAliasFunc: func(projectId string, alias string) (devcontainer.Task, error) {
+		ResolveTaskAliasFunc: func(ctx context.Context, projectId string, alias string) (devcontainer.Task, error) {
 			return devcontainer.Task{Command: "resolved command"}, nil
 		},
-		CreateTaskFunc: func(projectId string, command string) (project.TaskResult, error) {
+		CreateTaskFunc: func(ctx context.Context, projectId string, command string) (project.TaskResult, error) {
 			return expectedResult, nil
 		},
 	}
@@ -101,7 +102,7 @@ func TestCreateTaskHandler_Alias_Success(t *testing.T) {
 func TestCreateTaskHandler_Failure(t *testing.T) {
 	// Setup
 	mockManager := &mocks.MockProjectManager{
-		CreateTaskFunc: func(projectId string, command string) (project.TaskResult, error) {
+		CreateTaskFunc: func(ctx context.Context, projectId string, command string) (project.TaskResult, error) {
 			return project.TaskResult{}, errors.New("Test error")
 		},
 	}
