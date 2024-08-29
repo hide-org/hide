@@ -65,7 +65,11 @@ func (m *MockDockerImageClient) ImageLoad(ctx context.Context, input io.Reader, 
 
 func (m *MockDockerImageClient) ImagePull(ctx context.Context, ref string, options image.PullOptions) (io.ReadCloser, error) {
 	args := m.Called(ctx, ref, options)
-	return args.Get(0).(io.ReadCloser), args.Error(1)
+	var r io.ReadCloser
+	if rf, ok := args.Get(0).(io.ReadCloser); ok {
+		r = rf
+	}
+	return r, args.Error(1)
 }
 
 func (m *MockDockerImageClient) ImagePush(ctx context.Context, ref string, options image.PushOptions) (io.ReadCloser, error) {

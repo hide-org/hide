@@ -54,8 +54,11 @@ func (im *DockerImageManager) PullImage(ctx context.Context, name string) error 
 func (im *DockerImageManager) BuildImage(ctx context.Context, workingDir string, config Config) (string, error) {
 	var dockerFile, context string
 
-	dockerFile = config.Dockerfile
-	if config.Build != nil {
+	if config.Dockerfile != "" {
+		dockerFile = config.Dockerfile
+	} 
+
+	if config.Build != nil && config.Build.Dockerfile != "" {
 		dockerFile = config.Build.Dockerfile
 	}
 
@@ -63,9 +66,16 @@ func (im *DockerImageManager) BuildImage(ctx context.Context, workingDir string,
 		return "", fmt.Errorf("Dockerfile not found")
 	}
 
-	context = config.Context
-	if config.Build != nil {
+	if config.Context != "" {
+		context = config.Context
+	}
+
+	if config.Build != nil && config.Build.Context != "" {
 		context = config.Build.Context
+	}
+
+	if context == "" {
+		context = "."
 	}
 
 	dockerFilePath := filepath.Join(workingDir, config.Path, dockerFile)
@@ -91,15 +101,20 @@ func (im *DockerImageManager) BuildImage(ctx context.Context, workingDir string,
 	}
 	tag = strings.ToLower(tag)
 
-	imageBuildResponse, err := im.ImageBuild(ctx, buildContext, types.ImageBuildOptions{
+	options := types.ImageBuildOptions{
 		Tags:       []string{tag},
 		Dockerfile: dockerFileRelativePath,
-		BuildArgs:  config.Build.Args,
 		Context:    buildContext,
-		CacheFrom:  config.Build.CacheFrom,
-		Target:     config.Build.Target,
-		// NOTE: other options are ignored because in the devcontainer spec they are defined as []string and it's not obvious how to parse them into types.ImageBuildOptions{}
-	})
+	}
+
+	if config.Build != nil {
+		options.BuildArgs = config.Build.Args
+		options.CacheFrom = config.Build.CacheFrom
+		options.Target = config.Build.Target
+		// NOTE: config.Build.RunArgs are ignored because they are defined as []string and it's not obvious how to map them into types.ImageBuildOptions{}
+	}
+
+	imageBuildResponse, err := im.ImageBuild(ctx, buildContext, options)
 	if err != nil {
 		return "", fmt.Errorf("Failed to build Docker image: %w", err)
 	}
