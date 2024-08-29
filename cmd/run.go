@@ -84,7 +84,7 @@ var runCmd = &cobra.Command{
 			log.Fatal().Err(err).Msg("Cannot initialize docker client")
 		}
 
-		containerRunner := devcontainer.NewDockerRunner(dockerClient, util.NewExecutorImpl(), devcontainer.NewImageManager(dockerClient, random.String, devcontainer.NewDockerHubRegistryCredentials(dockerUser, dockerToken), devcontainer.NewLogger(log.Logger, zerolog.DebugLevel)))
+		containerRunner := devcontainer.NewDockerRunner(dockerClient, util.NewExecutorImpl(), devcontainer.NewImageManager(dockerClient, random.String, devcontainer.NewDockerHubRegistryCredentials(dockerUser, dockerToken)))
 		projectStore := project.NewInMemoryStore(make(map[string]*model.Project))
 		home, err := os.UserHomeDir()
 		if err != nil {
