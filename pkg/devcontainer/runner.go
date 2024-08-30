@@ -17,10 +17,6 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-const DefaultShell = "/bin/sh"
-
-var DefaultContainerCommand = []string{DefaultShell, "-c", "while sleep 1000; do :; done"}
-
 type ExecResult struct {
 	StdOut   string
 	StdErr   string
@@ -176,7 +172,7 @@ func (r *DockerRunner) Exec(ctx context.Context, containerID string, command []s
 	stdOutWriter := io.MultiWriter(os.Stdout, &stdOut)
 	stdErrWriter := io.MultiWriter(os.Stderr, &stdErr)
 
-	if err := ReadOutputFromContainer(resp.Reader, stdOutWriter, stdErrWriter); err != nil {
+	if err := readOutputFromContainer(resp.Reader, stdOutWriter, stdErrWriter); err != nil {
 		return ExecResult{}, fmt.Errorf("Error reading output from container: %w", err)
 	}
 
@@ -318,21 +314,4 @@ func (r *DockerRunner) startContainer(ctx context.Context, containerId string) e
 	log.Debug().Str("containerId", containerId).Msg("Started container")
 
 	return nil
-}
-
-func stringToType(s string) (mount.Type, error) {
-	switch s {
-	case string(mount.TypeBind):
-		return mount.TypeBind, nil
-	case string(mount.TypeVolume):
-		return mount.TypeVolume, nil
-	case string(mount.TypeTmpfs):
-		return mount.TypeTmpfs, nil
-	case string(mount.TypeNamedPipe):
-		return mount.TypeNamedPipe, nil
-	case string(mount.TypeCluster):
-		return mount.TypeCluster, nil
-	default:
-		return "", fmt.Errorf("Unsupported mount type: %s", s)
-	}
 }
