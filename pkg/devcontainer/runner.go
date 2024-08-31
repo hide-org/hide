@@ -1,19 +1,11 @@
 package devcontainer
 
 import (
-	"bytes"
 	"context"
 	"fmt"
-	"io"
 	"os"
-	"strconv"
 
 	"github.com/artmoskvin/hide/pkg/util"
-	"github.com/docker/docker/api/types"
-	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/api/types/mount"
-	"github.com/docker/docker/client"
-	"github.com/docker/go-connections/nat"
 	"github.com/rs/zerolog/log"
 )
 
@@ -30,19 +22,16 @@ type Runner interface {
 }
 
 type DockerRunner struct {
-	client.ContainerAPIClient
-	commandExecutor util.Executor
-	imageManager    ImageManager
-	// containerManager   ContainerManager
-	// hostCommandExecutor util.Executor
-	// containerCommandExecutor util.Executor
+	commandExecutor  util.Executor
+	imageManager     ImageManager
+	containerManager ContainerManager
 }
 
-func NewDockerRunner(dockerContainerCli client.ContainerAPIClient, commandExecutor util.Executor, imageManager ImageManager) Runner {
+func NewDockerRunner(commandExecutor util.Executor, imageManager ImageManager, containerManager ContainerManager) Runner {
 	return &DockerRunner{
-		ContainerAPIClient: dockerContainerCli,
-		commandExecutor:    commandExecutor,
-		imageManager:       imageManager,
+		commandExecutor:  commandExecutor,
+		imageManager:     imageManager,
+		containerManager: containerManager,
 	}
 }
 
@@ -55,18 +44,13 @@ func (r *DockerRunner) Run(ctx context.Context, projectPath string, config Confi
 		}
 	}
 
-	// Build docker compose
-	if len(config.DockerComposeFile) > 0 {
-		// TODO: build docker-compose file
-		return "", fmt.Errorf("Docker Compose is not supported yet")
-	}
-
 	// Pull or build image
 	var imageId string
 	var err error
 
 	switch {
 	case config.IsImageDevContainer():
+		imageId = config.DockerImageProps.Image
 		err = r.imageManager.PullImage(ctx, config.DockerImageProps.Image)
 		if err != nil {
 			err = fmt.Errorf("Failed to pull image: %w", err)
@@ -88,14 +72,14 @@ func (r *DockerRunner) Run(ctx context.Context, projectPath string, config Confi
 	}
 
 	// Create container
-	containerId, err := r.createContainer(ctx, imageId, projectPath, config)
+	containerId, err := r.containerManager.CreateContainer(ctx, imageId, projectPath, config)
 
 	if err != nil {
 		return "", fmt.Errorf("Failed to create container: %w", err)
 	}
 
 	// Start container
-	if err := r.startContainer(ctx, containerId); err != nil {
+	if err := r.containerManager.StartContainer(ctx, containerId); err != nil {
 		return "", fmt.Errorf("Failed to start container: %w", err)
 	}
 
@@ -138,51 +122,11 @@ func (r *DockerRunner) Run(ctx context.Context, projectPath string, config Confi
 }
 
 func (r *DockerRunner) Stop(ctx context.Context, containerId string) error {
-	if err := r.ContainerStop(ctx, containerId, container.StopOptions{}); err != nil {
-		return fmt.Errorf("Failed to stop container %s: %w", containerId, err)
-	}
-
-	return nil
+	return r.containerManager.StopContainer(ctx, containerId)
 }
 
 func (r *DockerRunner) Exec(ctx context.Context, containerID string, command []string) (ExecResult, error) {
-	execConfig := types.ExecConfig{
-		Cmd:          command,
-		AttachStdout: true,
-		AttachStderr: true,
-	}
-	execIDResp, err := r.ContainerExecCreate(ctx, containerID, execConfig)
-
-	if err != nil {
-		return ExecResult{}, fmt.Errorf("Failed to create execute configuration for command %s in container %s: %w", command, containerID, err)
-	}
-
-	execID := execIDResp.ID
-
-	resp, err := r.ContainerExecAttach(ctx, execID, types.ExecStartCheck{})
-
-	if err != nil {
-		return ExecResult{}, fmt.Errorf("Failed to attach to exec process %s in container %s: %w", execID, containerID, err)
-	}
-
-	defer resp.Close()
-
-	var stdOut, stdErr bytes.Buffer
-
-	stdOutWriter := io.MultiWriter(os.Stdout, &stdOut)
-	stdErrWriter := io.MultiWriter(os.Stderr, &stdErr)
-
-	if err := readOutputFromContainer(resp.Reader, stdOutWriter, stdErrWriter); err != nil {
-		return ExecResult{}, fmt.Errorf("Error reading output from container: %w", err)
-	}
-
-	inspectResp, err := r.ContainerExecInspect(ctx, execID)
-
-	if err != nil {
-		return ExecResult{}, fmt.Errorf("Failed to inspect exec process %s in container %s: %w", execID, containerID, err)
-	}
-
-	return ExecResult{StdOut: stdOut.String(), StdErr: stdErr.String(), ExitCode: inspectResp.ExitCode}, nil
+	return r.containerManager.Exec(ctx, containerID, command)
 }
 
 func (r *DockerRunner) executeLifecycleCommand(lifecycleCommand LifecycleCommand, workingDir string) error {
@@ -212,106 +156,6 @@ func (r *DockerRunner) executeLifecycleCommandInContainer(ctx context.Context, l
 		}
 
 	}
-
-	return nil
-}
-
-func (r *DockerRunner) createContainer(ctx context.Context, image string, projectPath string, config Config) (string, error) {
-	log.Debug().Msg("Creating container")
-
-	env := []string{}
-
-	for envKey, envValue := range config.ContainerEnv {
-		env = append(env, fmt.Sprintf("%s=%s", envKey, envValue))
-	}
-
-	containerConfig := &container.Config{Image: image, Cmd: DefaultContainerCommand, Env: env}
-
-	if config.ContainerUser != "" {
-		containerConfig.User = config.ContainerUser
-	}
-
-	portBindings := make(nat.PortMap)
-
-	for _, port := range config.AppPort {
-		port_str := strconv.Itoa(port)
-		port, err := nat.NewPort("tcp", port_str)
-
-		if err != nil {
-			return "", fmt.Errorf("Failed to create new TCP port from port %s: %w", port_str, err)
-		}
-
-		portBindings[port] = []nat.PortBinding{{HostIP: "127.0.0.1", HostPort: port_str}}
-	}
-
-	mounts := []mount.Mount{}
-
-	if config.WorkspaceMount != nil && config.WorkspaceFolder != "" {
-		mounts = append(mounts, mount.Mount{
-			Type:   mount.TypeBind,
-			Source: config.WorkspaceMount.Source,
-			Target: config.WorkspaceMount.Destination,
-		})
-
-		containerConfig.WorkingDir = config.WorkspaceFolder
-	} else {
-		mounts = append(mounts, mount.Mount{
-			Type:   mount.TypeBind,
-			Source: projectPath,
-			Target: "/workspace",
-		})
-
-		containerConfig.WorkingDir = "/workspace"
-	}
-
-	if len(config.Mounts) > 0 {
-		for _, _mount := range config.Mounts {
-			mountType, err := stringToType(_mount.Type)
-
-			if err != nil {
-				return "", fmt.Errorf("Failed to convert mount type %s to type.Type: %w", _mount.Type, err)
-			}
-
-			mounts = append(mounts, mount.Mount{
-				Type:   mountType,
-				Source: _mount.Source,
-				Target: _mount.Destination,
-			})
-		}
-	}
-
-	hostConfig := container.HostConfig{
-		PortBindings: portBindings,
-		Mounts:       mounts,
-		Init:         &config.Init,
-		Privileged:   config.Privileged,
-		CapAdd:       config.CapAdd,
-		SecurityOpt:  config.SecurityOpt,
-	}
-
-	createResponse, err := r.ContainerCreate(ctx, containerConfig, &hostConfig, nil, nil, "")
-
-	if err != nil {
-		return "", err
-	}
-
-	containerId := createResponse.ID
-
-	log.Debug().Str("containerId", containerId).Msg("Created container")
-
-	return containerId, nil
-}
-
-func (r *DockerRunner) startContainer(ctx context.Context, containerId string) error {
-	log.Debug().Msg("Starting container")
-
-	err := r.ContainerStart(ctx, containerId, container.StartOptions{})
-
-	if err != nil {
-		return err
-	}
-
-	log.Debug().Str("containerId", containerId).Msg("Started container")
 
 	return nil
 }

@@ -1,8 +1,6 @@
 package devcontainer_test
 
 import (
-	"bufio"
-	"bytes"
 	"context"
 	"slices"
 	"testing"
@@ -261,7 +259,7 @@ func TestDockerContainerManager_Exec(t *testing.T) {
 						config.AttachStderr
 				})).Return(types.IDResponse{ID: "test-exec-id"}, nil)
 
-				m.On("ContainerExecAttach", mock.Anything, "test-exec-id", mock.AnythingOfType("types.ExecStartCheck")).Return(types.HijackedResponse{Reader: bufio.NewReader(bytes.NewReader([]byte("test-stdout\ntest-stderr\n")))}, nil)
+				m.On("ContainerExecAttach", mock.Anything, "test-exec-id", mock.AnythingOfType("types.ExecStartCheck")).Return(mocks.CreateMockHijackedResponse("test-stdout\n", "test-stderr\n"), nil)
 
 				m.On("ContainerExecInspect", mock.Anything, "test-exec-id").Return(types.ContainerExecInspect{ExitCode: 0}, nil)
 			},
@@ -289,7 +287,25 @@ func TestDockerContainerManager_Exec(t *testing.T) {
 						config.AttachStdout &&
 						config.AttachStderr
 				})).Return(types.IDResponse{ID: "test-exec-id"}, nil)
+
 				m.On("ContainerExecAttach", mock.Anything, "test-exec-id", mock.AnythingOfType("types.ExecStartCheck")).Return(types.HijackedResponse{}, assert.AnError)
+			},
+			expectedError: "assert.AnError general error for testing",
+		},
+		{
+			name:        "Error inspecting exec process",
+			containerId: "test-container-id",
+			command:     []string{"/bin/sh", "-c", "echo test"},
+			mockSetup: func(m *mocks.MockDockerContainerClient) {
+				m.On("ContainerExecCreate", mock.Anything, "test-container-id", mock.MatchedBy(func(config types.ExecConfig) bool {
+					return slices.Equal(config.Cmd, []string{"/bin/sh", "-c", "echo test"}) &&
+						config.AttachStdout &&
+						config.AttachStderr
+				})).Return(types.IDResponse{ID: "test-exec-id"}, nil)
+
+				m.On("ContainerExecAttach", mock.Anything, "test-exec-id", mock.AnythingOfType("types.ExecStartCheck")).Return(mocks.CreateMockHijackedResponse("test-stdout\n", "test-stderr\n"), nil)
+
+				m.On("ContainerExecInspect", mock.Anything, "test-exec-id").Return(types.ContainerExecInspect{}, assert.AnError)
 			},
 			expectedError: "assert.AnError general error for testing",
 		},
