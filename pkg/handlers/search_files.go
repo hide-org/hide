@@ -71,6 +71,7 @@ func (h SearchFilesHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	check, err := getChecker(query, typ)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Bad query: %s", err), http.StatusInternalServerError)
+		return
 	}
 
 	listFiles := func(ctx context.Context, showHidden bool) ([]*model.File, error) {
