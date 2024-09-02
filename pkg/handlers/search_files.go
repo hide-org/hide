@@ -1,15 +1,16 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
+	"regexp"
 	"strings"
 
 	"github.com/artmoskvin/hide/pkg/model"
 	"github.com/artmoskvin/hide/pkg/project"
-	"github.com/rs/zerolog/log"
 )
 
 const (
@@ -26,15 +27,23 @@ func (h SearchFilesHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, fmt.Sprintf("Invalid project ID: %s", err), http.StatusBadRequest)
 		return
 	}
-	log.Info().Msgf("project id %s", projectID)
 
-	q := r.URL.Query().Get(queryKey)
-	if q == "" {
+	query := r.URL.Query().Get(queryKey)
+	if query == "" {
 		http.Error(w, "Query not specified", http.StatusBadRequest)
 		return
 	}
 
-	files, err := h.ProjectManager.ListFiles(r.Context(), projectID, false)
+	check, err := caseInsensitiveSearch(query)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Bad query: %s", err), http.StatusInternalServerError)
+	}
+
+	listFiles := func(ctx context.Context, showHidden bool) ([]*model.File, error) {
+		return h.ProjectManager.ListFiles(ctx, projectID, showHidden)
+	}
+
+	result, err := findInFiles(r.Context(), listFiles, check)
 	if err != nil {
 		var projectNotFoundError *project.ProjectNotFoundError
 		if errors.As(err, &projectNotFoundError) {
@@ -42,20 +51,59 @@ func (h SearchFilesHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		http.Error(w, fmt.Sprintf("Failed to list files: %s", err), http.StatusInternalServerError)
+		http.Error(w, fmt.Sprintf("Failed to search: %s", err), http.StatusInternalServerError)
 		return
 	}
 
-	// for case insensitive search
-	q = strings.ToLower(q)
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(result)
+}
+
+func caseInsensitiveSearch(query string) (check func(s string) bool, err error) {
+	q := strings.ToLower(query)
+	check = func(s string) bool {
+		return strings.Contains(strings.ToLower(s), q)
+	}
+
+	return
+}
+
+func exactSearch(query string) (check func(s string) bool, err error) {
+	return func(s string) bool {
+		return strings.Contains(s, query)
+	}, nil
+}
+
+func grepSearch(query string) (check func(s string) bool, err error) {
+	re, err := regexp.Compile(query)
+	if err != nil {
+		return nil, err
+	}
+
+	return func(s string) bool {
+		return re.MatchString(s)
+	}, nil
+}
+
+func findInFiles(ctx context.Context, listFiles func(ctx context.Context, showHidden bool) ([]*model.File, error), check func(s string) bool) ([]model.File, error) {
+	files, err := listFiles(ctx, false)
+	if err != nil {
+		return nil, err
+	}
 
 	resultFiles := make([]model.File, 0)
 	for _, file := range files {
 		resultLines := make([]model.Line, 0)
 
 		for _, line := range file.Lines {
-			if strings.Contains(strings.ToLower(line.Content), q) {
-				resultLines = append(resultLines, line)
+			select {
+			case <-ctx.Done():
+				return nil, fmt.Errorf("context cancelled")
+			default:
+				if check(line.Content) {
+					resultLines = append(resultLines, line)
+				}
 			}
 		}
 
@@ -67,7 +115,5 @@ func (h SearchFilesHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(resultFiles)
+	return resultFiles, nil
 }
