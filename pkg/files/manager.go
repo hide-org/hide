@@ -3,6 +3,7 @@ package files
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -45,7 +46,7 @@ func (fm *FileManagerImpl) CreateFile(ctx context.Context, fs afero.Fs, path, co
 	}
 
 	dir := filepath.Dir(file.Path)
-	if err := fs.MkdirAll(dir, 0755); err != nil {
+	if err := fs.MkdirAll(dir, 0o755); err != nil {
 		return nil, fmt.Errorf("Failed to create directory %s: %w", dir, err)
 	}
 
@@ -58,7 +59,6 @@ func (fm *FileManagerImpl) CreateFile(ctx context.Context, fs afero.Fs, path, co
 
 func (fm *FileManagerImpl) ReadFile(ctx context.Context, fs afero.Fs, path string) (*model.File, error) {
 	exists, err := fileExists(fs, path)
-
 	if err != nil {
 		return nil, fmt.Errorf("Failed to check if file %s exists: %w", path, err)
 	}
@@ -72,7 +72,6 @@ func (fm *FileManagerImpl) ReadFile(ctx context.Context, fs afero.Fs, path strin
 
 func (fm *FileManagerImpl) UpdateFile(ctx context.Context, fs afero.Fs, path, content string) (*model.File, error) {
 	exists, err := fileExists(fs, path)
-
 	if err != nil {
 		return nil, fmt.Errorf("Failed to check if file %s exists: %w", path, err)
 	}
@@ -95,7 +94,6 @@ func (fm *FileManagerImpl) UpdateFile(ctx context.Context, fs afero.Fs, path, co
 
 func (fm *FileManagerImpl) DeleteFile(ctx context.Context, fs afero.Fs, path string) error {
 	exists, err := fileExists(fs, path)
-
 	if err != nil {
 		return fmt.Errorf("Failed to check if file %s exists: %w", path, err)
 	}
@@ -110,6 +108,12 @@ func (fm *FileManagerImpl) ListFiles(ctx context.Context, fs afero.Fs, showHidde
 	var files []*model.File
 
 	err := afero.Walk(fs, "/", func(path string, info os.FileInfo, err error) error {
+		select {
+		case <-ctx.Done():
+			return errors.New("context cancelled")
+		default:
+		}
+
 		if err != nil {
 			return fmt.Errorf("Error walking file tree on path %s: %w", path, err)
 		}
@@ -151,7 +155,6 @@ func (fm *FileManagerImpl) ListFiles(ctx context.Context, fs afero.Fs, showHidde
 
 func (fm *FileManagerImpl) ApplyPatch(ctx context.Context, fs afero.Fs, path, patch string) (*model.File, error) {
 	exists, err := fileExists(fs, path)
-
 	if err != nil {
 		return nil, fmt.Errorf("Failed to check if file %s exists: %w", path, err)
 	}
@@ -184,7 +187,7 @@ func (fm *FileManagerImpl) ApplyPatch(ctx context.Context, fs afero.Fs, path, pa
 		return nil, fmt.Errorf("Failed to apply patch to %s: %w\n%s", path, err, patch)
 	}
 
-	if err := afero.WriteFile(fs, path, output.Bytes(), 0644); err != nil {
+	if err := afero.WriteFile(fs, path, output.Bytes(), 0o644); err != nil {
 		return nil, fmt.Errorf("Failed to write file %s after applying patch: %w", path, err)
 	}
 
@@ -193,7 +196,6 @@ func (fm *FileManagerImpl) ApplyPatch(ctx context.Context, fs afero.Fs, path, pa
 
 func (fm *FileManagerImpl) UpdateLines(ctx context.Context, fs afero.Fs, path string, lineDiff LineDiffChunk) (*model.File, error) {
 	exists, err := fileExists(fs, path)
-
 	if err != nil {
 		return nil, fmt.Errorf("Failed to check if file %s exists: %w", path, err)
 	}
@@ -235,7 +237,6 @@ func (fm *FileManagerImpl) UpdateLines(ctx context.Context, fs afero.Fs, path st
 
 func readFile(fs afero.Fs, path string) (*model.File, error) {
 	content, err := afero.ReadFile(fs, path)
-
 	if err != nil {
 		return nil, err
 	}
@@ -244,7 +245,7 @@ func readFile(fs afero.Fs, path string) (*model.File, error) {
 }
 
 func writeFile(fs afero.Fs, file *model.File) error {
-	return afero.WriteFile(fs, file.Path, []byte(file.GetContent()), 0644)
+	return afero.WriteFile(fs, file.Path, []byte(file.GetContent()), 0o644)
 }
 
 func fileExists(fs afero.Fs, path string) (bool, error) {
