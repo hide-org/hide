@@ -14,8 +14,9 @@ func TestSearch(t *testing.T) {
 		name  string
 		ctx   context.Context
 		files []*model.File
-		typ   string
 		query string
+		exact bool
+		regex bool
 		want  []model.File
 	}{
 		{
@@ -73,7 +74,7 @@ func TestSearch(t *testing.T) {
 					},
 				},
 			},
-			typ:   "exact",
+			exact: true,
 			query: "something",
 			want: []model.File{
 				{
@@ -109,7 +110,7 @@ func TestSearch(t *testing.T) {
 					},
 				},
 			},
-			typ:   "grep",
+			regex: true,
 			query: `^o.*e$`,
 			want: []model.File{
 				{
@@ -128,7 +129,7 @@ func TestSearch(t *testing.T) {
 				return tt.files, nil
 			}
 
-			check, err := getChecker(tt.typ, tt.query)
+			check, err := getChecker(tt.query, tt.exact, tt.regex)
 			if err != nil {
 				t.Fatal(err)
 			}

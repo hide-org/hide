@@ -16,8 +16,9 @@ import (
 // TODO: add string enums for search types
 
 const (
-	queryKey      = "query"
-	searchTypeKey = "search"
+	queryKey = "query"
+	exactKey = "exact"
+	regexKey = "regex"
 )
 
 type SearchFilesHandler struct {
@@ -37,9 +38,10 @@ func (h SearchFilesHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	typ := r.URL.Query().Get(searchTypeKey)
+	exact := r.URL.Query().Get(exactKey) == "true"
+	regex := r.URL.Query().Get(regexKey) == "true"
 
-	check, err := getChecker(typ, query)
+	check, err := getChecker(query, exact, regex)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Bad query: %s", err), http.StatusInternalServerError)
 	}
@@ -65,15 +67,16 @@ func (h SearchFilesHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(result)
 }
 
-func getChecker(typ, query string) (check func(s string) bool, err error) {
-	switch typ {
-	case "exact":
+func getChecker(query string, exact bool, regex bool) (check func(s string) bool, err error) {
+	if exact {
 		return exactSearch(query)
-	case "grep":
-		return grepSearch(query)
-	default:
-		return caseInsensitiveSearch(query)
 	}
+
+	if regex {
+		return regexSearch(query)
+	}
+
+	return caseInsensitiveSearch(query)
 }
 
 func caseInsensitiveSearch(query string) (check func(s string) bool, err error) {
@@ -91,7 +94,7 @@ func exactSearch(query string) (check func(s string) bool, err error) {
 	}, nil
 }
 
-func grepSearch(query string) (check func(s string) bool, err error) {
+func regexSearch(query string) (check func(s string) bool, err error) {
 	re, err := regexp.Compile(query)
 	if err != nil {
 		return nil, err
