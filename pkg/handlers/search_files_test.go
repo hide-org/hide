@@ -9,14 +9,14 @@ import (
 )
 
 func TestSearch(t *testing.T) {
-	// TODO: add tests for context cancellation and errors
 	tests := []struct {
-		name  string
-		ctx   context.Context
-		files []*model.File
-		query string
-		typ   searchType
-		want  []model.File
+		name    string
+		ctx     context.Context
+		files   []*model.File
+		query   string
+		typ     searchType
+		want    []model.File
+		wantErr bool
 	}{
 		{
 			name: "case insensitive search",
@@ -120,6 +120,33 @@ func TestSearch(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "cancelled context",
+			ctx: func() context.Context {
+				ctx, cancel := context.WithCancel(context.Background())
+				cancel()
+
+				return ctx
+			}(),
+			files: []*model.File{
+				{
+					Path: "root/folder1/file1.txt",
+					Lines: []model.Line{
+						{Number: 0, Content: "something"},
+						{Number: 1, Content: "here is nothing to see"},
+					},
+				},
+				{
+					Path: "root/folder2/file2.txt",
+					Lines: []model.Line{
+						{Number: 0, Content: "only something to see"},
+						{Number: 1, Content: "Something"},
+					},
+				},
+			},
+			query:   "something",
+			wantErr: true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -134,8 +161,8 @@ func TestSearch(t *testing.T) {
 			}
 
 			result, err := findInFiles(tt.ctx, listFiles, check)
-			if err != nil {
-				t.Fatal(err)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("got error = %v, wantErr %v", err, tt.wantErr)
 			}
 
 			if diff := cmp.Diff(tt.want, result); diff != "" {
