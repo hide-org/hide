@@ -13,13 +13,37 @@ import (
 	"github.com/artmoskvin/hide/pkg/project"
 )
 
-// TODO: add string enums for search types
-
 const (
 	queryKey = "query"
-	exactKey = "exact"
-	regexKey = "regex"
 )
+
+type searchType string
+
+const (
+	searchType_DEFAULT searchType = ""
+	searchType_EXACT   searchType = "exact"
+	searchType_REGEX   searchType = "regex"
+)
+
+func gerSearchType(r *http.Request) (searchType, error) {
+	typ := searchType_DEFAULT
+
+	ok1 := r.URL.Query().Has(string(searchType_EXACT))
+	if ok1 {
+		typ = searchType_EXACT
+	}
+
+	ok2 := r.URL.Query().Has(string(searchType_REGEX))
+	if ok2 {
+		typ = searchType_REGEX
+	}
+
+	if ok1 && ok2 {
+		return "", fmt.Errorf("both %s and %s search types are set", searchType_EXACT, searchType_REGEX)
+	}
+
+	return typ, nil
+}
 
 type SearchFilesHandler struct {
 	ProjectManager project.Manager
@@ -32,16 +56,18 @@ func (h SearchFilesHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	typ, err := gerSearchType(r)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Invalid search type: %s", err), http.StatusBadRequest)
+	}
+
 	query := r.URL.Query().Get(queryKey)
 	if query == "" {
 		http.Error(w, "Query not specified", http.StatusBadRequest)
 		return
 	}
 
-	exact := r.URL.Query().Get(exactKey) == "true"
-	regex := r.URL.Query().Get(regexKey) == "true"
-
-	check, err := getChecker(query, exact, regex)
+	check, err := getChecker(query, typ)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Bad query: %s", err), http.StatusInternalServerError)
 	}
@@ -67,16 +93,15 @@ func (h SearchFilesHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(result)
 }
 
-func getChecker(query string, exact bool, regex bool) (check func(s string) bool, err error) {
-	if exact {
+func getChecker(query string, typ searchType) (check func(s string) bool, err error) {
+	switch typ {
+	case searchType_EXACT:
 		return exactSearch(query)
-	}
-
-	if regex {
+	case searchType_REGEX:
 		return regexSearch(query)
+	default:
+		return caseInsensitiveSearch(query)
 	}
-
-	return caseInsensitiveSearch(query)
 }
 
 func caseInsensitiveSearch(query string) (check func(s string) bool, err error) {
