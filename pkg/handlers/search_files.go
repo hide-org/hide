@@ -13,6 +13,8 @@ import (
 	"github.com/artmoskvin/hide/pkg/project"
 )
 
+// TODO: add string enums for search types
+
 const (
 	queryKey      = "query"
 	searchTypeKey = "search"
