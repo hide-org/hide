@@ -8,9 +8,9 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func PathCheckerMiddleware(next http.Handler) http.Handler {
+func PathValidator(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		log.Debug().Msg("Invoking PathCheckerMiddleware")
+		log.Debug().Msg("Invoking PathChecker")
 
 		filePath, err := getFilePath(r)
 		if err != nil {

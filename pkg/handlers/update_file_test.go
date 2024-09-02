@@ -93,9 +93,8 @@ func TestUpdateFileHandler_Success(t *testing.T) {
 				},
 			}
 
-			router := mux.NewRouter()
 			handler := handlers.UpdateFileHandler{ProjectManager: mockManager}
-			router.Handle("/projects/{id}/files/{path:.*}", handler).Methods("PUT")
+			router := handlers.NewRouter().WithUpdateFileHandler(handler).Build()
 
 			payload, _ := json.Marshal(tt.payload)
 			request, _ := http.NewRequest("PUT", "/projects/123/files/test.txt", bytes.NewBuffer(payload))
@@ -293,7 +292,8 @@ func TestPathStartingWithSlash(t *testing.T) {
 			},
 		}
 
-		router := handlers.Router(mockManager)
+		handler := handlers.UpdateFileHandler{ProjectManager: mockManager}
+		router := handlers.NewRouter().WithUpdateFileHandler(handler).Build()
 
 		payload, _ := json.Marshal(handlers.UpdateFileRequest{
 			Type: handlers.LineDiff,
@@ -327,7 +327,8 @@ func TestEmptyPath(t *testing.T) {
 			},
 		}
 
-		router := handlers.Router(mockManager)
+		handler := handlers.UpdateFileHandler{ProjectManager: mockManager}
+		router := handlers.NewRouter().WithUpdateFileHandler(handler).Build()
 
 		payload, _ := json.Marshal(handlers.UpdateFileRequest{
 			Type: handlers.LineDiff,
