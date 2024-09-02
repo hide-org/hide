@@ -14,7 +14,8 @@ import (
 )
 
 const (
-	queryKey = "query"
+	queryKey      = "query"
+	searchTypeKey = "search"
 )
 
 type SearchFilesHandler struct {
@@ -34,7 +35,9 @@ func (h SearchFilesHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	check, err := caseInsensitiveSearch(query)
+	typ := r.URL.Query().Get(searchTypeKey)
+
+	check, err := getChecker(typ, query)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Bad query: %s", err), http.StatusInternalServerError)
 	}
@@ -58,6 +61,17 @@ func (h SearchFilesHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(result)
+}
+
+func getChecker(typ, query string) (check func(s string) bool, err error) {
+	switch typ {
+	case "exact":
+		return exactSearch(query)
+	case "grep":
+		return grepSearch(query)
+	default:
+		return caseInsensitiveSearch(query)
+	}
 }
 
 func caseInsensitiveSearch(query string) (check func(s string) bool, err error) {
