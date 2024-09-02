@@ -59,6 +59,7 @@ func (h SearchFilesHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	typ, err := gerSearchType(r)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Invalid search type: %s", err), http.StatusBadRequest)
+		return
 	}
 
 	query := r.URL.Query().Get(queryKey)
