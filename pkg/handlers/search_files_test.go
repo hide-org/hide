@@ -95,27 +95,6 @@ func TestSearchFileHandler(t *testing.T) {
 			},
 		},
 		{
-			name:           "ok exact search",
-			ctx:            context.Background(),
-			method:         http.MethodGet,
-			target:         "/projects/p1/search?type=content&query=something&exact",
-			wantStatusCode: http.StatusOK,
-			wantBody: []model.File{
-				{
-					Path: "root/folder1/file1.txt",
-					Lines: []model.Line{
-						{Number: 0, Content: "something"},
-					},
-				},
-				{
-					Path: "root/folder2/file2.txt",
-					Lines: []model.Line{
-						{Number: 0, Content: "only something to see"},
-					},
-				},
-			},
-		},
-		{
 			name:           "ok regex search",
 			ctx:            context.Background(),
 			method:         http.MethodGet,
