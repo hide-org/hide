@@ -15,85 +15,93 @@ import (
 	"github.com/artmoskvin/hide/pkg/project"
 	"github.com/artmoskvin/hide/pkg/project/mocks"
 	"github.com/artmoskvin/hide/pkg/result"
+	"github.com/stretchr/testify/assert"
 )
 
 const repoUrl = "https://github.com/example/repo.git"
 
-func TestCreateProjectHandler_Success(t *testing.T) {
-	// Expected project
-	expectedProject := model.Project{Id: "123", Path: "/test/path"}
-
-	// Setup
-	mockManager := &mocks.MockProjectManager{
-		CreateProjectFunc: func(ctx context.Context, req project.CreateProjectRequest) <-chan result.Result[model.Project] {
-			ch := make(chan result.Result[model.Project], 1)
-			ch <- result.Success(expectedProject)
-			return ch
+func TestCreateProjectHandler(t *testing.T) {
+	tests := []struct {
+		name               string
+		createProjectFunc  func(ctx context.Context, req project.CreateProjectRequest) <-chan result.Result[model.Project]
+		expectedStatusCode int
+		expectedProject    *model.Project
+		expectedError      string
+	}{
+		{
+			name: "successful creation",
+			createProjectFunc: func(ctx context.Context, req project.CreateProjectRequest) <-chan result.Result[model.Project] {
+				ch := make(chan result.Result[model.Project], 1)
+				ch <- result.Success(model.Project{Id: "123", Path: "/test/path"})
+				return ch
+			},
+			expectedStatusCode: http.StatusCreated,
+			expectedProject:    &model.Project{Id: "123", Path: "/test/path"},
+		},
+		{
+			name: "failed creation",
+			createProjectFunc: func(ctx context.Context, req project.CreateProjectRequest) <-chan result.Result[model.Project] {
+				ch := make(chan result.Result[model.Project], 1)
+				ch <- result.Failure[model.Project](errors.New("Test error"))
+				return ch
+			},
+			expectedStatusCode: http.StatusInternalServerError,
+			expectedError:      "Failed to create project: Test error",
 		},
 	}
 
-	handler := handlers.CreateProjectHandler{Manager: mockManager}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockManager := &mocks.MockProjectManager{
+				CreateProjectFunc: tt.createProjectFunc,
+			}
 
-	requestBody := project.CreateProjectRequest{Repository: project.Repository{Url: repoUrl}}
-	body, _ := json.Marshal(requestBody)
-	request, _ := http.NewRequest("POST", "/projects", bytes.NewBuffer(body))
-	response := httptest.NewRecorder()
+			handler := handlers.CreateProjectHandler{Manager: mockManager}
+			router := handlers.NewRouter().WithCreateProjectHandler(handler).Build()
 
-	// Execute
-	handler.ServeHTTP(response, request)
+			requestBody := project.CreateProjectRequest{Repository: project.Repository{Url: repoUrl}}
+			body, _ := json.Marshal(requestBody)
+			request, _ := http.NewRequest("POST", "/projects", bytes.NewBuffer(body))
+			response := httptest.NewRecorder()
 
-	// Verify
-	if response.Code != http.StatusCreated {
-		t.Errorf("Expected status %d, got %d", http.StatusCreated, response.Code)
-	}
+			// Execute
+			router.ServeHTTP(response, request)
 
-	var respProject model.Project
-	if err := json.NewDecoder(response.Body).Decode(&respProject); err != nil {
-		t.Fatalf("Failed to decode response: %v", err)
-	}
+			// Verify
+			if response.Code != tt.expectedStatusCode {
+				t.Errorf("Expected status %d, got %d", tt.expectedStatusCode, response.Code)
+			}
 
-	if !reflect.DeepEqual(respProject, expectedProject) {
-		t.Errorf("Unexpected project returned: %+v", respProject)
-	}
-}
+			if tt.expectedProject != nil {
+				var respProject model.Project
+				if err := json.NewDecoder(response.Body).Decode(&respProject); err != nil {
+					t.Fatalf("Failed to decode response: %v", err)
+				}
 
-func TestCreateProjectHandler_Failure(t *testing.T) {
-	// Setup
-	mockManager := &mocks.MockProjectManager{
-		CreateProjectFunc: func(ctx context.Context, req project.CreateProjectRequest) <-chan result.Result[model.Project] {
-			ch := make(chan result.Result[model.Project], 1)
-			ch <- result.Failure[model.Project](errors.New("Test error"))
-			return ch
-		},
-	}
+				if !reflect.DeepEqual(respProject, *tt.expectedProject) {
+					t.Errorf("Unexpected project returned: %+v", respProject)
+				}
+			}
 
-	handler := handlers.CreateProjectHandler{Manager: mockManager}
+			if tt.expectedError != "" {
+				assert.Contains(t, response.Body.String(), tt.expectedError)
+			}
 
-	requestBody := project.CreateProjectRequest{Repository: project.Repository{Url: repoUrl}}
-	body, _ := json.Marshal(requestBody)
-	request, _ := http.NewRequest("POST", "/projects", bytes.NewBuffer(body))
-	response := httptest.NewRecorder()
-
-	// Execute
-	handler.ServeHTTP(response, request)
-
-	// Verify
-	if response.Code != http.StatusInternalServerError {
-		t.Errorf("Expected status %d, got %d", http.StatusInternalServerError, response.Code)
+		})
 	}
 }
 
 func TestCreateProjectHandler_BadRequest(t *testing.T) {
 	// Setup
 	mockManager := &mocks.MockProjectManager{}
-
 	handler := handlers.CreateProjectHandler{Manager: mockManager}
+	router := handlers.NewRouter().WithCreateProjectHandler(handler).Build()
 
 	request, _ := http.NewRequest("POST", "/projects", bytes.NewBuffer([]byte("invalid json")))
 	response := httptest.NewRecorder()
 
 	// Execute
-	handler.ServeHTTP(response, request)
+	router.ServeHTTP(response, request)
 
 	// Verify
 	if response.Code != http.StatusBadRequest {
