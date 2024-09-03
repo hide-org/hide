@@ -15,7 +15,6 @@ import (
 	"github.com/artmoskvin/hide/pkg/model"
 	"github.com/artmoskvin/hide/pkg/project"
 	project_mocks "github.com/artmoskvin/hide/pkg/project/mocks"
-	"github.com/gorilla/mux"
 )
 
 func TestUpdateFileHandler_Success(t *testing.T) {
@@ -119,9 +118,8 @@ func TestUpdateFileHandler_Success(t *testing.T) {
 }
 
 func TestUpdateFileHandler_RespondsWithBadRequest_IfRequestIsUnparsable(t *testing.T) {
-	router := mux.NewRouter()
 	handler := handlers.UpdateFileHandler{}
-	router.Handle("/projects/{id}/files/{path:.*}", handler).Methods("PUT")
+	router := handlers.NewRouter().WithUpdateFileHandler(handler).Build()
 
 	request, _ := http.NewRequest("PUT", "/projects/123/files/test.txt", bytes.NewBuffer([]byte("invalid json")))
 	response := httptest.NewRecorder()
@@ -198,9 +196,8 @@ func TestUpdateFileHandler_RespondsWithBadRequest_IfRequestIsInvalid(t *testing.
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			router := mux.NewRouter()
 			handler := handlers.UpdateFileHandler{}
-			router.Handle("/projects/{id}/files/{path:.*}", handler).Methods("PUT")
+			router := handlers.NewRouter().WithUpdateFileHandler(handler).Build()
 
 			body, _ := json.Marshal(tt.payload)
 			request, _ := http.NewRequest("PUT", "/projects/123/files/test.txt", bytes.NewBuffer(body))
@@ -226,9 +223,8 @@ func TestUpdateFileHandler_RespondsWithInternalServerError_IfFileManagerFails(t 
 		},
 	}
 
-	router := mux.NewRouter()
 	handler := handlers.UpdateFileHandler{ProjectManager: mockManager}
-	router.Handle("/projects/{id}/files/{path:.*}", handler).Methods("PUT")
+	router := handlers.NewRouter().WithUpdateFileHandler(handler).Build()
 
 	body, _ := json.Marshal(handlers.UpdateFileRequest{
 		Type: handlers.Udiff,
@@ -258,9 +254,8 @@ func TestUpdateFileHandler_RespondsWithNotFound_IfProjectNotFound(t *testing.T) 
 		},
 	}
 
-	router := mux.NewRouter()
 	handler := handlers.UpdateFileHandler{ProjectManager: mockManager}
-	router.Handle("/projects/{id}/files/{path:.*}", handler).Methods("PUT")
+	router := handlers.NewRouter().WithUpdateFileHandler(handler).Build()
 
 	body, _ := json.Marshal(handlers.UpdateFileRequest{
 		Type: handlers.Udiff,
