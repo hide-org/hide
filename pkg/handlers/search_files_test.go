@@ -156,6 +156,7 @@ func TestSearchFileHandler(t *testing.T) {
 			if tt.wantStatusCode != res.StatusCode {
 				t.Fatalf("got status code %v want %v", res.StatusCode, tt.wantStatusCode)
 			}
+			defer res.Body.Close()
 
 			if tt.wantErr {
 				return
