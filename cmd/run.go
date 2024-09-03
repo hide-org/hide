@@ -117,6 +117,7 @@ var runCmd = &cobra.Command{
 			WithReadFileHandler(handlers.ReadFileHandler{ProjectManager: projectManager}).
 			WithUpdateFileHandler(handlers.UpdateFileHandler{ProjectManager: projectManager}).
 			WithDeleteFileHandler(handlers.DeleteFileHandler{ProjectManager: projectManager}).
+			WithSearchFileHandler(handlers.SearchFilesHandler{ProjectManager: projectManager}).
 			Build()
 
 		addr := fmt.Sprintf("127.0.0.1:%d", port)

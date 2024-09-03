@@ -61,6 +61,11 @@ func (r *Router) WithDeleteFileHandler(handler DeleteFileHandler) *Router {
 	return r
 }
 
+func (r *Router) WithSearchFileHandler(handler SearchFilesHandler) *Router {
+	r.router.Handle("/projects/{id}/search", handler).Queries("type", "content", "query", "").Methods("GET")
+	return r
+}
+
 func (r *Router) Build() *mux.Router {
 	return r.router
 }
