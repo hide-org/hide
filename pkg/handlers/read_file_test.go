@@ -12,7 +12,6 @@ import (
 	"github.com/artmoskvin/hide/pkg/model"
 	"github.com/artmoskvin/hide/pkg/project"
 	project_mocks "github.com/artmoskvin/hide/pkg/project/mocks"
-	"github.com/gorilla/mux"
 )
 
 func TestReadFileHandler_Success(t *testing.T) {
@@ -73,9 +72,8 @@ func TestReadFileHandler_Success(t *testing.T) {
 				},
 			}
 
-			router := mux.NewRouter()
 			handler := handlers.ReadFileHandler{ProjectManager: mockManager}
-			router.Handle("/projects/{id}/files/{path:.*}", handler).Methods("GET")
+			router := handlers.NewRouter().WithReadFileHandler(handler).Build()
 
 			request, _ := http.NewRequest("GET", "/projects/123/files/test.txt?"+tt.query, nil)
 			response := httptest.NewRecorder()
@@ -118,9 +116,8 @@ func TestReadFileHandler_Fails_WithInvalidQueryParams(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			router := mux.NewRouter()
 			handler := handlers.ReadFileHandler{}
-			router.Handle("/projects/{id}/files/{path:.*}", handler).Methods("GET")
+			router := handlers.NewRouter().WithReadFileHandler(handler).Build()
 
 			request, _ := http.NewRequest("GET", "/projects/123/files/test.txt?"+tt.query, nil)
 			response := httptest.NewRecorder()
@@ -143,9 +140,8 @@ func TestReadFileHandler_Returns404_WhenProjectNotFound(t *testing.T) {
 			},
 		}
 
-		router := mux.NewRouter()
 		handler := handlers.ReadFileHandler{ProjectManager: mockManager}
-		router.Handle("/projects/{id}/files/{path:.*}", handler).Methods("GET")
+		router := handlers.NewRouter().WithReadFileHandler(handler).Build()
 
 		request, _ := http.NewRequest("GET", "/projects/123/files/test.txt", nil)
 		response := httptest.NewRecorder()
@@ -166,9 +162,8 @@ func TestReadFileHandler_Returns500_WhenReadFileFails(t *testing.T) {
 			},
 		}
 
-		router := mux.NewRouter()
 		handler := handlers.ReadFileHandler{ProjectManager: mockManager}
-		router.Handle("/projects/{id}/files/{path:.*}", handler).Methods("GET")
+		router := handlers.NewRouter().WithReadFileHandler(handler).Build()
 
 		request, _ := http.NewRequest("GET", "/projects/123/files/invalid.txt", nil)
 		response := httptest.NewRecorder()
