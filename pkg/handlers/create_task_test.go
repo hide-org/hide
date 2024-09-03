@@ -13,118 +13,96 @@ import (
 	"github.com/artmoskvin/hide/pkg/handlers"
 	"github.com/artmoskvin/hide/pkg/project"
 	"github.com/artmoskvin/hide/pkg/project/mocks"
-	"github.com/gorilla/mux"
 )
 
-func TestCreateTaskHandler_Command_Success(t *testing.T) {
-	// Expected result
-	expectedResult := project.TaskResult{StdOut: "Test output", StdErr: "Test error", ExitCode: 0}
-
-	// Setup
-	mockManager := &mocks.MockProjectManager{
-		CreateTaskFunc: func(ctx context.Context, projectId string, command string) (project.TaskResult, error) {
-			return expectedResult, nil
+func TestCreateTaskHandler(t *testing.T) {
+	tests := []struct {
+		name           string
+		setupMock      func() *mocks.MockProjectManager
+		requestBody    handlers.TaskRequest
+		expectedStatus int
+		expectedResult *project.TaskResult
+	}{
+		{
+			name: "command success",
+			setupMock: func() *mocks.MockProjectManager {
+				return &mocks.MockProjectManager{
+					CreateTaskFunc: func(ctx context.Context, projectId string, command string) (project.TaskResult, error) {
+						return project.TaskResult{StdOut: "Test output", StdErr: "Test error", ExitCode: 0}, nil
+					},
+				}
+			},
+			requestBody: handlers.TaskRequest{
+				Command: func() *string { s := "test command"; return &s }(),
+			},
+			expectedStatus: http.StatusOK,
+			expectedResult: &project.TaskResult{StdOut: "Test output", StdErr: "Test error", ExitCode: 0},
+		},
+		{
+			name: "alias success",
+			setupMock: func() *mocks.MockProjectManager {
+				return &mocks.MockProjectManager{
+					ResolveTaskAliasFunc: func(ctx context.Context, projectId string, alias string) (devcontainer.Task, error) {
+						return devcontainer.Task{Command: "resolved command"}, nil
+					},
+					CreateTaskFunc: func(ctx context.Context, projectId string, command string) (project.TaskResult, error) {
+						return project.TaskResult{StdOut: "Test output", StdErr: "Test error", ExitCode: 0}, nil
+					},
+				}
+			},
+			requestBody: handlers.TaskRequest{
+				Alias: func() *string { s := "test alias"; return &s }(),
+			},
+			expectedStatus: http.StatusOK,
+			expectedResult: &project.TaskResult{StdOut: "Test output", StdErr: "Test error", ExitCode: 0},
+		},
+		{
+			name: "failure",
+			setupMock: func() *mocks.MockProjectManager {
+				return &mocks.MockProjectManager{
+					CreateTaskFunc: func(ctx context.Context, projectId string, command string) (project.TaskResult, error) {
+						return project.TaskResult{}, errors.New("Test error")
+					},
+				}
+			},
+			requestBody: handlers.TaskRequest{
+				Command: func() *string { s := "test command"; return &s }(),
+			},
+			expectedStatus: http.StatusInternalServerError,
 		},
 	}
 
-	router := mux.NewRouter()
-	handler := handlers.CreateTaskHandler{Manager: mockManager}
-	router.Handle("/projects/{id}/tasks", handler).Methods("POST")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockManager := tt.setupMock()
 
-	requestBody := handlers.TaskRequest{Command: new(string)}
-	*requestBody.Command = "test command"
+			handler := handlers.CreateTaskHandler{Manager: mockManager}
+			router := handlers.NewRouter().WithCreateTaskHandler(handler).Build()
 
-	body, _ := json.Marshal(requestBody)
-	request, _ := http.NewRequest("POST", "/projects/123/tasks", bytes.NewBuffer(body))
-	response := httptest.NewRecorder()
+			body, _ := json.Marshal(tt.requestBody)
+			request, _ := http.NewRequest("POST", "/projects/123/tasks", bytes.NewBuffer(body))
+			response := httptest.NewRecorder()
 
-	// Execute
-	router.ServeHTTP(response, request)
+			router.ServeHTTP(response, request)
 
-	// Verify
-	if response.Code != http.StatusOK {
-		t.Errorf("Expected status %d, got %d", http.StatusOK, response.Code)
-	}
+			if response.Code != tt.expectedStatus {
+				t.Errorf("Expected status %d, got %d", tt.expectedStatus, response.Code)
+				if tt.expectedStatus == http.StatusInternalServerError {
+					t.Errorf("Body: %s", response.Body.String())
+				}
+			}
 
-	var respResult project.TaskResult
-	if err := json.NewDecoder(response.Body).Decode(&respResult); err != nil {
-		t.Fatalf("Failed to decode response: %v", err)
-	}
+			if tt.expectedStatus == http.StatusOK {
+				var respResult project.TaskResult
+				if err := json.NewDecoder(response.Body).Decode(&respResult); err != nil {
+					t.Fatalf("Failed to decode response: %v", err)
+				}
 
-	if respResult != expectedResult {
-		t.Errorf("Unexpected result returned: %+v", respResult)
-	}
-}
-
-func TestCreateTaskHandler_Alias_Success(t *testing.T) {
-	// Expected result
-	expectedResult := project.TaskResult{StdOut: "Test output", StdErr: "Test error", ExitCode: 0}
-
-	// Setup
-	mockManager := &mocks.MockProjectManager{
-		ResolveTaskAliasFunc: func(ctx context.Context, projectId string, alias string) (devcontainer.Task, error) {
-			return devcontainer.Task{Command: "resolved command"}, nil
-		},
-		CreateTaskFunc: func(ctx context.Context, projectId string, command string) (project.TaskResult, error) {
-			return expectedResult, nil
-		},
-	}
-
-	router := mux.NewRouter()
-	handler := handlers.CreateTaskHandler{Manager: mockManager}
-	router.Handle("/projects/{id}/tasks", handler).Methods("POST")
-
-	requestBody := handlers.TaskRequest{Alias: new(string)}
-	*requestBody.Alias = "test alias"
-
-	body, _ := json.Marshal(requestBody)
-	request, _ := http.NewRequest("POST", "/projects/123/tasks", bytes.NewBuffer(body))
-	response := httptest.NewRecorder()
-
-	// Execute
-	router.ServeHTTP(response, request)
-
-	// Verify
-	if response.Code != http.StatusOK {
-		t.Errorf("Expected status %d, got %d", http.StatusOK, response.Code)
-	}
-
-	var respResult project.TaskResult
-	if err := json.NewDecoder(response.Body).Decode(&respResult); err != nil {
-		t.Fatalf("Failed to decode response: %v", err)
-	}
-
-	if respResult != expectedResult {
-		t.Errorf("Unexpected result returned: %+v", respResult)
-	}
-}
-
-func TestCreateTaskHandler_Failure(t *testing.T) {
-	// Setup
-	mockManager := &mocks.MockProjectManager{
-		CreateTaskFunc: func(ctx context.Context, projectId string, command string) (project.TaskResult, error) {
-			return project.TaskResult{}, errors.New("Test error")
-		},
-	}
-
-	router := mux.NewRouter()
-	handler := handlers.CreateTaskHandler{Manager: mockManager}
-	router.Handle("/projects/{id}/tasks", handler).Methods("POST")
-
-	requestBody := handlers.TaskRequest{Command: new(string)}
-	*requestBody.Command = "test command"
-
-	body, _ := json.Marshal(requestBody)
-	request, _ := http.NewRequest("POST", "/projects/123/tasks", bytes.NewBuffer(body))
-	response := httptest.NewRecorder()
-
-	// Execute
-	router.ServeHTTP(response, request)
-
-	// Verify
-	if response.Code != http.StatusInternalServerError {
-		t.Errorf("Expected status %d, got %d", http.StatusInternalServerError, response.Code)
-		t.Errorf("Body: %s", response.Body.String())
+				if respResult != *tt.expectedResult {
+					t.Errorf("Unexpected result returned: %+v", respResult)
+				}
+			}
+		})
 	}
 }
 
@@ -132,9 +110,8 @@ func TestCreateTaskHandler_BadRequest(t *testing.T) {
 	// Setup
 	mockManager := &mocks.MockProjectManager{}
 
-	router := mux.NewRouter()
 	handler := handlers.CreateTaskHandler{Manager: mockManager}
-	router.Handle("/projects/{id}/tasks", handler).Methods("POST")
+	router := handlers.NewRouter().WithCreateTaskHandler(handler).Build()
 
 	// No request body
 	request, _ := http.NewRequest("POST", "/projects/123/tasks", bytes.NewBuffer([]byte("invalid json")))
