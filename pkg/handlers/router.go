@@ -18,6 +18,7 @@ func Router(pm project.Manager) *mux.Router {
 	updateFileHandler := UpdateFileHandler{ProjectManager: pm}
 	deleteFileHandler := DeleteFileHandler{ProjectManager: pm}
 	listFilesHandler := ListFilesHandler{ProjectManager: pm}
+	searchFilesHandler := SearchFilesHandler{ProjectManager: pm}
 
 	router.Handle("/projects", createProjectHandler).Methods("POST")
 	router.Handle("/projects/{id}", deleteProjectHandler).Methods("DELETE")
@@ -28,6 +29,8 @@ func Router(pm project.Manager) *mux.Router {
 	router.Handle("/projects/{id}/files/{path:.*}", PathCheckerMiddleware(readFileHandler)).Methods("GET")
 	router.Handle("/projects/{id}/files/{path:.*}", PathCheckerMiddleware(updateFileHandler)).Methods("PUT")
 	router.Handle("/projects/{id}/files/{path:.*}", PathCheckerMiddleware(deleteFileHandler)).Methods("DELETE")
+
+	router.Handle("/projects/{id}/search", searchFilesHandler).Queries("type", "content", "query", "").Methods("GET")
 
 	return router
 }
