@@ -18,14 +18,14 @@ import (
 func TestListTasksHandler_ServeHTTP(t *testing.T) {
 	tests := []struct {
 		name           string
-		projectID      string
+		target         string
 		mockManager    *mocks.MockProjectManager
 		expectedStatus int
 		expectedBody   string
 	}{
 		{
-			name:      "project with tasks",
-			projectID: "project-id",
+			name:   "project with tasks",
+			target: "/projects/project-id/tasks",
 			mockManager: &mocks.MockProjectManager{
 				GetProjectFunc: func(ctx context.Context, projectId string) (model.Project, error) {
 					return model.Project{
@@ -51,8 +51,8 @@ func TestListTasksHandler_ServeHTTP(t *testing.T) {
 			expectedBody:   `[{"alias":"task1","command":"command1"},{"alias":"task2","command":"command2"}]`,
 		},
 		{
-			name:      "project with no tasks",
-			projectID: "project-id",
+			name:   "project with no tasks",
+			target: "/projects/project-id/tasks",
 			mockManager: &mocks.MockProjectManager{
 				GetProjectFunc: func(ctx context.Context, projectId string) (model.Project, error) {
 					return model.Project{
@@ -75,8 +75,8 @@ func TestListTasksHandler_ServeHTTP(t *testing.T) {
 			expectedBody:   `[]`,
 		},
 		{
-			name:      "project not found",
-			projectID: "project-id",
+			name:   "project not found",
+			target: "/projects/project-id/tasks",
 			mockManager: &mocks.MockProjectManager{
 				GetProjectFunc: func(ctx context.Context, projectId string) (model.Project, error) {
 					return model.Project{}, project.NewProjectNotFoundError(projectId)
@@ -86,8 +86,8 @@ func TestListTasksHandler_ServeHTTP(t *testing.T) {
 			expectedBody:   `project project-id not found`,
 		},
 		{
-			name:      "internal server error",
-			projectID: "project-id",
+			name:   "internal server error",
+			target: "/projects/project-id/tasks",
 			mockManager: &mocks.MockProjectManager{
 				GetProjectFunc: func(ctx context.Context, projectId string) (model.Project, error) {
 					return model.Project{}, errors.New("internal error")
@@ -102,7 +102,7 @@ func TestListTasksHandler_ServeHTTP(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			handler := handlers.ListTasksHandler{Manager: tt.mockManager}
 			router := handlers.NewRouter().WithListTasksHandler(handler).Build()
-			req := httptest.NewRequest("GET", "/projects/"+tt.projectID+"/tasks", nil)
+			req := httptest.NewRequest(http.MethodGet, tt.target, nil)
 			rr := httptest.NewRecorder()
 			router.ServeHTTP(rr, req)
 

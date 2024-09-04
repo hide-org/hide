@@ -22,11 +22,11 @@ const repoUrl = "https://github.com/example/repo.git"
 
 func TestCreateProjectHandler(t *testing.T) {
 	tests := []struct {
-		name               string
-		createProjectFunc  func(ctx context.Context, req project.CreateProjectRequest) <-chan result.Result[model.Project]
-		expectedStatusCode int
-		expectedProject    *model.Project
-		expectedError      string
+		name              string
+		createProjectFunc func(ctx context.Context, req project.CreateProjectRequest) <-chan result.Result[model.Project]
+		wantStatusCode    int
+		wantProject       *model.Project
+		wantError         string
 	}{
 		{
 			name: "successful creation",
@@ -35,8 +35,8 @@ func TestCreateProjectHandler(t *testing.T) {
 				ch <- result.Success(model.Project{Id: "123", Path: "/test/path"})
 				return ch
 			},
-			expectedStatusCode: http.StatusCreated,
-			expectedProject:    &model.Project{Id: "123", Path: "/test/path"},
+			wantStatusCode: http.StatusCreated,
+			wantProject:    &model.Project{Id: "123", Path: "/test/path"},
 		},
 		{
 			name: "failed creation",
@@ -45,8 +45,8 @@ func TestCreateProjectHandler(t *testing.T) {
 				ch <- result.Failure[model.Project](errors.New("Test error"))
 				return ch
 			},
-			expectedStatusCode: http.StatusInternalServerError,
-			expectedError:      "Failed to create project: Test error",
+			wantStatusCode: http.StatusInternalServerError,
+			wantError:      "Failed to create project: Test error",
 		},
 	}
 
@@ -61,30 +61,30 @@ func TestCreateProjectHandler(t *testing.T) {
 
 			requestBody := project.CreateProjectRequest{Repository: project.Repository{Url: repoUrl}}
 			body, _ := json.Marshal(requestBody)
-			request, _ := http.NewRequest("POST", "/projects", bytes.NewBuffer(body))
+			request, _ := http.NewRequest(http.MethodPost, "/projects", bytes.NewBuffer(body))
 			response := httptest.NewRecorder()
 
 			// Execute
 			router.ServeHTTP(response, request)
 
 			// Verify
-			if response.Code != tt.expectedStatusCode {
-				t.Errorf("Expected status %d, got %d", tt.expectedStatusCode, response.Code)
+			if response.Code != tt.wantStatusCode {
+				t.Errorf("want status %d, got %d", tt.wantStatusCode, response.Code)
 			}
 
-			if tt.expectedProject != nil {
+			if tt.wantProject != nil {
 				var respProject model.Project
 				if err := json.NewDecoder(response.Body).Decode(&respProject); err != nil {
 					t.Fatalf("Failed to decode response: %v", err)
 				}
 
-				if !reflect.DeepEqual(respProject, *tt.expectedProject) {
-					t.Errorf("Unexpected project returned: %+v", respProject)
+				if !reflect.DeepEqual(respProject, *tt.wantProject) {
+					t.Errorf("want project %+v, got %+v", tt.wantProject, respProject)
 				}
 			}
 
-			if tt.expectedError != "" {
-				assert.Contains(t, response.Body.String(), tt.expectedError)
+			if tt.wantError != "" {
+				assert.Contains(t, response.Body.String(), tt.wantError)
 			}
 
 		})
@@ -97,7 +97,7 @@ func TestCreateProjectHandler_BadRequest(t *testing.T) {
 	handler := handlers.CreateProjectHandler{Manager: mockManager}
 	router := handlers.NewRouter().WithCreateProjectHandler(handler).Build()
 
-	request, _ := http.NewRequest("POST", "/projects", bytes.NewBuffer([]byte("invalid json")))
+	request, _ := http.NewRequest(http.MethodPost, "/projects", bytes.NewBuffer([]byte("invalid json")))
 	response := httptest.NewRecorder()
 
 	// Execute
@@ -105,6 +105,6 @@ func TestCreateProjectHandler_BadRequest(t *testing.T) {
 
 	// Verify
 	if response.Code != http.StatusBadRequest {
-		t.Errorf("Expected status %d, got %d", http.StatusBadRequest, response.Code)
+		t.Errorf("want status %d, got %d", http.StatusBadRequest, response.Code)
 	}
 }

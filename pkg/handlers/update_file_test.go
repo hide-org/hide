@@ -19,9 +19,9 @@ import (
 
 func TestUpdateFileHandler_Success(t *testing.T) {
 	tests := []struct {
-		name     string
-		payload  handlers.UpdateFileRequest
-		expected model.File
+		name    string
+		payload handlers.UpdateFileRequest
+		want    model.File
 	}{
 		{
 			name: "Update file with udiff",
@@ -31,7 +31,7 @@ func TestUpdateFileHandler_Success(t *testing.T) {
 					Patch: "--- test.txt\n+++ test.txt\n@@ -1,3 +1,3 @@\n line1\n-line2\n+line20\n line3\n",
 				},
 			},
-			expected: model.File{
+			want: model.File{
 				Path: "test.txt",
 				Lines: []model.Line{
 					{Number: 1, Content: "line1"},
@@ -50,7 +50,7 @@ func TestUpdateFileHandler_Success(t *testing.T) {
 					Content:   "line11\nline12\n",
 				},
 			},
-			expected: model.File{
+			want: model.File{
 				Path: "test.txt",
 				Lines: []model.Line{
 					{Number: 1, Content: "line11"},
@@ -67,7 +67,7 @@ func TestUpdateFileHandler_Success(t *testing.T) {
 					Content: "line1\nline2\nline3\n",
 				},
 			},
-			expected: model.File{
+			want: model.File{
 				Path: "test.txt",
 				Lines: []model.Line{
 					{Number: 1, Content: "line1"},
@@ -82,13 +82,13 @@ func TestUpdateFileHandler_Success(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			mockManager := &project_mocks.MockProjectManager{
 				ApplyPatchFunc: func(ctx context.Context, projectId string, path, patch string) (*model.File, error) {
-					return &tt.expected, nil
+					return &tt.want, nil
 				},
 				UpdateLinesFunc: func(ctx context.Context, projectId string, path string, lineDiff files.LineDiffChunk) (*model.File, error) {
-					return &tt.expected, nil
+					return &tt.want, nil
 				},
 				UpdateFileFunc: func(ctx context.Context, projectId string, path, content string) (*model.File, error) {
-					return &tt.expected, nil
+					return &tt.want, nil
 				},
 			}
 
@@ -96,13 +96,13 @@ func TestUpdateFileHandler_Success(t *testing.T) {
 			router := handlers.NewRouter().WithUpdateFileHandler(handler).Build()
 
 			payload, _ := json.Marshal(tt.payload)
-			request, _ := http.NewRequest("PUT", "/projects/123/files/test.txt", bytes.NewBuffer(payload))
+			request, _ := http.NewRequest(http.MethodPut, "/projects/123/files/test.txt", bytes.NewBuffer(payload))
 			response := httptest.NewRecorder()
 
 			router.ServeHTTP(response, request)
 
 			if response.Code != http.StatusOK {
-				t.Errorf("Expected status %d, got %d", http.StatusOK, response.Code)
+				t.Errorf("want status %d, got %d", http.StatusOK, response.Code)
 			}
 
 			var actual model.File
@@ -110,8 +110,8 @@ func TestUpdateFileHandler_Success(t *testing.T) {
 				t.Fatalf("Failed to decode response: %v", err)
 			}
 
-			if !actual.Equals(&tt.expected) {
-				t.Errorf("Expected file %+v, got %+v", tt.expected, actual)
+			if !actual.Equals(&tt.want) {
+				t.Errorf("want file %+v, got %+v", tt.want, actual)
 			}
 		})
 	}
@@ -121,17 +121,17 @@ func TestUpdateFileHandler_RespondsWithBadRequest_IfRequestIsUnparsable(t *testi
 	handler := handlers.UpdateFileHandler{}
 	router := handlers.NewRouter().WithUpdateFileHandler(handler).Build()
 
-	request, _ := http.NewRequest("PUT", "/projects/123/files/test.txt", bytes.NewBuffer([]byte("invalid json")))
+	request, _ := http.NewRequest(http.MethodPut, "/projects/123/files/test.txt", bytes.NewBuffer([]byte("invalid json")))
 	response := httptest.NewRecorder()
 
 	router.ServeHTTP(response, request)
 
 	if response.Code != http.StatusBadRequest {
-		t.Errorf("Expected status %d, got %d", http.StatusBadRequest, response.Code)
+		t.Errorf("want status %d, got %d", http.StatusBadRequest, response.Code)
 	}
 
 	if !strings.Contains(strings.ToLower(response.Body.String()), "failed parsing request body") {
-		t.Errorf("Expected error message 'Failed parsing request body', got %s", response.Body.String())
+		t.Errorf("want error message 'Failed parsing request body', got %s", response.Body.String())
 	}
 }
 
@@ -200,17 +200,17 @@ func TestUpdateFileHandler_RespondsWithBadRequest_IfRequestIsInvalid(t *testing.
 			router := handlers.NewRouter().WithUpdateFileHandler(handler).Build()
 
 			body, _ := json.Marshal(tt.payload)
-			request, _ := http.NewRequest("PUT", "/projects/123/files/test.txt", bytes.NewBuffer(body))
+			request, _ := http.NewRequest(http.MethodPut, "/projects/123/files/test.txt", bytes.NewBuffer(body))
 			response := httptest.NewRecorder()
 
 			router.ServeHTTP(response, request)
 
 			if response.Code != http.StatusBadRequest {
-				t.Errorf("Expected status %d, got %d", http.StatusBadRequest, response.Code)
+				t.Errorf("want status %d, got %d", http.StatusBadRequest, response.Code)
 			}
 
 			if !strings.Contains(strings.ToLower(response.Body.String()), tt.message) {
-				t.Errorf("Expected error message '%s', got %s", tt.message, response.Body.String())
+				t.Errorf("want error message '%s', got %s", tt.message, response.Body.String())
 			}
 		})
 	}
@@ -233,17 +233,17 @@ func TestUpdateFileHandler_RespondsWithInternalServerError_IfFileManagerFails(t 
 		},
 	})
 
-	request, _ := http.NewRequest("PUT", "/projects/123/files/test.txt", bytes.NewBuffer(body))
+	request, _ := http.NewRequest(http.MethodPut, "/projects/123/files/test.txt", bytes.NewBuffer(body))
 	response := httptest.NewRecorder()
 
 	router.ServeHTTP(response, request)
 
 	if response.Code != http.StatusInternalServerError {
-		t.Errorf("Expected status %d, got %d", http.StatusInternalServerError, response.Code)
+		t.Errorf("want status %d, got %d", http.StatusInternalServerError, response.Code)
 	}
 
 	if !strings.Contains(strings.ToLower(response.Body.String()), "failed to update file") {
-		t.Errorf("Expected error message 'Failed to update file', got %s", response.Body.String())
+		t.Errorf("want error message 'Failed to update file', got %s", response.Body.String())
 	}
 }
 
@@ -264,17 +264,17 @@ func TestUpdateFileHandler_RespondsWithNotFound_IfProjectNotFound(t *testing.T) 
 		},
 	})
 
-	request, _ := http.NewRequest("PUT", "/projects/123/files/test.txt", bytes.NewBuffer(body))
+	request, _ := http.NewRequest(http.MethodPut, "/projects/123/files/test.txt", bytes.NewBuffer(body))
 	response := httptest.NewRecorder()
 
 	router.ServeHTTP(response, request)
 
 	if response.Code != http.StatusNotFound {
-		t.Errorf("Expected status %d, got %d", http.StatusNotFound, response.Code)
+		t.Errorf("want status %d, got %d", http.StatusNotFound, response.Code)
 	}
 
 	if !strings.Contains(strings.ToLower(response.Body.String()), "not found") {
-		t.Errorf("Expected error message 'Project not found', got %s", response.Body.String())
+		t.Errorf("want error message 'Project not found', got %s", response.Body.String())
 	}
 }
 
@@ -299,7 +299,7 @@ func TestPathStartingWithSlash(t *testing.T) {
 			},
 		})
 
-		request, _ := http.NewRequest("PUT", "/projects/123/files//test.txt", bytes.NewBuffer(payload))
+		request, _ := http.NewRequest(http.MethodPut, "/projects/123/files//test.txt", bytes.NewBuffer(payload))
 		response := httptest.NewRecorder()
 
 		// Execute
@@ -307,7 +307,7 @@ func TestPathStartingWithSlash(t *testing.T) {
 
 		// Verify
 		if response.Code != http.StatusBadRequest {
-			t.Errorf("Expected status %d, got %d", http.StatusBadRequest, response.Code)
+			t.Errorf("want status %d, got %d", http.StatusBadRequest, response.Code)
 			t.Errorf("Body: %s", response.Body.String())
 		}
 	})
@@ -334,7 +334,7 @@ func TestEmptyPath(t *testing.T) {
 			},
 		})
 
-		request, _ := http.NewRequest("PUT", "/projects/123/files/", bytes.NewBuffer(payload))
+		request, _ := http.NewRequest(http.MethodPut, "/projects/123/files/", bytes.NewBuffer(payload))
 		response := httptest.NewRecorder()
 
 		// Execute
@@ -342,7 +342,7 @@ func TestEmptyPath(t *testing.T) {
 
 		// Verify
 		if response.Code != http.StatusBadRequest {
-			t.Errorf("Expected status %d, got %d", http.StatusBadRequest, response.Code)
+			t.Errorf("want status %d, got %d", http.StatusBadRequest, response.Code)
 			t.Errorf("Body: %s", response.Body.String())
 		}
 	})

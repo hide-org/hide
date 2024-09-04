@@ -16,44 +16,44 @@ import (
 
 func TestDeleteProjectHandler_ServeHTTP(t *testing.T) {
 	tests := []struct {
-		name                    string
-		projectID               string
-		mockDeleteProjectFunc   func(ctx context.Context, projectId string) <-chan result.Empty
-		expectedStatusCode      int
-		expectedBody            string
+		name                  string
+		target                string
+		mockDeleteProjectFunc func(ctx context.Context, projectId string) <-chan result.Empty
+		wantStatusCode        int
+		wantBody              string
 	}{
 		{
-			name:      "successful deletion",
-			projectID: "123",
+			name:   "successful deletion",
+			target: "/projects/123",
 			mockDeleteProjectFunc: func(ctx context.Context, projectId string) <-chan result.Empty {
 				ch := make(chan result.Empty, 1)
 				ch <- result.EmptySuccess()
 				return ch
 			},
-			expectedStatusCode: http.StatusNoContent,
-			expectedBody:       "",
+			wantStatusCode: http.StatusNoContent,
+			wantBody:       "",
 		},
 		{
-			name:      "project not found",
-			projectID: "123",
+			name:   "project not found",
+			target: "/projects/123",
 			mockDeleteProjectFunc: func(ctx context.Context, projectId string) <-chan result.Empty {
 				ch := make(chan result.Empty, 1)
 				ch <- result.EmptyFailure(project.NewProjectNotFoundError(projectId))
 				return ch
 			},
-			expectedStatusCode: http.StatusNotFound,
-			expectedBody:       "project 123 not found\n",
+			wantStatusCode: http.StatusNotFound,
+			wantBody:       "project 123 not found\n",
 		},
 		{
-			name:      "internal server error",
-			projectID: "123",
+			name:   "internal server error",
+			target: "/projects/123",
 			mockDeleteProjectFunc: func(ctx context.Context, projectId string) <-chan result.Empty {
 				ch := make(chan result.Empty, 1)
 				ch <- result.EmptyFailure(errors.New("internal error"))
 				return ch
 			},
-			expectedStatusCode: http.StatusInternalServerError,
-			expectedBody:       "Failed to delete project: internal error\n",
+			wantStatusCode: http.StatusInternalServerError,
+			wantBody:       "Failed to delete project: internal error\n",
 		},
 	}
 
@@ -67,14 +67,14 @@ func TestDeleteProjectHandler_ServeHTTP(t *testing.T) {
 				Manager: mockPM,
 			}
 
-			req := httptest.NewRequest("DELETE", "/projects/"+tt.projectID, nil)
+			req := httptest.NewRequest(http.MethodDelete, tt.target, nil)
 			rr := httptest.NewRecorder()
 
 			router := handlers.NewRouter().WithDeleteProjectHandler(handler).Build()
 			router.ServeHTTP(rr, req)
 
-			assert.Equal(t, tt.expectedStatusCode, rr.Code)
-			assert.Equal(t, tt.expectedBody, rr.Body.String())
+			assert.Equal(t, tt.wantStatusCode, rr.Code)
+			assert.Equal(t, tt.wantBody, rr.Body.String())
 		})
 	}
 }

@@ -17,11 +17,11 @@ import (
 
 func TestCreateTaskHandler(t *testing.T) {
 	tests := []struct {
-		name           string
-		setupMock      func() *mocks.MockProjectManager
-		requestBody    handlers.TaskRequest
-		expectedStatus int
-		expectedResult *project.TaskResult
+		name        string
+		setupMock   func() *mocks.MockProjectManager
+		requestBody handlers.TaskRequest
+		wantStatus  int
+		wantResult  *project.TaskResult
 	}{
 		{
 			name: "command success",
@@ -35,8 +35,8 @@ func TestCreateTaskHandler(t *testing.T) {
 			requestBody: handlers.TaskRequest{
 				Command: func() *string { s := "test command"; return &s }(),
 			},
-			expectedStatus: http.StatusOK,
-			expectedResult: &project.TaskResult{StdOut: "Test output", StdErr: "Test error", ExitCode: 0},
+			wantStatus: http.StatusOK,
+			wantResult: &project.TaskResult{StdOut: "Test output", StdErr: "Test error", ExitCode: 0},
 		},
 		{
 			name: "alias success",
@@ -53,8 +53,8 @@ func TestCreateTaskHandler(t *testing.T) {
 			requestBody: handlers.TaskRequest{
 				Alias: func() *string { s := "test alias"; return &s }(),
 			},
-			expectedStatus: http.StatusOK,
-			expectedResult: &project.TaskResult{StdOut: "Test output", StdErr: "Test error", ExitCode: 0},
+			wantStatus: http.StatusOK,
+			wantResult: &project.TaskResult{StdOut: "Test output", StdErr: "Test error", ExitCode: 0},
 		},
 		{
 			name: "failure",
@@ -68,7 +68,7 @@ func TestCreateTaskHandler(t *testing.T) {
 			requestBody: handlers.TaskRequest{
 				Command: func() *string { s := "test command"; return &s }(),
 			},
-			expectedStatus: http.StatusInternalServerError,
+			wantStatus: http.StatusInternalServerError,
 		},
 	}
 
@@ -80,26 +80,26 @@ func TestCreateTaskHandler(t *testing.T) {
 			router := handlers.NewRouter().WithCreateTaskHandler(handler).Build()
 
 			body, _ := json.Marshal(tt.requestBody)
-			request, _ := http.NewRequest("POST", "/projects/123/tasks", bytes.NewBuffer(body))
+			request, _ := http.NewRequest(http.MethodPost, "/projects/123/tasks", bytes.NewBuffer(body))
 			response := httptest.NewRecorder()
 
 			router.ServeHTTP(response, request)
 
-			if response.Code != tt.expectedStatus {
-				t.Errorf("Expected status %d, got %d", tt.expectedStatus, response.Code)
-				if tt.expectedStatus == http.StatusInternalServerError {
+			if response.Code != tt.wantStatus {
+				t.Errorf("want status %d, got %d", tt.wantStatus, response.Code)
+				if tt.wantStatus == http.StatusInternalServerError {
 					t.Errorf("Body: %s", response.Body.String())
 				}
 			}
 
-			if tt.expectedStatus == http.StatusOK {
+			if tt.wantStatus == http.StatusOK {
 				var respResult project.TaskResult
 				if err := json.NewDecoder(response.Body).Decode(&respResult); err != nil {
 					t.Fatalf("Failed to decode response: %v", err)
 				}
 
-				if respResult != *tt.expectedResult {
-					t.Errorf("Unexpected result returned: %+v", respResult)
+				if respResult != *tt.wantResult {
+					t.Errorf("want result %+v, got %+v", tt.wantResult, respResult)
 				}
 			}
 		})
@@ -114,7 +114,7 @@ func TestCreateTaskHandler_BadRequest(t *testing.T) {
 	router := handlers.NewRouter().WithCreateTaskHandler(handler).Build()
 
 	// No request body
-	request, _ := http.NewRequest("POST", "/projects/123/tasks", bytes.NewBuffer([]byte("invalid json")))
+	request, _ := http.NewRequest(http.MethodPost, "/projects/123/tasks", bytes.NewBuffer([]byte("invalid json")))
 	response := httptest.NewRecorder()
 
 	// Execute
@@ -122,47 +122,47 @@ func TestCreateTaskHandler_BadRequest(t *testing.T) {
 
 	// Verify
 	if response.Code != http.StatusBadRequest {
-		t.Errorf("Expected status %d, got %d", http.StatusBadRequest, response.Code)
+		t.Errorf("want status %d, got %d", http.StatusBadRequest, response.Code)
 	}
 }
 
 func TestTaskRequest_Validate(t *testing.T) {
 	tests := []struct {
-		name     string
-		request  handlers.TaskRequest
-		expected error
+		name    string
+		request handlers.TaskRequest
+		want    error
 	}{
 		{
-			name:     "Empty request",
-			request:  handlers.TaskRequest{},
-			expected: errors.New("either command or alias must be provided"),
+			name:    "Empty request",
+			request: handlers.TaskRequest{},
+			want:    errors.New("either command or alias must be provided"),
 		},
 		{
-			name:     "Both command and alias",
-			request:  handlers.TaskRequest{Command: new(string), Alias: new(string)},
-			expected: errors.New("only one of command or alias must be provided"),
+			name:    "Both command and alias",
+			request: handlers.TaskRequest{Command: new(string), Alias: new(string)},
+			want:    errors.New("only one of command or alias must be provided"),
 		},
 		{
-			name:     "Command provided",
-			request:  handlers.TaskRequest{Command: new(string)},
-			expected: nil,
+			name:    "Command provided",
+			request: handlers.TaskRequest{Command: new(string)},
+			want:    nil,
 		},
 		{
-			name:     "Alias provided",
-			request:  handlers.TaskRequest{Alias: new(string)},
-			expected: nil,
+			name:    "Alias provided",
+			request: handlers.TaskRequest{Alias: new(string)},
+			want:    nil,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := tt.request.Validate()
-			if err == nil && tt.expected != nil {
-				t.Errorf("Expected error %v, got nil", tt.expected)
-			} else if err != nil && tt.expected == nil {
-				t.Errorf("Unexpected error %v", err)
-			} else if err != nil && tt.expected != nil && err.Error() != tt.expected.Error() {
-				t.Errorf("Expected error %v, got %v", tt.expected, err)
+			if err == nil && tt.want != nil {
+				t.Errorf("want error %v, got nil", tt.want)
+			} else if err != nil && tt.want == nil {
+				t.Errorf("want error %v, got %v", tt.want, err)
+			} else if err != nil && tt.want != nil && err.Error() != tt.want.Error() {
+				t.Errorf("want error %v, got %v", tt.want, err)
 			}
 		})
 	}

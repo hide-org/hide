@@ -21,41 +21,41 @@ func TestCreateFileHandler(t *testing.T) {
 		name           string
 		createFileFunc func(ctx context.Context, projectId, path, content string) (*model.File, error)
 		requestBody    handlers.CreateFileRequest
-		expectedStatus int
-		expectedFile   *model.File
+		wantStatus     int
+		wantFile       *model.File
 	}{
 		{
 			name: "Success",
 			createFileFunc: func(ctx context.Context, projectId, path, content string) (*model.File, error) {
 				return model.NewFile("/test/path", "test content")
 			},
-			requestBody:    handlers.CreateFileRequest{Path: "/test/path", Content: "test content"},
-			expectedStatus: http.StatusCreated,
-			expectedFile:   func() *model.File { f, _ := model.NewFile("/test/path", "test content"); return f }(),
+			requestBody: handlers.CreateFileRequest{Path: "/test/path", Content: "test content"},
+			wantStatus:  http.StatusCreated,
+			wantFile:    func() *model.File { f, _ := model.NewFile("/test/path", "test content"); return f }(),
 		},
 		{
 			name: "ProjectNotFound",
 			createFileFunc: func(ctx context.Context, projectId, path, content string) (*model.File, error) {
 				return nil, project.NewProjectNotFoundError(projectId)
 			},
-			requestBody:    handlers.CreateFileRequest{Path: "/test/path", Content: "test content"},
-			expectedStatus: http.StatusNotFound,
+			requestBody: handlers.CreateFileRequest{Path: "/test/path", Content: "test content"},
+			wantStatus:  http.StatusNotFound,
 		},
 		{
 			name: "FileAlreadyExists",
 			createFileFunc: func(ctx context.Context, projectId, path, content string) (*model.File, error) {
 				return nil, files.NewFileAlreadyExistsError(path)
 			},
-			requestBody:    handlers.CreateFileRequest{Path: "/test/path", Content: "test content"},
-			expectedStatus: http.StatusConflict,
+			requestBody: handlers.CreateFileRequest{Path: "/test/path", Content: "test content"},
+			wantStatus:  http.StatusConflict,
 		},
 		{
 			name: "InternalServerError",
 			createFileFunc: func(ctx context.Context, projectId, path, content string) (*model.File, error) {
 				return nil, errors.New("Test error")
 			},
-			requestBody:    handlers.CreateFileRequest{Path: "/test/path", Content: "test content"},
-			expectedStatus: http.StatusInternalServerError,
+			requestBody: handlers.CreateFileRequest{Path: "/test/path", Content: "test content"},
+			wantStatus:  http.StatusInternalServerError,
 		},
 	}
 
@@ -69,23 +69,23 @@ func TestCreateFileHandler(t *testing.T) {
 			router := handlers.NewRouter().WithCreateFileHandler(handler).Build()
 
 			body, _ := json.Marshal(tc.requestBody)
-			request, _ := http.NewRequest("POST", "/projects/123/files", bytes.NewBuffer(body))
+			request, _ := http.NewRequest(http.MethodPost, "/projects/123/files", bytes.NewBuffer(body))
 			response := httptest.NewRecorder()
 
 			router.ServeHTTP(response, request)
 
-			if response.Code != tc.expectedStatus {
-				t.Errorf("Expected status %d, got %d", tc.expectedStatus, response.Code)
+			if response.Code != tc.wantStatus {
+				t.Errorf("want status %d, got %d", tc.wantStatus, response.Code)
 			}
 
-			if tc.expectedFile != nil {
+			if tc.wantFile != nil {
 				var respFile model.File
 				if err := json.NewDecoder(response.Body).Decode(&respFile); err != nil {
 					t.Fatalf("Failed to decode response: %v", err)
 				}
 
-				if !respFile.Equals(tc.expectedFile) {
-					t.Errorf("Unexpected file returned: %+v", respFile)
+				if !respFile.Equals(tc.wantFile) {
+					t.Errorf("Unwant file returned: %+v", respFile)
 				}
 			}
 		})
@@ -98,12 +98,12 @@ func TestCreateFileHandler_InvalidPayload(t *testing.T) {
 	handler := handlers.CreateFileHandler{ProjectManager: mockManager}
 	router := handlers.NewRouter().WithCreateFileHandler(handler).Build()
 
-	request, _ := http.NewRequest("POST", "/projects/123/files", bytes.NewBuffer([]byte("invalid json")))
+	request, _ := http.NewRequest(http.MethodPost, "/projects/123/files", bytes.NewBuffer([]byte("invalid json")))
 	response := httptest.NewRecorder()
 
 	router.ServeHTTP(response, request)
 
 	if response.Code != http.StatusBadRequest {
-		t.Errorf("Expected status %d, got %d", http.StatusBadRequest, response.Code)
+		t.Errorf("want status %d, got %d", http.StatusBadRequest, response.Code)
 	}
 }

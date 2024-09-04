@@ -16,55 +16,50 @@ import (
 
 func TestListFilesHandler_ServeHTTP(t *testing.T) {
 	tests := []struct {
-		name                string
-		projectID           string
-		showHidden          string
-		mockListFilesFunc   func(ctx context.Context, projectId string, showHidden bool) ([]*model.File, error)
-		expectedStatusCode  int
-		expectedBody        string
+		name              string
+		target            string
+		mockListFilesFunc func(ctx context.Context, projectId string, showHidden bool) ([]*model.File, error)
+		wantStatusCode    int
+		wantBody          string
 	}{
 		{
-			name:      "successful listing",
-			projectID: "123",
-			showHidden: "false",
+			name:   "successful listing",
+			target: "/projects/123/files?showHidden=false",
 			mockListFilesFunc: func(ctx context.Context, projectId string, showHidden bool) ([]*model.File, error) {
 				return []*model.File{
 					model.EmptyFile("file1.txt"),
 					model.EmptyFile("file2.txt"),
 				}, nil
 			},
-			expectedStatusCode: http.StatusOK,
-			expectedBody:       `[{"path":"file1.txt"},{"path":"file2.txt"}]`,
+			wantStatusCode: http.StatusOK,
+			wantBody:       `[{"path":"file1.txt"},{"path":"file2.txt"}]`,
 		},
 		{
-			name:      "project not found",
-			projectID: "123",
-			showHidden: "false",
+			name:   "project not found",
+			target: "/projects/123/files?showHidden=false",
 			mockListFilesFunc: func(ctx context.Context, projectId string, showHidden bool) ([]*model.File, error) {
 				return nil, project.NewProjectNotFoundError(projectId)
 			},
-			expectedStatusCode: http.StatusNotFound,
-			expectedBody:       "project 123 not found",
+			wantStatusCode: http.StatusNotFound,
+			wantBody:       "project 123 not found",
 		},
 		{
-			name:      "internal server error",
-			projectID: "123",
-			showHidden: "false",
+			name:   "internal server error",
+			target: "/projects/123/files?showHidden=false",
 			mockListFilesFunc: func(ctx context.Context, projectId string, showHidden bool) ([]*model.File, error) {
 				return nil, errors.New("internal error")
 			},
-			expectedStatusCode: http.StatusInternalServerError,
-			expectedBody:       "Failed to list files: internal error",
+			wantStatusCode: http.StatusInternalServerError,
+			wantBody:       "Failed to list files: internal error",
 		},
 		{
-			name:      "invalid showHidden query parameter",
-			projectID: "123",
-			showHidden: "invalid",
+			name:   "invalid showHidden query parameter",
+			target: "/projects/123/files?showHidden=invalid",
 			mockListFilesFunc: func(ctx context.Context, projectId string, showHidden bool) ([]*model.File, error) {
 				return nil, nil
 			},
-			expectedStatusCode: http.StatusBadRequest,
-			expectedBody:       "Invalid `showHidden` query parameter",
+			wantStatusCode: http.StatusBadRequest,
+			wantBody:       "Invalid `showHidden` query parameter",
 		},
 	}
 
@@ -80,13 +75,13 @@ func TestListFilesHandler_ServeHTTP(t *testing.T) {
 
 			router := handlers.NewRouter().WithListFilesHandler(handler).Build()
 
-			req := httptest.NewRequest("GET", "/projects/"+tt.projectID+"/files?showHidden="+tt.showHidden, nil)
+			req := httptest.NewRequest(http.MethodGet, tt.target, nil)
 			rr := httptest.NewRecorder()
 
 			router.ServeHTTP(rr, req)
 
-			assert.Equal(t, tt.expectedStatusCode, rr.Code)
-			assert.Contains(t, rr.Body.String(), tt.expectedBody)
+			assert.Equal(t, tt.wantStatusCode, rr.Code)
+			assert.Contains(t, rr.Body.String(), tt.wantBody)
 		})
 	}
 }

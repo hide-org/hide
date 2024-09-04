@@ -17,61 +17,55 @@ import (
 func TestDeleteFileHandler_ServeHTTP(t *testing.T) {
 	tests := []struct {
 		name               string
-		projectID          string
-		filePath           string
+		target             string
 		mockDeleteFileFunc func(ctx context.Context, projectId, path string) error
-		expectedStatusCode int
-		expectedBody       string
+		wantStatusCode     int
+		wantBody           string
 	}{
 		{
-			name:      "successful deletion",
-			projectID: "123",
-			filePath:  "test.txt",
+			name:   "successful deletion",
+			target: "/projects/123/files/test.txt",
 			mockDeleteFileFunc: func(ctx context.Context, projectId, path string) error {
 				return nil
 			},
-			expectedStatusCode: http.StatusNoContent,
-			expectedBody:       "",
+			wantStatusCode: http.StatusNoContent,
+			wantBody:       "",
 		},
 		{
-			name:      "invalid file path",
-			projectID: "123",
-			filePath:  "",
+			name:   "invalid file path",
+			target: "/projects/123/files/",
 			mockDeleteFileFunc: func(ctx context.Context, projectId, path string) error {
 				return nil
 			},
-			expectedStatusCode: http.StatusBadRequest,
-			expectedBody:       "Invalid file path",
+			wantStatusCode: http.StatusBadRequest,
+			wantBody:       "Invalid file path",
 		},
 		{
-			name:      "project not found",
-			projectID: "123",
-			filePath:  "test.txt",
+			name:   "project not found",
+			target: "/projects/123/files/test.txt",
 			mockDeleteFileFunc: func(ctx context.Context, projectId, path string) error {
 				return project.NewProjectNotFoundError(projectId)
 			},
-			expectedStatusCode: http.StatusNotFound,
-			expectedBody:       "project 123 not found",
+			wantStatusCode: http.StatusNotFound,
+			wantBody:       "project 123 not found",
 		},
 		{
-			name:      "file not found",
-			projectID: "123",
-			filePath:  "test.txt",
+			name:   "file not found",
+			target: "/projects/123/files/test.txt",
 			mockDeleteFileFunc: func(ctx context.Context, projectId, path string) error {
 				return files.NewFileNotFoundError(path)
 			},
-			expectedStatusCode: http.StatusNotFound,
-			expectedBody:       "file test.txt not found",
+			wantStatusCode: http.StatusNotFound,
+			wantBody:       "file test.txt not found",
 		},
 		{
-			name:      "internal server error",
-			projectID: "123",
-			filePath:  "test.txt",
+			name:   "internal server error",
+			target: "/projects/123/files/test.txt",
 			mockDeleteFileFunc: func(ctx context.Context, projectId, path string) error {
 				return errors.New("internal error")
 			},
-			expectedStatusCode: http.StatusInternalServerError,
-			expectedBody:       "Failed to delete file",
+			wantStatusCode: http.StatusInternalServerError,
+			wantBody:       "Failed to delete file",
 		},
 	}
 
@@ -85,14 +79,14 @@ func TestDeleteFileHandler_ServeHTTP(t *testing.T) {
 				ProjectManager: mockPM,
 			}
 
-			req := httptest.NewRequest("DELETE", "/projects/"+tt.projectID+"/files/"+tt.filePath, nil)
+			req := httptest.NewRequest(http.MethodDelete, tt.target, nil)
 			rr := httptest.NewRecorder()
 
 			router := handlers.NewRouter().WithDeleteFileHandler(handler).Build()
 			router.ServeHTTP(rr, req)
 
-			assert.Equal(t, tt.expectedStatusCode, rr.Code)
-			assert.Contains(t, rr.Body.String(), tt.expectedBody)
+			assert.Equal(t, tt.wantStatusCode, rr.Code)
+			assert.Contains(t, rr.Body.String(), tt.wantBody)
 		})
 	}
 }
