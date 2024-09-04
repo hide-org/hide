@@ -1,44 +1,63 @@
-package handlers
+package handlers_test
 
 import (
 	"context"
+	"encoding/json"
+	"io"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 
+	"github.com/artmoskvin/hide/pkg/handlers"
 	"github.com/artmoskvin/hide/pkg/model"
+	"github.com/artmoskvin/hide/pkg/project/mocks"
 	"github.com/google/go-cmp/cmp"
 )
 
-func TestSearch(t *testing.T) {
+func TestSearchFileHandler(t *testing.T) {
+	// set up
+	pm := &mocks.MockProjectManager{
+		ListFilesFunc: func(ctx context.Context, projectId string, showHidden bool) ([]*model.File, error) {
+			return []*model.File{
+				{
+					Path: "root/folder1/file1.txt",
+					Lines: []model.Line{
+						{Number: 0, Content: "something"},
+						{Number: 1, Content: "here is nothing to see"},
+					},
+				},
+				{
+					Path: "root/folder2/file2.txt",
+					Lines: []model.Line{
+						{Number: 0, Content: "only something to see"},
+						{Number: 1, Content: "Something"},
+					},
+				},
+			}, nil
+		},
+	}
+	h := handlers.SearchFilesHandler{
+		ProjectManager: pm,
+	}
+	r := handlers.NewRouter().WithSearchFileHandler(h).Build()
+
+	// run tests
 	tests := []struct {
-		name    string
-		ctx     context.Context
-		files   []*model.File
-		query   string
-		typ     searchType
-		want    []model.File
-		wantErr bool
+		name           string
+		ctx            context.Context
+		method         string
+		target         string
+		wantStatusCode int
+		wantBody       []model.File
+		wantErr        bool
 	}{
 		{
-			name: "case insensitive search",
-			ctx:  context.Background(),
-			files: []*model.File{
-				{
-					Path: "root/folder1/file1.txt",
-					Lines: []model.Line{
-						{Number: 0, Content: "something"},
-						{Number: 1, Content: "here is nothing to see"},
-					},
-				},
-				{
-					Path: "root/folder2/file2.txt",
-					Lines: []model.Line{
-						{Number: 0, Content: "only something to see"},
-						{Number: 1, Content: "Something"},
-					},
-				},
-			},
-			query: "something",
-			want: []model.File{
+			name:           "ok case insensitive search",
+			ctx:            context.Background(),
+			method:         http.MethodGet,
+			target:         "/projects/p1/search?type=content&query=something",
+			wantStatusCode: http.StatusOK,
+			wantBody: []model.File{
 				{
 					Path: "root/folder1/file1.txt",
 					Lines: []model.Line{
@@ -55,27 +74,12 @@ func TestSearch(t *testing.T) {
 			},
 		},
 		{
-			name: "exact search",
-			ctx:  context.Background(),
-			files: []*model.File{
-				{
-					Path: "root/folder1/file1.txt",
-					Lines: []model.Line{
-						{Number: 0, Content: "something"},
-						{Number: 1, Content: "here is nothing to see"},
-					},
-				},
-				{
-					Path: "root/folder2/file2.txt",
-					Lines: []model.Line{
-						{Number: 0, Content: "only something to see"},
-						{Number: 1, Content: "Something"},
-					},
-				},
-			},
-			typ:   searchType_EXACT,
-			query: "something",
-			want: []model.File{
+			name:           "ok exact search",
+			ctx:            context.Background(),
+			method:         http.MethodGet,
+			target:         "/projects/p1/search?type=content&query=something&exact",
+			wantStatusCode: http.StatusOK,
+			wantBody: []model.File{
 				{
 					Path: "root/folder1/file1.txt",
 					Lines: []model.Line{
@@ -91,27 +95,12 @@ func TestSearch(t *testing.T) {
 			},
 		},
 		{
-			name: "grep search",
-			ctx:  context.Background(),
-			files: []*model.File{
-				{
-					Path: "root/folder1/file1.txt",
-					Lines: []model.Line{
-						{Number: 0, Content: "something"},
-						{Number: 1, Content: "here is nothing to see"},
-					},
-				},
-				{
-					Path: "root/folder2/file2.txt",
-					Lines: []model.Line{
-						{Number: 0, Content: "only something to see"},
-						{Number: 1, Content: "Something"},
-					},
-				},
-			},
-			typ:   searchType_REGEX,
-			query: `^o.*e$`,
-			want: []model.File{
+			name:           "ok regex search",
+			ctx:            context.Background(),
+			method:         http.MethodGet,
+			target:         "/projects/p1/search?type=content&query=^o.*e$&regex",
+			wantStatusCode: http.StatusOK,
+			wantBody: []model.File{
 				{
 					Path: "root/folder2/file2.txt",
 					Lines: []model.Line{
@@ -121,51 +110,48 @@ func TestSearch(t *testing.T) {
 			},
 		},
 		{
-			name: "cancelled context",
+			name: "context cancelled",
 			ctx: func() context.Context {
 				ctx, cancel := context.WithCancel(context.Background())
 				cancel()
 
 				return ctx
 			}(),
-			files: []*model.File{
-				{
-					Path: "root/folder1/file1.txt",
-					Lines: []model.Line{
-						{Number: 0, Content: "something"},
-						{Number: 1, Content: "here is nothing to see"},
-					},
-				},
-				{
-					Path: "root/folder2/file2.txt",
-					Lines: []model.Line{
-						{Number: 0, Content: "only something to see"},
-						{Number: 1, Content: "Something"},
-					},
-				},
-			},
-			query:   "something",
-			wantErr: true,
+			method:         http.MethodGet,
+			target:         "/projects/p1/search?type=content&query=^o.*e$&regex",
+			wantStatusCode: http.StatusInternalServerError, // NOTE: I think we should return 204 No Content
+			wantErr:        true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			listFiles := func(ctx context.Context, showHidden bool) ([]*model.File, error) {
-				return tt.files, nil
+			req := httptest.NewRequest(tt.method, tt.target, nil).WithContext(tt.ctx)
+			rec := httptest.NewRecorder()
+
+			r.ServeHTTP(rec, req)
+
+			res := rec.Result()
+			if tt.wantStatusCode != res.StatusCode {
+				t.Fatalf("got status code %v want %v", res.StatusCode, tt.wantStatusCode)
+			}
+			defer res.Body.Close()
+
+			if tt.wantErr {
+				return
 			}
 
-			check, err := getChecker(tt.query, tt.typ)
+			body, err := io.ReadAll(res.Body)
 			if err != nil {
 				t.Fatal(err)
 			}
 
-			result, err := findInFiles(tt.ctx, listFiles, check)
-			if (err != nil) != tt.wantErr {
-				t.Fatalf("got error = %v, wantErr %v", err, tt.wantErr)
+			var out []model.File
+			if err := json.Unmarshal(body, &out); err != nil {
+				t.Fatal(err)
 			}
 
-			if diff := cmp.Diff(tt.want, result); diff != "" {
+			if diff := cmp.Diff(tt.wantBody, out); diff != "" {
 				t.Errorf("got diff %s", diff)
 			}
 		})

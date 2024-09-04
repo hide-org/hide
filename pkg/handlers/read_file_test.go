@@ -12,19 +12,18 @@ import (
 	"github.com/artmoskvin/hide/pkg/model"
 	"github.com/artmoskvin/hide/pkg/project"
 	project_mocks "github.com/artmoskvin/hide/pkg/project/mocks"
-	"github.com/gorilla/mux"
 )
 
 func TestReadFileHandler_Success(t *testing.T) {
 	tests := []struct {
-		name         string
-		query        string
-		expectedFile model.File
+		name     string
+		target   string
+		wantFile model.File
 	}{
 		{
-			name:  "Read file with default params",
-			query: "",
-			expectedFile: model.File{
+			name:   "Read file with default params",
+			target: "/projects/123/files/test.txt",
+			wantFile: model.File{
 				Path: "test.txt",
 				Lines: []model.Line{
 					{Number: 1, Content: "line1"},
@@ -34,9 +33,9 @@ func TestReadFileHandler_Success(t *testing.T) {
 			},
 		},
 		{
-			name:  "Read file with startLine=2",
-			query: "startLine=2",
-			expectedFile: model.File{
+			name:   "Read file with startLine=2",
+			target: "/projects/123/files/test.txt?startLine=2",
+			wantFile: model.File{
 				Path: "test.txt",
 				Lines: []model.Line{
 					{Number: 2, Content: "line2"},
@@ -45,9 +44,9 @@ func TestReadFileHandler_Success(t *testing.T) {
 			},
 		},
 		{
-			name:  "Read file with numLines=2",
-			query: "numLines=2",
-			expectedFile: model.File{
+			name:   "Read file with numLines=2",
+			target: "/projects/123/files/test.txt?numLines=2",
+			wantFile: model.File{
 				Path: "test.txt",
 				Lines: []model.Line{
 					{Number: 1, Content: "line1"},
@@ -73,17 +72,16 @@ func TestReadFileHandler_Success(t *testing.T) {
 				},
 			}
 
-			router := mux.NewRouter()
 			handler := handlers.ReadFileHandler{ProjectManager: mockManager}
-			router.Handle("/projects/{id}/files/{path:.*}", handler).Methods("GET")
+			router := handlers.NewRouter().WithReadFileHandler(handler).Build()
 
-			request, _ := http.NewRequest("GET", "/projects/123/files/test.txt?"+tt.query, nil)
+			request, _ := http.NewRequest(http.MethodGet, tt.target, nil)
 			response := httptest.NewRecorder()
 
 			router.ServeHTTP(response, request)
 
 			if response.Code != http.StatusOK {
-				t.Errorf("Expected status 200, got %d", response.Code)
+				t.Errorf("want status 200, got %d", response.Code)
 			}
 
 			var respFile model.File
@@ -91,8 +89,8 @@ func TestReadFileHandler_Success(t *testing.T) {
 				t.Fatalf("Failed to decode response: %v", err)
 			}
 
-			if !respFile.Equals(&tt.expectedFile) {
-				t.Errorf("Expected file %+v, got %+v", tt.expectedFile, respFile)
+			if !respFile.Equals(&tt.wantFile) {
+				t.Errorf("want file %+v, got %+v", tt.wantFile, respFile)
 			}
 		})
 	}
@@ -100,35 +98,34 @@ func TestReadFileHandler_Success(t *testing.T) {
 
 func TestReadFileHandler_Fails_WithInvalidQueryParams(t *testing.T) {
 	tests := []struct {
-		name         string
-		query        string
-		expectedCode int
+		name     string
+		target   string
+		wantCode int
 	}{
 		{
-			name:         "Read file with invalid startLine param",
-			query:        "startLine=invalid",
-			expectedCode: http.StatusBadRequest,
+			name:     "Read file with invalid startLine param",
+			target:   "/projects/123/files/test.txt?startLine=invalid",
+			wantCode: http.StatusBadRequest,
 		},
 		{
-			name:         "Read file with invalid numLines param",
-			query:        "numLines=invalid",
-			expectedCode: http.StatusBadRequest,
+			name:     "Read file with invalid numLines param",
+			target:   "/projects/123/files/test.txt?numLines=invalid",
+			wantCode: http.StatusBadRequest,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			router := mux.NewRouter()
 			handler := handlers.ReadFileHandler{}
-			router.Handle("/projects/{id}/files/{path:.*}", handler).Methods("GET")
+			router := handlers.NewRouter().WithReadFileHandler(handler).Build()
 
-			request, _ := http.NewRequest("GET", "/projects/123/files/test.txt?"+tt.query, nil)
+			request, _ := http.NewRequest(http.MethodGet, tt.target, nil)
 			response := httptest.NewRecorder()
 
 			router.ServeHTTP(response, request)
 
-			if response.Code != tt.expectedCode {
-				t.Errorf("Expected status %d, got %d", tt.expectedCode, response.Code)
+			if response.Code != tt.wantCode {
+				t.Errorf("want status %d, got %d", tt.wantCode, response.Code)
 				t.Errorf("Body: %s", response.Body.String())
 			}
 		})
@@ -143,17 +140,16 @@ func TestReadFileHandler_Returns404_WhenProjectNotFound(t *testing.T) {
 			},
 		}
 
-		router := mux.NewRouter()
 		handler := handlers.ReadFileHandler{ProjectManager: mockManager}
-		router.Handle("/projects/{id}/files/{path:.*}", handler).Methods("GET")
+		router := handlers.NewRouter().WithReadFileHandler(handler).Build()
 
-		request, _ := http.NewRequest("GET", "/projects/123/files/test.txt", nil)
+		request, _ := http.NewRequest(http.MethodGet, "/projects/123/files/test.txt", nil)
 		response := httptest.NewRecorder()
 
 		router.ServeHTTP(response, request)
 
 		if response.Code != http.StatusNotFound {
-			t.Errorf("Expected status 404, got %d", response.Code)
+			t.Errorf("want status 404, got %d", response.Code)
 		}
 	})
 }
@@ -166,17 +162,16 @@ func TestReadFileHandler_Returns500_WhenReadFileFails(t *testing.T) {
 			},
 		}
 
-		router := mux.NewRouter()
 		handler := handlers.ReadFileHandler{ProjectManager: mockManager}
-		router.Handle("/projects/{id}/files/{path:.*}", handler).Methods("GET")
+		router := handlers.NewRouter().WithReadFileHandler(handler).Build()
 
-		request, _ := http.NewRequest("GET", "/projects/123/files/invalid.txt", nil)
+		request, _ := http.NewRequest(http.MethodGet, "/projects/123/files/invalid.txt", nil)
 		response := httptest.NewRecorder()
 
 		router.ServeHTTP(response, request)
 
 		if response.Code != http.StatusInternalServerError {
-			t.Errorf("Expected status 500, got %d", response.Code)
+			t.Errorf("want status 500, got %d", response.Code)
 		}
 	})
 }

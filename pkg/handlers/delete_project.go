@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 
@@ -18,14 +19,18 @@ func (h DeleteProjectHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	// TODO: check if project exists
 	result := <-h.Manager.DeleteProject(r.Context(), projectID)
 
 	if result.IsFailure() {
+		var projectNotFoundError *project.ProjectNotFoundError
+		if errors.As(result.Error, &projectNotFoundError) {
+			http.Error(w, projectNotFoundError.Error(), http.StatusNotFound)
+			return
+		}
+
 		http.Error(w, fmt.Sprintf("Failed to delete project: %s", result.Error), http.StatusInternalServerError)
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusNoContent)
 }

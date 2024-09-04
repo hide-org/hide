@@ -106,7 +106,19 @@ var runCmd = &cobra.Command{
 		lspService := lsp.NewService(languageDetector, lspServerExecutables, diagnosticsStore, clientPool)
 		projectManager := project.NewProjectManager(containerRunner, projectStore, projectsDir, fileManager, lspService, languageDetector, random.String)
 
-		router := handlers.Router(projectManager)
+		router := handlers.
+			NewRouter().
+			WithCreateProjectHandler(handlers.CreateProjectHandler{Manager: projectManager}).
+			WithDeleteProjectHandler(handlers.DeleteProjectHandler{Manager: projectManager}).
+			WithCreateTaskHandler(handlers.CreateTaskHandler{Manager: projectManager}).
+			WithListTasksHandler(handlers.ListTasksHandler{Manager: projectManager}).
+			WithCreateFileHandler(handlers.CreateFileHandler{ProjectManager: projectManager}).
+			WithListFilesHandler(handlers.ListFilesHandler{ProjectManager: projectManager}).
+			WithReadFileHandler(handlers.ReadFileHandler{ProjectManager: projectManager}).
+			WithUpdateFileHandler(handlers.UpdateFileHandler{ProjectManager: projectManager}).
+			WithDeleteFileHandler(handlers.DeleteFileHandler{ProjectManager: projectManager}).
+			WithSearchFileHandler(handlers.SearchFilesHandler{ProjectManager: projectManager}).
+			Build()
 
 		addr := fmt.Sprintf("127.0.0.1:%d", port)
 
