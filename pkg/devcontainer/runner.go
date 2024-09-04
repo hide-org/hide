@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/artmoskvin/hide/pkg/util"
 	"github.com/rs/zerolog/log"
 )
 
@@ -22,12 +21,12 @@ type Runner interface {
 }
 
 type DockerRunner struct {
-	commandExecutor  util.Executor
+	commandExecutor  Executor
 	imageManager     ImageManager
 	containerManager ContainerManager
 }
 
-func NewDockerRunner(commandExecutor util.Executor, imageManager ImageManager, containerManager ContainerManager) Runner {
+func NewDockerRunner(commandExecutor Executor, imageManager ImageManager, containerManager ContainerManager) Runner {
 	return &DockerRunner{
 		commandExecutor:  commandExecutor,
 		imageManager:     imageManager,
@@ -40,7 +39,7 @@ func (r *DockerRunner) Run(ctx context.Context, projectPath string, config Confi
 	// Run initialize commands
 	if command := config.LifecycleProps.InitializeCommand; command != nil {
 		if err := r.executeLifecycleCommand(command, projectPath); err != nil {
-			return "", fmt.Errorf("Failed to run initialize command %s: %w", command, err)
+			return "", fmt.Errorf("Failed to run initialize commands: %w", err)
 		}
 	}
 
@@ -86,35 +85,35 @@ func (r *DockerRunner) Run(ctx context.Context, projectPath string, config Confi
 	// Run onCreate commands
 	if command := config.LifecycleProps.OnCreateCommand; command != nil {
 		if err := r.executeLifecycleCommandInContainer(ctx, command, containerId); err != nil {
-			return "", fmt.Errorf("Failed to run onCreate command %s: %w", command, err)
+			return "", fmt.Errorf("Failed to run onCreate commands: %w", err)
 		}
 	}
 
 	// Run updateContent commands
 	if command := config.LifecycleProps.UpdateContentCommand; command != nil {
 		if err := r.executeLifecycleCommandInContainer(ctx, command, containerId); err != nil {
-			return "", fmt.Errorf("Failed to run updateContent command %s: %w", command, err)
+			return "", fmt.Errorf("Failed to run updateContent commands: %w", err)
 		}
 	}
 
 	// Run postCreate commands
 	if command := config.LifecycleProps.PostCreateCommand; command != nil {
 		if err := r.executeLifecycleCommandInContainer(ctx, command, containerId); err != nil {
-			return "", fmt.Errorf("Failed to run postCreate command %s: %w", command, err)
+			return "", fmt.Errorf("Failed to run postCreate commands: %w", err)
 		}
 	}
 
 	// Run postStart commands
 	if command := config.LifecycleProps.PostStartCommand; command != nil {
 		if err := r.executeLifecycleCommand(command, projectPath); err != nil {
-			return "", fmt.Errorf("Failed to run postStart command %s: %w", command, err)
+			return "", fmt.Errorf("Failed to run postStart commands: %w", err)
 		}
 	}
 
 	// Run postAttach commands
 	if command := config.LifecycleProps.PostAttachCommand; command != nil {
 		if err := r.executeLifecycleCommand(command, projectPath); err != nil {
-			return "", fmt.Errorf("Failed to run postAttach command %s: %w", command, err)
+			return "", fmt.Errorf("Failed to run postAttach commands: %w", err)
 		}
 	}
 
@@ -130,11 +129,11 @@ func (r *DockerRunner) Exec(ctx context.Context, containerID string, command []s
 }
 
 func (r *DockerRunner) executeLifecycleCommand(lifecycleCommand LifecycleCommand, workingDir string) error {
-	for _, command := range lifecycleCommand {
-		log.Debug().Str("command", fmt.Sprintf("%s", command)).Msg("Running command")
+	for name, command := range lifecycleCommand {
+		log.Debug().Str("name", name).Str("command", fmt.Sprintf("%s", command)).Msg("Running command")
 
 		if err := r.commandExecutor.Run(command, workingDir, os.Stdout, os.Stderr); err != nil {
-			return err
+			return fmt.Errorf("Failed to run command %s %s: %w", name, command, err)
 		}
 	}
 
@@ -142,17 +141,17 @@ func (r *DockerRunner) executeLifecycleCommand(lifecycleCommand LifecycleCommand
 }
 
 func (r *DockerRunner) executeLifecycleCommandInContainer(ctx context.Context, lifecycleCommand LifecycleCommand, containerId string) error {
-	for _, command := range lifecycleCommand {
-		log.Debug().Str("command", fmt.Sprintf("%s", command)).Msg("Running command")
+	for name, command := range lifecycleCommand {
+		log.Debug().Str("name", name).Str("command", fmt.Sprintf("%s", command)).Msg("Running command")
 
 		result, err := r.Exec(ctx, containerId, command)
 
 		if err != nil {
-			return err
+			return fmt.Errorf("Failed to run command %s %s in container %s: %w", name, command, containerId, err)
 		}
 
 		if result.ExitCode != 0 {
-			return fmt.Errorf("Exit code %d. Stdout: %s, Stderr: %s", result.ExitCode, result.StdOut, result.StdErr)
+			return fmt.Errorf("Failed to run command %s %s in container %s: Exit code %d. Stdout: %s, Stderr: %s", name, command, containerId, result.ExitCode, result.StdOut, result.StdErr)
 		}
 
 	}

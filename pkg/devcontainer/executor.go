@@ -1,4 +1,4 @@
-package util
+package devcontainer
 
 import (
 	"fmt"
@@ -44,8 +44,8 @@ func (e *ExecutorImpl) Run(command []string, dir string, stdout, stderr io.Write
 
 	// Stream the command output
 	// TODO: should we use logger instead?
-	go ReadOutput(cmdStdout, stdout)
-	go ReadOutput(cmdStderr, stderr)
+	go readOutput(cmdStdout, stdout)
+	go readOutput(cmdStderr, stderr)
 
 	// Wait for the command to complete
 	// TODO: do async wait
@@ -57,7 +57,7 @@ func (e *ExecutorImpl) Run(command []string, dir string, stdout, stderr io.Write
 	return nil
 }
 
-func ReadOutput(src io.Reader, dst io.Writer) error {
+func readOutput(src io.Reader, dst io.Writer) error {
 	if _, err := io.Copy(dst, src); err != nil {
 		return err
 	}
