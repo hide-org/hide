@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 
 	"github.com/artmoskvin/hide/pkg/lsp"
-	"github.com/artmoskvin/hide/pkg/model"
 	"github.com/artmoskvin/hide/pkg/project"
 )
 
@@ -35,7 +34,7 @@ func (h SearchSymbolsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	proj, err := h.pm.GetProject(r.Context(), projectID)
+	files, err := h.pm.SearchSymbols(r.Context(), projectID, query)
 	if err != nil {
 		var projectNotFoundError *project.ProjectNotFoundError
 		if errors.As(err, &projectNotFoundError) {
@@ -43,19 +42,13 @@ func (h SearchSymbolsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 			return
 		}
 
-		http.Error(w, fmt.Sprintf("failed to get project: %s", err), http.StatusInternalServerError)
-		return
-	}
-
-	symbols, err := h.lspService.GetWorkspaceSymbols(model.NewContextWithProject(r.Context(), &proj), query)
-	if err != nil {
 		http.Error(w, fmt.Sprintf("failed to get workspace symbols: %s", err), http.StatusInternalServerError)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(symbols)
+	json.NewEncoder(w).Encode(files)
 }
 
 func removeFilePrefix(fileURL string) (string, error) {

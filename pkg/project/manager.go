@@ -5,9 +5,11 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"net/url"
 	"os"
 	"os/exec"
 	"path"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -43,19 +45,20 @@ type TaskResult struct {
 }
 
 type Manager interface {
-	CreateProject(ctx context.Context, request CreateProjectRequest) <-chan result.Result[model.Project]
-	GetProject(ctx context.Context, projectId model.ProjectId) (model.Project, error)
-	GetProjects(ctx context.Context) ([]*model.Project, error)
-	DeleteProject(ctx context.Context, projectId model.ProjectId) <-chan result.Empty
-	ResolveTaskAlias(ctx context.Context, projectId model.ProjectId, alias string) (devcontainer.Task, error)
-	CreateTask(ctx context.Context, projectId model.ProjectId, command string) (TaskResult, error)
+	ApplyPatch(ctx context.Context, projectId, path, patch string) (*model.File, error)
 	Cleanup(ctx context.Context) error
 	CreateFile(ctx context.Context, projectId, path, content string) (*model.File, error)
-	ReadFile(ctx context.Context, projectId, path string) (*model.File, error)
-	UpdateFile(ctx context.Context, projectId, path, content string) (*model.File, error)
+	CreateProject(ctx context.Context, request CreateProjectRequest) <-chan result.Result[model.Project]
+	CreateTask(ctx context.Context, projectId model.ProjectId, command string) (TaskResult, error)
 	DeleteFile(ctx context.Context, projectId, path string) error
+	DeleteProject(ctx context.Context, projectId model.ProjectId) <-chan result.Empty
+	GetProject(ctx context.Context, projectId model.ProjectId) (model.Project, error)
+	GetProjects(ctx context.Context) ([]*model.Project, error)
 	ListFiles(ctx context.Context, projectId string, showHidden bool) ([]*model.File, error)
-	ApplyPatch(ctx context.Context, projectId, path, patch string) (*model.File, error)
+	ReadFile(ctx context.Context, projectId, path string) (*model.File, error)
+	ResolveTaskAlias(ctx context.Context, projectId model.ProjectId, alias string) (devcontainer.Task, error)
+	SearchSymbols(ctx context.Context, projectId model.ProjectId, query string) ([]*model.File, error)
+	UpdateFile(ctx context.Context, projectId, path, content string) (*model.File, error)
 	UpdateLines(ctx context.Context, projectId, path string, lineDiff files.LineDiffChunk) (*model.File, error)
 }
 
@@ -508,6 +511,51 @@ func (pm ManagerImpl) UpdateLines(ctx context.Context, projectId, path string, l
 	return file, nil
 }
 
+func (pm ManagerImpl) SearchSymbols(ctx context.Context, projectId model.ProjectId, query string) ([]*model.File, error) {
+	log.Debug().Str("projectId", projectId).Str("query", query).Msg("Searching symbols")
+
+	project, err := pm.GetProject(ctx, projectId)
+	if err != nil {
+		log.Error().Err(err).Str("projectId", projectId).Msg("Failed to get project")
+		return nil, fmt.Errorf("Failed to get project with id %s: %w", projectId, err)
+	}
+
+	symbols, err := pm.lspService.GetWorkspaceSymbols(model.NewContextWithProject(ctx, &project), query)
+	if err != nil {
+		log.Error().Err(err).Str("projectId", projectId).Msg("failed to get workspace symbols")
+		return nil, fmt.Errorf("failed to get workspace symbols: %w", err)
+	}
+
+	result := make([]*model.File, 0, len(symbols))
+	for _, symbol := range symbols {
+		filePath, err := removeFilePrefix(symbol.Location.URI)
+		if err != nil {
+			log.Error().Err(err).Str("projectId", projectId).Msg("failed to remove file prefix from URI")
+			return nil, fmt.Errorf("failed to remove file prefix from URI: %w", err)
+		}
+
+		ctx = model.NewContextWithProject(ctx, &project)
+		file, err := pm.fileManager.ReadFile(ctx, afero.NewOsFs(), filePath)
+
+		if err != nil {
+			log.Error().Err(err).Str("projectId", projectId).Msg("failed to read file")
+			return nil, fmt.Errorf("failed to read file: %w", err)
+		}
+
+		relPath, err := filepath.Rel(project.Path, filePath)
+		if err != nil {
+			log.Error().Err(err).Str("projectId", projectId).Str("path", filePath).Msg("failed to get relative path of file")
+			return nil, fmt.Errorf("failed to get relative path of file: %w", err)
+		}
+
+		result = append(result, file.WithPath(relPath).WithLineRange(int(symbol.Location.Range.Start.Line)+1, int(symbol.Location.Range.End.Line)+2))
+	}
+
+	log.Debug().Str("projectId", projectId).Str("query", query).Msgf("Found %d symbols", len(result))
+
+	return result, nil
+}
+
 func (pm ManagerImpl) createProjectDir(path string) error {
 	if err := os.MkdirAll(path, 0755); err != nil {
 		return fmt.Errorf("Failed to create project directory: %w", err)
@@ -625,4 +673,15 @@ func parseGitignore(content string) []string {
 	}
 
 	return patterns
+}
+
+func removeFilePrefix(fileURL string) (string, error) {
+	u, err := url.Parse(fileURL)
+	if err != nil {
+		return "", err
+	}
+	if u.Scheme != "file" {
+		return "", fmt.Errorf("not a file URL")
+	}
+	return filepath.FromSlash(u.Path), nil
 }

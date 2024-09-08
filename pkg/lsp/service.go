@@ -10,6 +10,8 @@ import (
 	protocol "github.com/tliron/glsp/protocol_3_16"
 )
 
+var symbolKindsToIgnore = []protocol.SymbolKind{protocol.SymbolKindField}
+
 type ProjectId = string
 type LanguageId = string
 type ProjectRoot = string
@@ -157,7 +159,11 @@ func (s *ServiceImpl) GetWorkspaceSymbols(ctx context.Context, query string) ([]
 			return nil, err
 		}
 
-		symbols = append(symbols, result...)
+		for _, symbol := range result {
+			if !s.shouldIgnoreSymbol(symbol) {
+				symbols = append(symbols, symbol)
+			}
+		}
 	}
 
 	return symbols, nil
@@ -297,6 +303,15 @@ func (s *ServiceImpl) listenForDiagnostics(projectId ProjectId, channel chan pro
 			s.updateDiagnostics(projectId, diagnostics)
 		}
 	}
+}
+
+func (s *ServiceImpl) shouldIgnoreSymbol(symbol protocol.SymbolInformation) bool {
+	for _, kind := range symbolKindsToIgnore {
+		if symbol.Kind == kind {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *ServiceImpl) updateDiagnostics(projectId ProjectId, diagnostics protocol.PublishDiagnosticsParams) {
