@@ -19,6 +19,7 @@ type LspDiagnostics = map[ProjectId]map[protocol.DocumentUri][]protocol.Diagnost
 type Service interface {
 	StartServer(ctx context.Context, languageId LanguageId) error
 	StopServer(ctx context.Context, languageId LanguageId) error
+	GetWorkspaceSymbols(ctx context.Context, query string) ([]protocol.SymbolInformation, error)
 	NotifyDidOpen(ctx context.Context, file model.File) error
 	NotifyDidClose(ctx context.Context, file model.File) error
 	// TODO: check if any LSP server supports this
@@ -136,6 +137,32 @@ func (s *ServiceImpl) StopServer(ctx context.Context, languageId LanguageId) err
 	return nil
 }
 
+func (s *ServiceImpl) GetWorkspaceSymbols(ctx context.Context, query string) ([]protocol.SymbolInformation, error) {
+	project, ok := model.ProjectFromContext(ctx)
+	if !ok {
+		log.Error().Msg("Project not found in context")
+		return nil, fmt.Errorf("Project not found in context")
+	}
+
+	clients := s.getClients(ctx)
+	if len(clients) == 0 {
+		log.Warn().Str("projectId", project.Id).Msg("LSP client not found")
+		return nil, nil
+	}
+
+	symbols := []protocol.SymbolInformation{}
+	for _, client := range clients {
+		result, err := client.GetWorkspaceSymbols(ctx, protocol.WorkspaceSymbolParams{Query: query})
+		if err != nil {
+			return nil, err
+		}
+
+		symbols = append(symbols, result...)
+	}
+
+	return symbols, nil
+}
+
 // NotifyDidClose implements Service.
 func (s *ServiceImpl) NotifyDidClose(ctx context.Context, file model.File) error {
 	project, ok := model.ProjectFromContext(ctx)
@@ -240,6 +267,24 @@ func (s *ServiceImpl) getClient(ctx context.Context, languageId LanguageId) (Cli
 	}
 
 	return nil, false
+}
+
+func (s *ServiceImpl) getClients(ctx context.Context) []Client {
+	project, ok := model.ProjectFromContext(ctx)
+	if !ok {
+		log.Error().Msg("Project not found in context")
+		return nil
+	}
+
+	clients := make([]Client, 0)
+
+	if clientz, ok := s.clientPool.GetAllForProject(project.Id); ok {
+		for _, client := range clientz {
+			clients = append(clients, client)
+		}
+	}
+
+	return clients
 }
 
 func (s *ServiceImpl) listenForDiagnostics(projectId ProjectId, channel chan protocol.PublishDiagnosticsParams) {
