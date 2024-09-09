@@ -3,6 +3,7 @@ package lsp
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"path/filepath"
 
 	"github.com/artmoskvin/hide/pkg/model"
@@ -10,7 +11,7 @@ import (
 	protocol "github.com/tliron/glsp/protocol_3_16"
 )
 
-var symbolKindsToIgnore = []protocol.SymbolKind{protocol.SymbolKindField}
+var symbolKindsToIgnore = []protocol.SymbolKind{protocol.SymbolKindField, protocol.SymbolKindVariable}
 
 type ProjectId = string
 type LanguageId = string
@@ -21,7 +22,7 @@ type LspDiagnostics = map[ProjectId]map[protocol.DocumentUri][]protocol.Diagnost
 type Service interface {
 	StartServer(ctx context.Context, languageId LanguageId) error
 	StopServer(ctx context.Context, languageId LanguageId) error
-	GetWorkspaceSymbols(ctx context.Context, query string) ([]protocol.SymbolInformation, error)
+	GetWorkspaceSymbols(ctx context.Context, query string) ([]SymbolInfo, error)
 	NotifyDidOpen(ctx context.Context, file model.File) error
 	NotifyDidClose(ctx context.Context, file model.File) error
 	// TODO: check if any LSP server supports this
@@ -139,7 +140,7 @@ func (s *ServiceImpl) StopServer(ctx context.Context, languageId LanguageId) err
 	return nil
 }
 
-func (s *ServiceImpl) GetWorkspaceSymbols(ctx context.Context, query string) ([]protocol.SymbolInformation, error) {
+func (s *ServiceImpl) GetWorkspaceSymbols(ctx context.Context, query string) ([]SymbolInfo, error) {
 	project, ok := model.ProjectFromContext(ctx)
 	if !ok {
 		log.Error().Msg("Project not found in context")
@@ -166,7 +167,29 @@ func (s *ServiceImpl) GetWorkspaceSymbols(ctx context.Context, query string) ([]
 		}
 	}
 
-	return symbols, nil
+	result := make([]SymbolInfo, 0, len(symbols))
+	for _, symbol := range symbols {
+		symbolPath, err := removeFilePrefix(symbol.Location.URI)
+		if err != nil {
+			log.Error().Err(err).Str("URI", symbol.Location.URI).Msg("failed to remove file prefix from URI")
+			return nil, fmt.Errorf("failed to remove file prefix from URI: %w", err)
+		}
+
+		relativePath, err := filepath.Rel(project.Path, symbolPath)
+		if err != nil {
+			log.Error().Err(err).Str("base", project.Path).Str("path", symbolPath).Msg("failed to get relative path of file")
+			return nil, fmt.Errorf("failed to get relative path of file: %w", err)
+		}
+
+		result = append(result, SymbolInfo{
+			Name: symbol.Name,
+			Kind: symbolKindToString(symbol.Kind),
+			// NOTE: LSP uses 0-based line numbers, but Hide uses 1-based. Characters remain 0-based.
+			Location: Location{Path: relativePath, Range: Range{Start: Position{Line: int(symbol.Location.Range.Start.Line) + 1, Character: int(symbol.Location.Range.Start.Character)}, End: Position{Line: int(symbol.Location.Range.End.Line) + 1, Character: int(symbol.Location.Range.End.Character)}}},
+		})
+	}
+
+	return result, nil
 }
 
 // NotifyDidClose implements Service.
@@ -333,4 +356,15 @@ func NewService(languageDetector LanguageDetector, lspServerExecutables map[Lang
 
 func boolPointer(b bool) *bool {
 	return &b
+}
+
+func removeFilePrefix(fileURL string) (string, error) {
+	u, err := url.Parse(fileURL)
+	if err != nil {
+		return "", err
+	}
+	if u.Scheme != "file" {
+		return "", fmt.Errorf("not a file URL")
+	}
+	return filepath.FromSlash(u.Path), nil
 }

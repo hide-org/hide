@@ -5,12 +5,15 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"net/url"
-	"path/filepath"
+	"strconv"
 
 	"github.com/artmoskvin/hide/pkg/lsp"
 	"github.com/artmoskvin/hide/pkg/project"
 )
+
+const MinLimit = 1
+const MaxLimit = 100
+const DefaultLimit = 10
 
 type SearchSymbolsHandler struct {
 	pm         project.Manager
@@ -34,7 +37,22 @@ func (h SearchSymbolsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	files, err := h.pm.SearchSymbols(r.Context(), projectID, query)
+	limit := DefaultLimit
+
+	if limitParam := r.URL.Query().Get("limit"); limitParam != "" {
+		limit, err = strconv.Atoi(limitParam)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("invalid limit %s: %s", limitParam, err), http.StatusBadRequest)
+			return
+		}
+
+		if limit < MinLimit || limit > MaxLimit {
+			http.Error(w, "limit must be between 1 and 100", http.StatusBadRequest)
+			return
+		}
+	}
+
+	symbols, err := h.pm.SearchSymbols(r.Context(), projectID, query)
 	if err != nil {
 		var projectNotFoundError *project.ProjectNotFoundError
 		if errors.As(err, &projectNotFoundError) {
@@ -48,16 +66,5 @@ func (h SearchSymbolsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(files)
-}
-
-func removeFilePrefix(fileURL string) (string, error) {
-	u, err := url.Parse(fileURL)
-	if err != nil {
-		return "", err
-	}
-	if u.Scheme != "file" {
-		return "", fmt.Errorf("not a file URL")
-	}
-	return filepath.FromSlash(u.Path), nil
+	json.NewEncoder(w).Encode(symbols[:min(limit, len(symbols))])
 }
