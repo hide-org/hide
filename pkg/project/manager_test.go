@@ -7,9 +7,13 @@ import (
 	"testing"
 
 	"github.com/artmoskvin/hide/pkg/devcontainer"
-	"github.com/artmoskvin/hide/pkg/devcontainer/mocks"
+	dc_mocks "github.com/artmoskvin/hide/pkg/devcontainer/mocks"
+	"github.com/artmoskvin/hide/pkg/lsp"
+	lsp_mocks "github.com/artmoskvin/hide/pkg/lsp/mocks"
 	"github.com/artmoskvin/hide/pkg/model"
 	"github.com/artmoskvin/hide/pkg/project"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 )
 
 func TestProject_findTaskByAlias(t *testing.T) {
@@ -142,7 +146,7 @@ func TestManagerImpl_ResolveTaskAlias_TaskNotFound(t *testing.T) {
 func TestManagerImpl_CreateTask(t *testing.T) {
 	const projectId = "test-project"
 	_project := model.NewProject(projectId, "/tmp/test-project", model.Config{}, "test-container")
-	devContainerRunner := &mocks.MockDevContainerRunner{
+	devContainerRunner := &dc_mocks.MockDevContainerRunner{
 		ExecFunc: func(ctx context.Context, containerId string, command []string) (devcontainer.ExecResult, error) {
 			return devcontainer.ExecResult{StdOut: "test-stdout", StdErr: "test-stderr", ExitCode: 1}, nil
 		}}
@@ -173,7 +177,7 @@ func TestManagerImpl_CreateTask_ProjectNotFound(t *testing.T) {
 func TestManagerImpl_CreateTask_ExecError(t *testing.T) {
 	const projectId = "test-project"
 	_project := model.NewProject(projectId, "/tmp/test-project", model.Config{}, "test-container")
-	devContainerRunner := &mocks.MockDevContainerRunner{
+	devContainerRunner := &dc_mocks.MockDevContainerRunner{
 		ExecFunc: func(ctx context.Context, containerId string, command []string) (devcontainer.ExecResult, error) {
 			return devcontainer.ExecResult{}, errors.New("exec error")
 		},
@@ -184,5 +188,74 @@ func TestManagerImpl_CreateTask_ExecError(t *testing.T) {
 
 	if err == nil {
 		t.Errorf("Expected error, got nil")
+	}
+}
+
+func TestManagerImpl_GetWorkspaceSymbols(t *testing.T) {
+	symbols := []lsp.SymbolInfo{
+		{Name: "symbol1", Kind: "kind1", Location: lsp.Location{Path: "path1", Range: lsp.Range{Start: lsp.Position{Line: 1, Character: 1}, End: lsp.Position{Line: 2, Character: 2}}}},
+		{Name: "symbol2", Kind: "kind2", Location: lsp.Location{Path: "path2", Range: lsp.Range{Start: lsp.Position{Line: 3, Character: 3}, End: lsp.Position{Line: 4, Character: 4}}}},
+	}
+
+	tests := []struct {
+		name      string
+		store     map[string]*model.Project
+		mockSetup func(*lsp_mocks.MockLspService)
+		projectId string
+		query     string
+		want      []lsp.SymbolInfo
+		wantErr   string
+	}{
+		{
+			name: "success",
+			store: map[string]*model.Project{
+				"project-id": {},
+			},
+			mockSetup: func(m *lsp_mocks.MockLspService) {
+				m.On("GetWorkspaceSymbols", mock.Anything, "query").Return(symbols, nil)
+			},
+			projectId: "project-id",
+			query:     "query",
+			want:      symbols,
+		},
+		{
+			name:      "project not found",
+			store:     map[string]*model.Project{},
+			mockSetup: func(m *lsp_mocks.MockLspService) {},
+			projectId: "project-id",
+			query:     "query",
+			wantErr:   "project project-id not found",
+		},
+		{
+			name: "failed to get workspace symbols",
+			store: map[string]*model.Project{
+				"project-id": {},
+			},
+			mockSetup: func(m *lsp_mocks.MockLspService) {
+				m.On("GetWorkspaceSymbols", mock.Anything, "query").Return(nil, errors.New("failed to get workspace symbols"))
+			},
+			projectId: "project-id",
+			query:     "query",
+			wantErr:   "failed to get workspace symbols",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			lspService := &lsp_mocks.MockLspService{}
+			tt.mockSetup(lspService)
+			pm := project.NewProjectManager(nil, project.NewInMemoryStore(tt.store), "/tmp", nil, lspService, nil, nil)
+
+			symbols, err := pm.SearchSymbols(context.Background(), tt.projectId, tt.query)
+
+			if tt.wantErr != "" {
+				assert.Error(t, err)
+				assert.Contains(t, err.Error(), tt.wantErr)
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tt.want, symbols)
+			}
+
+		})
 	}
 }
