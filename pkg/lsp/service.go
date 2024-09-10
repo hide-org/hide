@@ -11,8 +11,6 @@ import (
 	protocol "github.com/tliron/glsp/protocol_3_16"
 )
 
-var symbolKindsToIgnore = []protocol.SymbolKind{protocol.SymbolKindField, protocol.SymbolKindVariable}
-
 type ProjectId = string
 type LanguageId = string
 type ProjectRoot = string
@@ -33,9 +31,10 @@ type Service interface {
 
 type ServiceImpl struct {
 	languageDetector     LanguageDetector
-	clientPool           *ClientPool
+	clientPool           ClientPool
 	diagnosticsStore     *DiagnosticsStore
 	lspServerExecutables map[LanguageId]Command
+	symbolsToIgnore      []protocol.SymbolKind
 }
 
 // StartServer implements Service.
@@ -144,7 +143,7 @@ func (s *ServiceImpl) GetWorkspaceSymbols(ctx context.Context, query string) ([]
 	project, ok := model.ProjectFromContext(ctx)
 	if !ok {
 		log.Error().Msg("Project not found in context")
-		return nil, fmt.Errorf("Project not found in context")
+		return nil, fmt.Errorf("project not found in context")
 	}
 
 	clients := s.getClients(ctx)
@@ -155,6 +154,12 @@ func (s *ServiceImpl) GetWorkspaceSymbols(ctx context.Context, query string) ([]
 
 	symbols := []protocol.SymbolInformation{}
 	for _, client := range clients {
+		select {
+		case <-ctx.Done():
+			return nil, fmt.Errorf("context cancelled")
+		default:
+		}
+
 		result, err := client.GetWorkspaceSymbols(ctx, protocol.WorkspaceSymbolParams{Query: query})
 		if err != nil {
 			return nil, err
@@ -169,6 +174,12 @@ func (s *ServiceImpl) GetWorkspaceSymbols(ctx context.Context, query string) ([]
 
 	result := make([]SymbolInfo, 0, len(symbols))
 	for _, symbol := range symbols {
+		select {
+		case <-ctx.Done():
+			return nil, fmt.Errorf("context cancelled")
+		default:
+		}
+
 		symbolPath, err := removeFilePrefix(symbol.Location.URI)
 		if err != nil {
 			log.Error().Err(err).Str("URI", symbol.Location.URI).Msg("failed to remove file prefix from URI")
@@ -329,7 +340,7 @@ func (s *ServiceImpl) listenForDiagnostics(projectId ProjectId, channel chan pro
 }
 
 func (s *ServiceImpl) shouldIgnoreSymbol(symbol protocol.SymbolInformation) bool {
-	for _, kind := range symbolKindsToIgnore {
+	for _, kind := range s.symbolsToIgnore {
 		if symbol.Kind == kind {
 			return true
 		}
@@ -345,12 +356,13 @@ func PathToURI(path string) protocol.DocumentUri {
 	return protocol.DocumentUri("file://" + path)
 }
 
-func NewService(languageDetector LanguageDetector, lspServerExecutables map[LanguageId]Command, diagnosticsStore *DiagnosticsStore, clientPool *ClientPool) Service {
+func NewService(languageDetector LanguageDetector, lspServerExecutables map[LanguageId]Command, diagnosticsStore *DiagnosticsStore, clientPool ClientPool, symbolsToIgnore []protocol.SymbolKind) Service {
 	return &ServiceImpl{
 		languageDetector:     languageDetector,
 		clientPool:           clientPool,
 		diagnosticsStore:     diagnosticsStore,
 		lspServerExecutables: lspServerExecutables,
+		symbolsToIgnore:      symbolsToIgnore,
 	}
 }
 
