@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/artmoskvin/hide/pkg/lsp"
 	"github.com/artmoskvin/hide/pkg/project"
 )
 
@@ -16,12 +15,11 @@ const MaxLimit = 100
 const DefaultLimit = 10
 
 type SearchSymbolsHandler struct {
-	pm         project.Manager
-	lspService lsp.Service
+	pm project.Manager
 }
 
-func NewSearchSymbolsHandler(pm project.Manager, lspService lsp.Service) SearchSymbolsHandler {
-	return SearchSymbolsHandler{pm: pm, lspService: lspService}
+func NewSearchSymbolsHandler(pm project.Manager) SearchSymbolsHandler {
+	return SearchSymbolsHandler{pm: pm}
 }
 
 func (h SearchSymbolsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
