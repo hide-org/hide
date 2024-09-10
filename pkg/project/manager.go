@@ -518,6 +518,12 @@ func (pm ManagerImpl) SearchSymbols(ctx context.Context, projectId model.Project
 		return nil, fmt.Errorf("failed to get project with id %s: %w", projectId, err)
 	}
 
+	select {
+	case <-ctx.Done():
+		return nil, fmt.Errorf("context cancelled")
+	default:
+	}
+
 	symbols, err := pm.lspService.GetWorkspaceSymbols(model.NewContextWithProject(ctx, &project), query)
 	if err != nil {
 		log.Error().Err(err).Str("projectId", projectId).Msg("failed to get workspace symbols")

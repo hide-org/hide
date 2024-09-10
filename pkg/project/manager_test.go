@@ -201,6 +201,7 @@ func TestManagerImpl_SearchSymbols(t *testing.T) {
 		name      string
 		store     map[string]*model.Project
 		mockSetup func(*lsp_mocks.MockLspService)
+		context   context.Context
 		projectId string
 		query     string
 		want      []lsp.SymbolInfo
@@ -214,6 +215,7 @@ func TestManagerImpl_SearchSymbols(t *testing.T) {
 			mockSetup: func(m *lsp_mocks.MockLspService) {
 				m.On("GetWorkspaceSymbols", mock.Anything, "query").Return(symbols, nil)
 			},
+			context:   context.Background(),
 			projectId: "project-id",
 			query:     "query",
 			want:      symbols,
@@ -222,6 +224,7 @@ func TestManagerImpl_SearchSymbols(t *testing.T) {
 			name:      "project not found",
 			store:     map[string]*model.Project{},
 			mockSetup: func(m *lsp_mocks.MockLspService) {},
+			context:   context.Background(),
 			projectId: "project-id",
 			query:     "query",
 			wantErr:   "project project-id not found",
@@ -234,9 +237,26 @@ func TestManagerImpl_SearchSymbols(t *testing.T) {
 			mockSetup: func(m *lsp_mocks.MockLspService) {
 				m.On("GetWorkspaceSymbols", mock.Anything, "query").Return(nil, errors.New("failed to get workspace symbols"))
 			},
+			context:   context.Background(),
 			projectId: "project-id",
 			query:     "query",
 			wantErr:   "failed to get workspace symbols",
+		},
+		{
+			name: "context cancelled",
+			store: map[string]*model.Project{
+				"project-id": {},
+			},
+			mockSetup: func(m *lsp_mocks.MockLspService) {},
+			context: func() context.Context {
+				ctx, cancel := context.WithCancel(context.Background())
+				cancel()
+
+				return ctx
+			}(),
+			projectId: "project-id",
+			query:     "query",
+			wantErr:   "context cancelled",
 		},
 	}
 
@@ -246,7 +266,7 @@ func TestManagerImpl_SearchSymbols(t *testing.T) {
 			tt.mockSetup(lspService)
 			pm := project.NewProjectManager(nil, project.NewInMemoryStore(tt.store), "/tmp", nil, lspService, nil, nil)
 
-			symbols, err := pm.SearchSymbols(context.Background(), tt.projectId, tt.query)
+			symbols, err := pm.SearchSymbols(tt.context, tt.projectId, tt.query)
 
 			if tt.wantErr != "" {
 				assert.Error(t, err)
