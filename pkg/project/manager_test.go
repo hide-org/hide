@@ -191,7 +191,7 @@ func TestManagerImpl_CreateTask_ExecError(t *testing.T) {
 	}
 }
 
-func TestManagerImpl_GetWorkspaceSymbols(t *testing.T) {
+func TestManagerImpl_SearchSymbols(t *testing.T) {
 	symbols := []lsp.SymbolInfo{
 		{Name: "symbol1", Kind: "kind1", Location: lsp.Location{Path: "path1", Range: lsp.Range{Start: lsp.Position{Line: 1, Character: 1}, End: lsp.Position{Line: 2, Character: 2}}}},
 		{Name: "symbol2", Kind: "kind2", Location: lsp.Location{Path: "path2", Range: lsp.Range{Start: lsp.Position{Line: 3, Character: 3}, End: lsp.Position{Line: 4, Character: 4}}}},
