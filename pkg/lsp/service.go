@@ -20,7 +20,7 @@ type LspDiagnostics = map[ProjectId]map[protocol.DocumentUri][]protocol.Diagnost
 type Service interface {
 	StartServer(ctx context.Context, languageId LanguageId) error
 	StopServer(ctx context.Context, languageId LanguageId) error
-	GetWorkspaceSymbols(ctx context.Context, query string) ([]SymbolInfo, error)
+	GetWorkspaceSymbols(ctx context.Context, query string, symbolFilter SymbolFilter) ([]SymbolInfo, error)
 	NotifyDidOpen(ctx context.Context, file model.File) error
 	NotifyDidClose(ctx context.Context, file model.File) error
 	// TODO: check if any LSP server supports this
@@ -34,7 +34,6 @@ type ServiceImpl struct {
 	clientPool           ClientPool
 	diagnosticsStore     *DiagnosticsStore
 	lspServerExecutables map[LanguageId]Command
-	symbolsToIgnore      []protocol.SymbolKind
 }
 
 // StartServer implements Service.
@@ -139,7 +138,7 @@ func (s *ServiceImpl) StopServer(ctx context.Context, languageId LanguageId) err
 	return nil
 }
 
-func (s *ServiceImpl) GetWorkspaceSymbols(ctx context.Context, query string) ([]SymbolInfo, error) {
+func (s *ServiceImpl) GetWorkspaceSymbols(ctx context.Context, query string, symbolFilter SymbolFilter) ([]SymbolInfo, error) {
 	project, ok := model.ProjectFromContext(ctx)
 	if !ok {
 		log.Error().Msg("Project not found in context")
@@ -166,7 +165,11 @@ func (s *ServiceImpl) GetWorkspaceSymbols(ctx context.Context, query string) ([]
 		}
 
 		for _, symbol := range result {
-			if !s.shouldIgnoreSymbol(symbol) {
+			if symbolFilter.shouldExcludeSymbol(symbol) {
+				continue
+			}
+
+			if symbolFilter.shouldIncludeSymbol(symbol) {
 				symbols = append(symbols, symbol)
 			}
 		}
@@ -339,15 +342,6 @@ func (s *ServiceImpl) listenForDiagnostics(projectId ProjectId, channel chan pro
 	}
 }
 
-func (s *ServiceImpl) shouldIgnoreSymbol(symbol protocol.SymbolInformation) bool {
-	for _, kind := range s.symbolsToIgnore {
-		if symbol.Kind == kind {
-			return true
-		}
-	}
-	return false
-}
-
 func (s *ServiceImpl) updateDiagnostics(projectId ProjectId, diagnostics protocol.PublishDiagnosticsParams) {
 	s.diagnosticsStore.Set(projectId, diagnostics.URI, diagnostics.Diagnostics)
 }
@@ -356,13 +350,12 @@ func PathToURI(path string) protocol.DocumentUri {
 	return protocol.DocumentUri("file://" + path)
 }
 
-func NewService(languageDetector LanguageDetector, lspServerExecutables map[LanguageId]Command, diagnosticsStore *DiagnosticsStore, clientPool ClientPool, symbolsToIgnore []protocol.SymbolKind) Service {
+func NewService(languageDetector LanguageDetector, lspServerExecutables map[LanguageId]Command, diagnosticsStore *DiagnosticsStore, clientPool ClientPool) Service {
 	return &ServiceImpl{
 		languageDetector:     languageDetector,
 		clientPool:           clientPool,
 		diagnosticsStore:     diagnosticsStore,
 		lspServerExecutables: lspServerExecutables,
-		symbolsToIgnore:      symbolsToIgnore,
 	}
 }
 

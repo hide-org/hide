@@ -7,19 +7,53 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/artmoskvin/hide/pkg/lsp"
 	"github.com/artmoskvin/hide/pkg/project"
+	protocol "github.com/tliron/glsp/protocol_3_16"
 )
 
-const MinLimit = 1
-const MaxLimit = 100
-const DefaultLimit = 10
-
-type SearchSymbolsHandler struct {
-	pm project.Manager
+type searchSymbolsOptions struct {
+	maxLimit     int
+	limit        int
+	symbolFilter lsp.SymbolFilter
 }
 
-func NewSearchSymbolsHandler(pm project.Manager) SearchSymbolsHandler {
-	return SearchSymbolsHandler{pm: pm}
+type SearchSymbolsHandler struct {
+	pm   project.Manager
+	opts *searchSymbolsOptions
+}
+
+type SearchSymbolsOptions func(opts *searchSymbolsOptions)
+
+func SearchSymbolsMaxLimit(n int) SearchSymbolsOptions {
+	return func(opts *searchSymbolsOptions) {
+		opts.maxLimit = n
+	}
+}
+
+func SearchSymbolsLimit(n int) SearchSymbolsOptions {
+	return func(opts *searchSymbolsOptions) {
+		opts.limit = n
+	}
+}
+
+func NewSearchSymbolsHandler(pm project.Manager, opts ...SearchSymbolsOptions) SearchSymbolsHandler {
+	options := &searchSymbolsOptions{
+		maxLimit:     100,
+		limit:        10,
+		symbolFilter: lsp.NewExcludeSymbolFilter(protocol.SymbolKindField, protocol.SymbolKindVariable),
+	}
+
+	for _, o := range opts {
+		o(options)
+	}
+
+	h := SearchSymbolsHandler{
+		pm:   pm,
+		opts: options,
+	}
+
+	return h
 }
 
 func (h SearchSymbolsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -35,22 +69,23 @@ func (h SearchSymbolsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	limit := DefaultLimit
+	limit := h.opts.limit
 
-	if limitParam := r.URL.Query().Get("limit"); limitParam != "" {
-		limit, err = strconv.Atoi(limitParam)
+	if r.URL.Query().Has("limit") {
+		limitParam := r.URL.Query().Get("limit")
+		limit, err = strconv.Atoi(r.URL.Query().Get("limit"))
 		if err != nil {
 			http.Error(w, fmt.Sprintf("invalid limit %s: %s", limitParam, err), http.StatusBadRequest)
 			return
 		}
 
-		if limit < MinLimit || limit > MaxLimit {
-			http.Error(w, "limit must be between 1 and 100", http.StatusBadRequest)
+		if limit <= 0 || limit > h.opts.maxLimit {
+			http.Error(w, fmt.Sprintf("limit must be between 1 and %d", h.opts.maxLimit), http.StatusBadRequest)
 			return
 		}
 	}
 
-	symbols, err := h.pm.SearchSymbols(r.Context(), projectID, query)
+	symbols, err := h.pm.SearchSymbols(r.Context(), projectID, query, h.opts.symbolFilter)
 	if err != nil {
 		var projectNotFoundError *project.ProjectNotFoundError
 		if errors.As(err, &projectNotFoundError) {

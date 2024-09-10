@@ -29,14 +29,14 @@ func TestSearchSymbolsHandler_ServeHTTP(t *testing.T) {
 	tests := []struct {
 		name              string
 		target            string
-		mockSearchSymbols func(ctx context.Context, projectId model.ProjectId, query string) ([]lsp.SymbolInfo, error)
+		mockSearchSymbols func(ctx context.Context, projectId model.ProjectId, query string, symbolFilter lsp.SymbolFilter) ([]lsp.SymbolInfo, error)
 		wantStatusCode    int
 		wantBody          string
 	}{
 		{
 			name:   "success",
 			target: "/projects/123/search?type=symbol&query=test-query",
-			mockSearchSymbols: func(ctx context.Context, projectId model.ProjectId, query string) ([]lsp.SymbolInfo, error) {
+			mockSearchSymbols: func(ctx context.Context, projectId model.ProjectId, query string, symbolFilter lsp.SymbolFilter) ([]lsp.SymbolInfo, error) {
 				return symbols, nil
 			},
 			wantStatusCode: http.StatusOK,
@@ -45,7 +45,7 @@ func TestSearchSymbolsHandler_ServeHTTP(t *testing.T) {
 		{
 			name:   "success with limit",
 			target: "/projects/123/search?type=symbol&query=test-query&limit=1",
-			mockSearchSymbols: func(ctx context.Context, projectId model.ProjectId, query string) ([]lsp.SymbolInfo, error) {
+			mockSearchSymbols: func(ctx context.Context, projectId model.ProjectId, query string, symbolFilter lsp.SymbolFilter) ([]lsp.SymbolInfo, error) {
 				return symbols[:1], nil
 			},
 			wantStatusCode: http.StatusOK,
@@ -54,7 +54,7 @@ func TestSearchSymbolsHandler_ServeHTTP(t *testing.T) {
 		{
 			name:   "success with limit higher than number of symbols",
 			target: fmt.Sprintf("/projects/123/search?type=symbol&query=test-query&limit=%d", len(symbols)+1),
-			mockSearchSymbols: func(ctx context.Context, projectId model.ProjectId, query string) ([]lsp.SymbolInfo, error) {
+			mockSearchSymbols: func(ctx context.Context, projectId model.ProjectId, query string, symbolFilter lsp.SymbolFilter) ([]lsp.SymbolInfo, error) {
 				return symbols, nil
 			},
 			wantStatusCode: http.StatusOK,
@@ -63,7 +63,7 @@ func TestSearchSymbolsHandler_ServeHTTP(t *testing.T) {
 		{
 			name:   "invalid limit",
 			target: "/projects/123/search?type=symbol&query=test-query&limit=invalid",
-			mockSearchSymbols: func(ctx context.Context, projectId model.ProjectId, query string) ([]lsp.SymbolInfo, error) {
+			mockSearchSymbols: func(ctx context.Context, projectId model.ProjectId, query string, symbolFilter lsp.SymbolFilter) ([]lsp.SymbolInfo, error) {
 				return nil, nil
 			},
 			wantStatusCode: http.StatusBadRequest,
@@ -71,8 +71,8 @@ func TestSearchSymbolsHandler_ServeHTTP(t *testing.T) {
 		},
 		{
 			name:   "limit too large",
-			target: fmt.Sprintf("/projects/123/search?type=symbol&query=test-query&limit=%d", handlers.MaxLimit+1),
-			mockSearchSymbols: func(ctx context.Context, projectId model.ProjectId, query string) ([]lsp.SymbolInfo, error) {
+			target: "/projects/123/search?type=symbol&query=test-query&limit=101",
+			mockSearchSymbols: func(ctx context.Context, projectId model.ProjectId, query string, symbolFilter lsp.SymbolFilter) ([]lsp.SymbolInfo, error) {
 				return nil, nil
 			},
 			wantStatusCode: http.StatusBadRequest,
@@ -80,8 +80,8 @@ func TestSearchSymbolsHandler_ServeHTTP(t *testing.T) {
 		},
 		{
 			name:   "limit too small",
-			target: fmt.Sprintf("/projects/123/search?type=symbol&query=test-query&limit=%d", handlers.MinLimit-1),
-			mockSearchSymbols: func(ctx context.Context, projectId model.ProjectId, query string) ([]lsp.SymbolInfo, error) {
+			target: "/projects/123/search?type=symbol&query=test-query&limit=0",
+			mockSearchSymbols: func(ctx context.Context, projectId model.ProjectId, query string, symbolFilter lsp.SymbolFilter) ([]lsp.SymbolInfo, error) {
 				return nil, nil
 			},
 			wantStatusCode: http.StatusBadRequest,
@@ -90,7 +90,7 @@ func TestSearchSymbolsHandler_ServeHTTP(t *testing.T) {
 		{
 			name:   "project not found",
 			target: "/projects/123/search?type=symbol&query=test-query",
-			mockSearchSymbols: func(ctx context.Context, projectId model.ProjectId, query string) ([]lsp.SymbolInfo, error) {
+			mockSearchSymbols: func(ctx context.Context, projectId model.ProjectId, query string, symbolFilter lsp.SymbolFilter) ([]lsp.SymbolInfo, error) {
 				return nil, project.NewProjectNotFoundError(projectId)
 			},
 			wantStatusCode: http.StatusNotFound,
@@ -99,7 +99,7 @@ func TestSearchSymbolsHandler_ServeHTTP(t *testing.T) {
 		{
 			name:   "internal server error",
 			target: "/projects/123/search?type=symbol&query=test-query",
-			mockSearchSymbols: func(ctx context.Context, projectId model.ProjectId, query string) ([]lsp.SymbolInfo, error) {
+			mockSearchSymbols: func(ctx context.Context, projectId model.ProjectId, query string, symbolFilter lsp.SymbolFilter) ([]lsp.SymbolInfo, error) {
 				return nil, errors.New("internal error")
 			},
 			wantStatusCode: http.StatusInternalServerError,

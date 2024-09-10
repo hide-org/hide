@@ -25,7 +25,7 @@ type MockProjectManager struct {
 	ListFilesFunc        func(ctx context.Context, projectId string, showHidden bool) ([]*model.File, error)
 	ReadFileFunc         func(ctx context.Context, projectId, path string) (*model.File, error)
 	ResolveTaskAliasFunc func(ctx context.Context, projectId string, alias string) (devcontainer.Task, error)
-	SearchSymbolsFunc    func(ctx context.Context, projectId model.ProjectId, query string) ([]lsp.SymbolInfo, error)
+	SearchSymbolsFunc    func(ctx context.Context, projectId model.ProjectId, query string, symbolFilter lsp.SymbolFilter) ([]lsp.SymbolInfo, error)
 	UpdateFileFunc       func(ctx context.Context, projectId, path, content string) (*model.File, error)
 	UpdateLinesFunc      func(ctx context.Context, projectId, path string, lineDiff files.LineDiffChunk) (*model.File, error)
 }
@@ -86,6 +86,6 @@ func (m *MockProjectManager) UpdateLines(ctx context.Context, projectId, path st
 	return m.UpdateLinesFunc(ctx, projectId, path, lineDiff)
 }
 
-func (m *MockProjectManager) SearchSymbols(ctx context.Context, projectId model.ProjectId, query string) ([]lsp.SymbolInfo, error) {
-	return m.SearchSymbolsFunc(ctx, projectId, query)
+func (m *MockProjectManager) SearchSymbols(ctx context.Context, projectId model.ProjectId, query string, symbolFilter lsp.SymbolFilter) ([]lsp.SymbolInfo, error) {
+	return m.SearchSymbolsFunc(ctx, projectId, query, symbolFilter)
 }

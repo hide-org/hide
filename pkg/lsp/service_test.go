@@ -16,17 +16,20 @@ import (
 func TestService_GetWorkspaceSymbols(t *testing.T) {
 	aSymbol := protocol.SymbolInformation{Name: "test-name", Kind: protocol.SymbolKindClass, Location: protocol.Location{URI: "file:///test/project/test-uri", Range: protocol.Range{Start: protocol.Position{Line: 0, Character: 0}, End: protocol.Position{Line: 1, Character: 1}}}}
 
-	ignoredKind := protocol.SymbolKindField
-	ignoredSymbol := protocol.SymbolInformation{Name: "test-name", Kind: ignoredKind, Location: protocol.Location{URI: "file:///test/project/test-uri", Range: protocol.Range{Start: protocol.Position{Line: 0, Character: 0}, End: protocol.Position{Line: 1, Character: 1}}}}
+	includeKind := protocol.SymbolKindClass
+	includedSymbol := aSymbol
+
+	excludeKind := protocol.SymbolKindField
+	excludedSymbol := protocol.SymbolInformation{Name: "test-name", Kind: excludeKind, Location: protocol.Location{URI: "file:///test/project/test-uri", Range: protocol.Range{Start: protocol.Position{Line: 0, Character: 0}, End: protocol.Position{Line: 1, Character: 1}}}}
 
 	tests := []struct {
-		name            string
-		ctx             context.Context
-		query           string
-		mockSetup       func(*mocks.MockClientPool)
-		symbolsToIgnore []protocol.SymbolKind
-		wantSymbols     []lsp.SymbolInfo
-		wantErr         string
+		name         string
+		ctx          context.Context
+		query        string
+		symbolFilter lsp.SymbolFilter
+		mockSetup    func(*mocks.MockClientPool)
+		wantSymbols  []lsp.SymbolInfo
+		wantErr      string
 	}{
 		{
 			name:  "success",
@@ -84,17 +87,30 @@ func TestService_GetWorkspaceSymbols(t *testing.T) {
 			wantErr: "test-error",
 		},
 		{
-			name:  "symbols ignored",
+			name:  "exclude symbols",
 			ctx:   model.NewContextWithProject(context.Background(), &model.Project{Id: "project-id", Path: "/test/project"}),
 			query: "test-query",
 			mockSetup: func(m *mocks.MockClientPool) {
 				client := &mocks.MockClient{}
-				client.On("GetWorkspaceSymbols", mock.MatchedBy(isContext), protocol.WorkspaceSymbolParams{Query: "test-query"}).Return([]protocol.SymbolInformation{aSymbol, ignoredSymbol}, nil)
+				client.On("GetWorkspaceSymbols", mock.MatchedBy(isContext), protocol.WorkspaceSymbolParams{Query: "test-query"}).Return([]protocol.SymbolInformation{aSymbol, excludedSymbol}, nil)
 
 				m.On("GetAllForProject", "project-id").Return(map[lsp.LanguageId]lsp.Client{lsp.LanguageId("test-lang"): client}, true)
 			},
-			symbolsToIgnore: []protocol.SymbolKind{ignoredKind},
-			wantSymbols:     []lsp.SymbolInfo{{Name: "test-name", Kind: "Class", Location: lsp.Location{Path: "test-uri", Range: lsp.Range{Start: lsp.Position{Line: 1, Character: 0}, End: lsp.Position{Line: 2, Character: 1}}}}},
+			symbolFilter: lsp.NewExcludeSymbolFilter(excludeKind),
+			wantSymbols:  []lsp.SymbolInfo{{Name: "test-name", Kind: "Class", Location: lsp.Location{Path: "test-uri", Range: lsp.Range{Start: lsp.Position{Line: 1, Character: 0}, End: lsp.Position{Line: 2, Character: 1}}}}},
+		},
+		{
+			name:  "include symbols",
+			ctx:   model.NewContextWithProject(context.Background(), &model.Project{Id: "project-id", Path: "/test/project"}),
+			query: "test-query",
+			mockSetup: func(m *mocks.MockClientPool) {
+				client := &mocks.MockClient{}
+				client.On("GetWorkspaceSymbols", mock.MatchedBy(isContext), protocol.WorkspaceSymbolParams{Query: "test-query"}).Return([]protocol.SymbolInformation{includedSymbol}, nil)
+
+				m.On("GetAllForProject", "project-id").Return(map[lsp.LanguageId]lsp.Client{lsp.LanguageId("test-lang"): client}, true)
+			},
+			symbolFilter: lsp.NewIncludeSymbolFilter(includeKind),
+			wantSymbols:  []lsp.SymbolInfo{{Name: "test-name", Kind: "Class", Location: lsp.Location{Path: "test-uri", Range: lsp.Range{Start: lsp.Position{Line: 1, Character: 0}, End: lsp.Position{Line: 2, Character: 1}}}}},
 		},
 		{
 			name:  "fail to remove file prefix",
@@ -127,9 +143,9 @@ func TestService_GetWorkspaceSymbols(t *testing.T) {
 			mockClientPool := &mocks.MockClientPool{}
 			tt.mockSetup(mockClientPool)
 
-			service := lsp.NewService(nil, nil, nil, mockClientPool, tt.symbolsToIgnore)
+			service := lsp.NewService(nil, nil, nil, mockClientPool)
 
-			symbols, err := service.GetWorkspaceSymbols(tt.ctx, tt.query)
+			symbols, err := service.GetWorkspaceSymbols(tt.ctx, tt.query, tt.symbolFilter)
 
 			if tt.wantErr != "" {
 				assert.Error(t, err)

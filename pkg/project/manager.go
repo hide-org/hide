@@ -55,7 +55,7 @@ type Manager interface {
 	ListFiles(ctx context.Context, projectId string, showHidden bool) ([]*model.File, error)
 	ReadFile(ctx context.Context, projectId, path string) (*model.File, error)
 	ResolveTaskAlias(ctx context.Context, projectId model.ProjectId, alias string) (devcontainer.Task, error)
-	SearchSymbols(ctx context.Context, projectId model.ProjectId, query string) ([]lsp.SymbolInfo, error)
+	SearchSymbols(ctx context.Context, projectId model.ProjectId, query string, symbolFilter lsp.SymbolFilter) ([]lsp.SymbolInfo, error)
 	UpdateFile(ctx context.Context, projectId, path, content string) (*model.File, error)
 	UpdateLines(ctx context.Context, projectId, path string, lineDiff files.LineDiffChunk) (*model.File, error)
 }
@@ -509,7 +509,7 @@ func (pm ManagerImpl) UpdateLines(ctx context.Context, projectId, path string, l
 	return file, nil
 }
 
-func (pm ManagerImpl) SearchSymbols(ctx context.Context, projectId model.ProjectId, query string) ([]lsp.SymbolInfo, error) {
+func (pm ManagerImpl) SearchSymbols(ctx context.Context, projectId model.ProjectId, query string, symbolFilter lsp.SymbolFilter) ([]lsp.SymbolInfo, error) {
 	log.Debug().Str("projectId", projectId).Str("query", query).Msg("Searching symbols")
 
 	project, err := pm.GetProject(ctx, projectId)
@@ -524,7 +524,7 @@ func (pm ManagerImpl) SearchSymbols(ctx context.Context, projectId model.Project
 	default:
 	}
 
-	symbols, err := pm.lspService.GetWorkspaceSymbols(model.NewContextWithProject(ctx, &project), query)
+	symbols, err := pm.lspService.GetWorkspaceSymbols(model.NewContextWithProject(ctx, &project), query, symbolFilter)
 	if err != nil {
 		log.Error().Err(err).Str("projectId", projectId).Msg("failed to get workspace symbols")
 		return nil, fmt.Errorf("failed to get workspace symbols: %w", err)

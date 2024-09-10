@@ -198,14 +198,15 @@ func TestManagerImpl_SearchSymbols(t *testing.T) {
 	}
 
 	tests := []struct {
-		name      string
-		store     map[string]*model.Project
-		mockSetup func(*lsp_mocks.MockLspService)
-		context   context.Context
-		projectId string
-		query     string
-		want      []lsp.SymbolInfo
-		wantErr   string
+		name         string
+		store        map[string]*model.Project
+		mockSetup    func(*lsp_mocks.MockLspService)
+		context      context.Context
+		projectId    string
+		query        string
+		symbolFilter lsp.SymbolFilter
+		want         []lsp.SymbolInfo
+		wantErr      string
 	}{
 		{
 			name: "success",
@@ -266,7 +267,7 @@ func TestManagerImpl_SearchSymbols(t *testing.T) {
 			tt.mockSetup(lspService)
 			pm := project.NewProjectManager(nil, project.NewInMemoryStore(tt.store), "/tmp", nil, lspService, nil, nil)
 
-			symbols, err := pm.SearchSymbols(tt.context, tt.projectId, tt.query)
+			symbols, err := pm.SearchSymbols(tt.context, tt.projectId, tt.query, tt.symbolFilter)
 
 			if tt.wantErr != "" {
 				assert.Error(t, err)

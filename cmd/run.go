@@ -23,7 +23,6 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
-	protocol "github.com/tliron/glsp/protocol_3_16"
 )
 
 const (
@@ -104,7 +103,7 @@ var runCmd = &cobra.Command{
 		languageDetector := lsp.NewFileExtensionBasedLanguageDetector()
 		diagnosticsStore := lsp.NewDiagnosticsStore()
 		clientPool := lsp.NewClientPool()
-		lspService := lsp.NewService(languageDetector, lspServerExecutables, diagnosticsStore, clientPool, []protocol.SymbolKind{protocol.SymbolKindField, protocol.SymbolKindVariable})
+		lspService := lsp.NewService(languageDetector, lspServerExecutables, diagnosticsStore, clientPool)
 		projectManager := project.NewProjectManager(containerRunner, projectStore, projectsDir, fileManager, lspService, languageDetector, random.String)
 
 		router := handlers.

@@ -24,7 +24,7 @@ func (m *MockLspService) StopServer(ctx context.Context, languageId lsp.Language
 	return args.Error(0)
 }
 
-func (m *MockLspService) GetWorkspaceSymbols(ctx context.Context, query string) ([]lsp.SymbolInfo, error) {
+func (m *MockLspService) GetWorkspaceSymbols(ctx context.Context, query string, symbolFilter lsp.SymbolFilter) ([]lsp.SymbolInfo, error) {
 	args := m.Called(ctx, query)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
