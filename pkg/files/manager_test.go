@@ -365,6 +365,14 @@ func TestListFile(t *testing.T) {
 			path:    "/something/items.json",
 			content: `["a1","a2"]`,
 		},
+		{
+			path:    "/node_modules/module1/file.js",
+			content: `import tmp`,
+		},
+		{
+			path:    "/node_modules/module2/file.js",
+			content: `import tmp`,
+		},
 	} {
 		if err := afero.WriteFile(fs, file.path, []byte(file.content), 0o644); err != nil {
 			t.Fatal(err)
@@ -382,13 +390,13 @@ func TestListFile(t *testing.T) {
 			name:       "all files",
 			filter:     files.PatternFilter{},
 			showHidden: false,
-			wantPath:   []string{"/hello.txt", "/something/something.txt", "/something/items.json"},
+			wantPath:   []string{"/hello.txt", "/something/something.txt", "/something/items.json", "/node_modules/module1/file.js", "/node_modules/module2/file.js"},
 		},
 		{
 			name: "with exclude filter",
 			filter: files.PatternFilter{
 				Include: []string{"*something*"},
-				Exclude: []string{"*.json"},
+				Exclude: []string{"*.json", "node_modules"},
 			},
 			showHidden: false,
 			wantPath:   []string{"/something/something.txt"},
