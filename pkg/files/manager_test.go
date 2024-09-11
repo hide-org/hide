@@ -2,6 +2,7 @@ package files_test
 
 import (
 	"context"
+	"slices"
 	"strings"
 	"testing"
 
@@ -14,7 +15,7 @@ func TestReadFile(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	path := "test.txt"
 	content := "line1\nline2\nline3\n"
-	afero.WriteFile(fs, path, []byte(content), 0644)
+	afero.WriteFile(fs, path, []byte(content), 0o644)
 
 	fm := files.NewFileManager()
 	actual, err := fm.ReadFile(context.Background(), fs, path)
@@ -31,7 +32,7 @@ func TestReadFile(t *testing.T) {
 
 func TestReadNonExistentFile(t *testing.T) {
 	fs := afero.NewMemMapFs()
-	afero.WriteFile(fs, "test.txt", []byte("line1\nline2\nline3\n"), 0644)
+	afero.WriteFile(fs, "test.txt", []byte("line1\nline2\nline3\n"), 0o644)
 
 	fm := files.NewFileManager()
 	_, err := fm.ReadFile(context.Background(), fs, "non-existent.txt")
@@ -88,7 +89,7 @@ func TestFileManagerImpl_ApplyPatch_Success(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			filesystem := afero.NewMemMapFs()
-			afero.WriteFile(filesystem, "test.txt", []byte("line1\nline2\nline3\nline4\nline5\nline6\nline7\nline8\nline9\nline10\n"), 0644)
+			afero.WriteFile(filesystem, "test.txt", []byte("line1\nline2\nline3\nline4\nline5\nline6\nline7\nline8\nline9\nline10\n"), 0o644)
 			fm := files.NewFileManager()
 			actual, err := fm.ApplyPatch(context.Background(), filesystem, "test.txt", tt.patch)
 			if err != nil {
@@ -154,7 +155,7 @@ func TestFileManagerImpl_ApplyPatch_Failure(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			fileSystem := afero.NewMemMapFs()
-			afero.WriteFile(fileSystem, "test.txt", []byte("line1\nline2\nline3\n"), 0644)
+			afero.WriteFile(fileSystem, "test.txt", []byte("line1\nline2\nline3\n"), 0o644)
 			fm := files.NewFileManager()
 			_, err := fm.ApplyPatch(context.Background(), fileSystem, tt.file, tt.patch)
 			if err == nil {
@@ -230,7 +231,7 @@ func TestFileManagerImpl_UpdateLines_Success(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			fm := files.NewFileManager()
 			filesystem := afero.NewMemMapFs()
-			afero.WriteFile(filesystem, "test.txt", []byte("line1\nline2\nline3\n"), 0644)
+			afero.WriteFile(filesystem, "test.txt", []byte("line1\nline2\nline3\n"), 0o644)
 			actual, err := fm.UpdateLines(context.Background(), filesystem, "test.txt", tt.lineDiff)
 			if err != nil {
 				t.Fatalf("Unexpected error: %v", err)
@@ -272,7 +273,7 @@ func TestFileManagerImpl_UpdateLines_Failure(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			filesystem := afero.NewMemMapFs()
-			afero.WriteFile(filesystem, "test.txt", []byte("line1\nline2\nline3\n"), 0644)
+			afero.WriteFile(filesystem, "test.txt", []byte("line1\nline2\nline3\n"), 0o644)
 			fm := files.NewFileManager()
 			_, err := fm.UpdateLines(context.Background(), filesystem, "test.txt", tt.lineDiff)
 			if err == nil {
@@ -302,7 +303,7 @@ func TestUpdateFile_Success(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			filesystem := afero.NewMemMapFs()
-			afero.WriteFile(filesystem, "test.txt", []byte("line11\nline12\n"), 0644)
+			afero.WriteFile(filesystem, "test.txt", []byte("line11\nline12\n"), 0o644)
 			fm := files.NewFileManager()
 			actual, err := fm.UpdateFile(context.Background(), filesystem, "test.txt", tt.content)
 			if err != nil {
@@ -340,6 +341,67 @@ func TestUpdateFile_Failure(t *testing.T) {
 
 			if !strings.Contains(strings.ToLower(err.Error()), tt.expected) {
 				t.Errorf("Expected error to contain '%s', got %s", tt.expected, err.Error())
+			}
+		})
+	}
+}
+
+func TestListFile(t *testing.T) {
+	// SET UP
+	fs := afero.NewMemMapFs()
+	for _, file := range []struct {
+		path    string
+		content string
+	}{
+		{
+			path:    "hello.txt",
+			content: "Hi there\n",
+		},
+		{
+			path:    "something.txt",
+			content: "something1\nsomething2\nsomething3\n",
+		},
+		{
+			path:    "items.json",
+			content: `["a1","a2"]`,
+		},
+	} {
+		if err := afero.WriteFile(fs, file.path, []byte(file.content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	// RUN test
+	for _, tt := range []struct {
+		name       string
+		filter     files.PatternFilter
+		showHidden bool
+		wantPath   []string
+	}{
+		{
+			name:       "all files",
+			filter:     files.PatternFilter{},
+			showHidden: false,
+			wantPath:   []string{"hello.txt", "something.txt", "items.json"},
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			// NOTE: concurrent reads should be fine
+
+			fm := files.NewFileManager()
+			files, err := fm.ListFiles(context.Background(), fs, tt.showHidden, tt.filter)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			if len(tt.wantPath) != len(files) {
+				t.Fatalf("got %d path, want %d path", len(files), len(tt.wantPath))
+			}
+
+			for _, f := range files {
+				if !slices.Contains(tt.wantPath, f.Path) {
+					t.Fatalf("%s is missing", f.Path)
+				}
 			}
 		})
 	}
