@@ -37,6 +37,18 @@ func SearchSymbolsLimit(n int) SearchSymbolsOptions {
 	}
 }
 
+func IncludeSymbols(symbols ...protocol.SymbolKind) SearchSymbolsOptions {
+	return func(opts *searchSymbolsOptions) {
+		opts.symbolFilter = lsp.NewIncludeSymbolFilter(symbols...)
+	}
+}
+
+func ExcludedSymbols(symbols ...protocol.SymbolKind) SearchSymbolsOptions {
+	return func(opts *searchSymbolsOptions) {
+		opts.symbolFilter = lsp.NewExcludeSymbolFilter(symbols...)
+	}
+}
+
 func NewSearchSymbolsHandler(pm project.Manager, opts ...SearchSymbolsOptions) SearchSymbolsHandler {
 	options := &searchSymbolsOptions{
 		maxLimit:     100,
