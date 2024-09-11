@@ -354,15 +354,15 @@ func TestListFile(t *testing.T) {
 		content string
 	}{
 		{
-			path:    "hello.txt",
+			path:    "/hello.txt",
 			content: "Hi there\n",
 		},
 		{
-			path:    "something.txt",
+			path:    "/something/something.txt",
 			content: "something1\nsomething2\nsomething3\n",
 		},
 		{
-			path:    "items.json",
+			path:    "/something/items.json",
 			content: `["a1","a2"]`,
 		},
 	} {
@@ -382,12 +382,19 @@ func TestListFile(t *testing.T) {
 			name:       "all files",
 			filter:     files.PatternFilter{},
 			showHidden: false,
-			wantPath:   []string{"hello.txt", "something.txt", "items.json"},
+			wantPath:   []string{"/hello.txt", "/something/something.txt", "/something/items.json"},
+		},
+		{
+			name: "with exclude filter",
+			filter: files.PatternFilter{
+				Include: []string{"*something*"},
+				Exclude: []string{"*.json"},
+			},
+			showHidden: false,
+			wantPath:   []string{"/something/something.txt"},
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			// NOTE: concurrent reads should be fine
-
 			fm := files.NewFileManager()
 			files, err := fm.ListFiles(context.Background(), fs, tt.showHidden, tt.filter)
 			if err != nil {

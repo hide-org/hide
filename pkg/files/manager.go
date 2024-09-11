@@ -5,12 +5,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/artmoskvin/hide/pkg/model"
 	"github.com/bluekeyes/go-gitdiff/gitdiff"
+	"github.com/rs/zerolog/log"
 	"github.com/spf13/afero"
 )
 
@@ -109,10 +111,10 @@ type PatternFilter struct {
 	Exclude []string
 }
 
-func (p PatternFilter) Keep(path string) (ok bool, err error) {
+func (p PatternFilter) keep(path string, info fs.FileInfo) (ok bool, err error) {
 	basePath := filepath.Base(path)
 
-	exclude, err := p.shouldExclude(basePath)
+	exclude, err := p.shouldExclude(basePath, info)
 	if err != nil {
 		return false, err
 	}
@@ -120,7 +122,7 @@ func (p PatternFilter) Keep(path string) (ok bool, err error) {
 		return false, nil
 	}
 
-	include, err := p.shouldInclude(basePath)
+	include, err := p.shouldInclude(basePath, info)
 	if err != nil {
 		return false, err
 	}
@@ -131,8 +133,9 @@ func (p PatternFilter) Keep(path string) (ok bool, err error) {
 	return true, nil
 }
 
-func (p PatternFilter) shouldInclude(basePath string) (ok bool, err error) {
-	if len(p.Include) == 0 {
+func (p PatternFilter) shouldInclude(basePath string, info fs.FileInfo) (ok bool, err error) {
+	// always include directories
+	if len(p.Include) == 0 || info.IsDir() {
 		return true, nil
 	}
 
@@ -149,7 +152,7 @@ func (p PatternFilter) shouldInclude(basePath string) (ok bool, err error) {
 	return false, nil
 }
 
-func (p PatternFilter) shouldExclude(basePath string) (ok bool, err error) {
+func (p PatternFilter) shouldExclude(basePath string, info fs.FileInfo) (ok bool, err error) {
 	if len(p.Exclude) == 0 {
 		return false, nil
 	}
@@ -160,6 +163,10 @@ func (p PatternFilter) shouldExclude(basePath string) (ok bool, err error) {
 			return false, fmt.Errorf("Error exclude matching pattern %s: %w", pattern, err)
 		}
 		if matched {
+			if info.IsDir() {
+				// exclude whole directory
+				return false, filepath.SkipDir
+			}
 			return matched, nil
 		}
 	}
@@ -188,14 +195,13 @@ func (fm *FileManagerImpl) ListFiles(ctx context.Context, fs afero.Fs, showHidde
 			return nil
 		}
 
-		ok, err := filter.Keep(path)
+		log.Info().Msg(path)
+
+		ok, err := filter.keep(path, info)
 		if err != nil {
 			return err
 		}
 		if !ok {
-			if info.IsDir() {
-				return filepath.SkipDir
-			}
 			return nil
 		}
 
