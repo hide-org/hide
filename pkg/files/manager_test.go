@@ -396,6 +396,7 @@ func TestListFile(t *testing.T) {
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			fm := files.NewFileManager()
+
 			files, err := fm.ListFiles(context.Background(), fs, tt.showHidden, tt.filter)
 			if err != nil {
 				t.Fatal(err)
