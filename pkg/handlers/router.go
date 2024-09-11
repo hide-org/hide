@@ -66,6 +66,11 @@ func (r *Router) WithSearchFileHandler(handler SearchFilesHandler) *Router {
 	return r
 }
 
+func (r *Router) WithSearchSymbolsHandler(handler SearchSymbolsHandler) *Router {
+	r.Handle("/projects/{id}/search", handler).Queries("type", "symbol", "query", "").Methods("GET")
+	return r
+}
+
 func (r *Router) Build() *mux.Router {
 	return r.Router
 }

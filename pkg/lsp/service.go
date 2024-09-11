@@ -3,6 +3,7 @@ package lsp
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"path/filepath"
 
 	"github.com/artmoskvin/hide/pkg/model"
@@ -19,6 +20,7 @@ type LspDiagnostics = map[ProjectId]map[protocol.DocumentUri][]protocol.Diagnost
 type Service interface {
 	StartServer(ctx context.Context, languageId LanguageId) error
 	StopServer(ctx context.Context, languageId LanguageId) error
+	GetWorkspaceSymbols(ctx context.Context, query string, symbolFilter SymbolFilter) ([]SymbolInfo, error)
 	NotifyDidOpen(ctx context.Context, file model.File) error
 	NotifyDidClose(ctx context.Context, file model.File) error
 	// TODO: check if any LSP server supports this
@@ -29,7 +31,7 @@ type Service interface {
 
 type ServiceImpl struct {
 	languageDetector     LanguageDetector
-	clientPool           *ClientPool
+	clientPool           ClientPool
 	diagnosticsStore     *DiagnosticsStore
 	lspServerExecutables map[LanguageId]Command
 }
@@ -134,6 +136,74 @@ func (s *ServiceImpl) StopServer(ctx context.Context, languageId LanguageId) err
 	s.clientPool.Delete(project.Id, languageId)
 
 	return nil
+}
+
+func (s *ServiceImpl) GetWorkspaceSymbols(ctx context.Context, query string, symbolFilter SymbolFilter) ([]SymbolInfo, error) {
+	project, ok := model.ProjectFromContext(ctx)
+	if !ok {
+		log.Error().Msg("Project not found in context")
+		return nil, fmt.Errorf("project not found in context")
+	}
+
+	clients := s.getClients(ctx)
+	if len(clients) == 0 {
+		log.Warn().Str("projectId", project.Id).Msg("LSP client not found")
+		return nil, nil
+	}
+
+	symbols := []protocol.SymbolInformation{}
+	for _, client := range clients {
+		select {
+		case <-ctx.Done():
+			return nil, fmt.Errorf("context cancelled")
+		default:
+		}
+
+		result, err := client.GetWorkspaceSymbols(ctx, protocol.WorkspaceSymbolParams{Query: query})
+		if err != nil {
+			return nil, err
+		}
+
+		for _, symbol := range result {
+			if symbolFilter.shouldExcludeSymbol(symbol) {
+				continue
+			}
+
+			if symbolFilter.shouldIncludeSymbol(symbol) {
+				symbols = append(symbols, symbol)
+			}
+		}
+	}
+
+	result := make([]SymbolInfo, 0, len(symbols))
+	for _, symbol := range symbols {
+		select {
+		case <-ctx.Done():
+			return nil, fmt.Errorf("context cancelled")
+		default:
+		}
+
+		symbolPath, err := removeFilePrefix(symbol.Location.URI)
+		if err != nil {
+			log.Error().Err(err).Str("URI", symbol.Location.URI).Msg("failed to remove file prefix from URI")
+			return nil, fmt.Errorf("failed to remove file prefix from URI: %w", err)
+		}
+
+		relativePath, err := filepath.Rel(project.Path, symbolPath)
+		if err != nil {
+			log.Error().Err(err).Str("base", project.Path).Str("path", symbolPath).Msg("failed to get relative path of file")
+			return nil, fmt.Errorf("failed to get relative path of file: %w", err)
+		}
+
+		result = append(result, SymbolInfo{
+			Name: symbol.Name,
+			Kind: symbolKindToString(symbol.Kind),
+			// NOTE: LSP uses 0-based line numbers, but Hide uses 1-based. Characters remain 0-based.
+			Location: Location{Path: relativePath, Range: Range{Start: Position{Line: int(symbol.Location.Range.Start.Line) + 1, Character: int(symbol.Location.Range.Start.Character)}, End: Position{Line: int(symbol.Location.Range.End.Line) + 1, Character: int(symbol.Location.Range.End.Character)}}},
+		})
+	}
+
+	return result, nil
 }
 
 // NotifyDidClose implements Service.
@@ -242,6 +312,24 @@ func (s *ServiceImpl) getClient(ctx context.Context, languageId LanguageId) (Cli
 	return nil, false
 }
 
+func (s *ServiceImpl) getClients(ctx context.Context) []Client {
+	project, ok := model.ProjectFromContext(ctx)
+	if !ok {
+		log.Error().Msg("Project not found in context")
+		return nil
+	}
+
+	clients := make([]Client, 0)
+
+	if clientz, ok := s.clientPool.GetAllForProject(project.Id); ok {
+		for _, client := range clientz {
+			clients = append(clients, client)
+		}
+	}
+
+	return clients
+}
+
 func (s *ServiceImpl) listenForDiagnostics(projectId ProjectId, channel chan protocol.PublishDiagnosticsParams) {
 	for {
 		select {
@@ -262,7 +350,7 @@ func PathToURI(path string) protocol.DocumentUri {
 	return protocol.DocumentUri("file://" + path)
 }
 
-func NewService(languageDetector LanguageDetector, lspServerExecutables map[LanguageId]Command, diagnosticsStore *DiagnosticsStore, clientPool *ClientPool) Service {
+func NewService(languageDetector LanguageDetector, lspServerExecutables map[LanguageId]Command, diagnosticsStore *DiagnosticsStore, clientPool ClientPool) Service {
 	return &ServiceImpl{
 		languageDetector:     languageDetector,
 		clientPool:           clientPool,
@@ -273,4 +361,15 @@ func NewService(languageDetector LanguageDetector, lspServerExecutables map[Lang
 
 func boolPointer(b bool) *bool {
 	return &b
+}
+
+func removeFilePrefix(fileURL string) (string, error) {
+	u, err := url.Parse(fileURL)
+	if err != nil {
+		return "", err
+	}
+	if u.Scheme != "file" {
+		return "", fmt.Errorf("not a file URL")
+	}
+	return filepath.FromSlash(u.Path), nil
 }

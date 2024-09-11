@@ -5,6 +5,7 @@ import (
 
 	"github.com/artmoskvin/hide/pkg/devcontainer"
 	"github.com/artmoskvin/hide/pkg/files"
+	"github.com/artmoskvin/hide/pkg/lsp"
 	"github.com/artmoskvin/hide/pkg/model"
 	"github.com/artmoskvin/hide/pkg/project"
 	"github.com/artmoskvin/hide/pkg/result"
@@ -12,19 +13,20 @@ import (
 
 // MockProjectManager is a mock of the project.Manager interface for testing
 type MockProjectManager struct {
-	CreateProjectFunc    func(ctx context.Context, request project.CreateProjectRequest) <-chan result.Result[model.Project]
-	GetProjectFunc       func(ctx context.Context, projectId string) (model.Project, error)
-	GetProjectsFunc      func(ctx context.Context) ([]*model.Project, error)
-	DeleteProjectFunc    func(ctx context.Context, projectId string) <-chan result.Empty
-	ResolveTaskAliasFunc func(ctx context.Context, projectId string, alias string) (devcontainer.Task, error)
-	CreateTaskFunc       func(ctx context.Context, projectId string, command string) (project.TaskResult, error)
+	ApplyPatchFunc       func(ctx context.Context, projectId, path, patch string) (*model.File, error)
 	CleanupFunc          func(ctx context.Context) error
 	CreateFileFunc       func(ctx context.Context, projectId, path, content string) (*model.File, error)
-	ReadFileFunc         func(ctx context.Context, projectId, path string) (*model.File, error)
-	UpdateFileFunc       func(ctx context.Context, projectId, path, content string) (*model.File, error)
+	CreateProjectFunc    func(ctx context.Context, request project.CreateProjectRequest) <-chan result.Result[model.Project]
+	CreateTaskFunc       func(ctx context.Context, projectId string, command string) (project.TaskResult, error)
 	DeleteFileFunc       func(ctx context.Context, projectId, path string) error
+	DeleteProjectFunc    func(ctx context.Context, projectId string) <-chan result.Empty
+	GetProjectFunc       func(ctx context.Context, projectId string) (model.Project, error)
+	GetProjectsFunc      func(ctx context.Context) ([]*model.Project, error)
 	ListFilesFunc        func(ctx context.Context, projectId string, showHidden bool) ([]*model.File, error)
-	ApplyPatchFunc       func(ctx context.Context, projectId, path, patch string) (*model.File, error)
+	ReadFileFunc         func(ctx context.Context, projectId, path string) (*model.File, error)
+	ResolveTaskAliasFunc func(ctx context.Context, projectId string, alias string) (devcontainer.Task, error)
+	SearchSymbolsFunc    func(ctx context.Context, projectId model.ProjectId, query string, symbolFilter lsp.SymbolFilter) ([]lsp.SymbolInfo, error)
+	UpdateFileFunc       func(ctx context.Context, projectId, path, content string) (*model.File, error)
 	UpdateLinesFunc      func(ctx context.Context, projectId, path string, lineDiff files.LineDiffChunk) (*model.File, error)
 }
 
@@ -82,4 +84,8 @@ func (m *MockProjectManager) ApplyPatch(ctx context.Context, projectId, path, pa
 
 func (m *MockProjectManager) UpdateLines(ctx context.Context, projectId, path string, lineDiff files.LineDiffChunk) (*model.File, error) {
 	return m.UpdateLinesFunc(ctx, projectId, path, lineDiff)
+}
+
+func (m *MockProjectManager) SearchSymbols(ctx context.Context, projectId model.ProjectId, query string, symbolFilter lsp.SymbolFilter) ([]lsp.SymbolInfo, error) {
+	return m.SearchSymbolsFunc(ctx, projectId, query, symbolFilter)
 }

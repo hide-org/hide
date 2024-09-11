@@ -26,6 +26,7 @@ func (h *lspHandler) Handle(ctx context.Context, conn *jsonrpc2.Conn, req *jsonr
 }
 
 type Client interface {
+	GetWorkspaceSymbols(ctx context.Context, params protocol.WorkspaceSymbolParams) ([]protocol.SymbolInformation, error)
 	Initialize(ctx context.Context, params protocol.InitializeParams) (protocol.InitializeResult, error)
 	NotifyInitialized(ctx context.Context) error
 	NotifyDidOpen(ctx context.Context, params protocol.DidOpenTextDocumentParams) error
@@ -48,6 +49,12 @@ func NewClient(server Process, diagnosticsChannel chan protocol.PublishDiagnosti
 	}
 	conn := NewConnection(context.Background(), server.ReadWriteCloser(), jsonrpc2.HandlerWithError(handler.Handle))
 	return &ClientImpl{conn: conn, server: server, diagnosticsChannel: diagnosticsChannel}
+}
+
+func (c *ClientImpl) GetWorkspaceSymbols(ctx context.Context, params protocol.WorkspaceSymbolParams) ([]protocol.SymbolInformation, error) {
+	var result []protocol.SymbolInformation
+	err := c.conn.Call(ctx, "workspace/symbol", params, &result)
+	return result, err
 }
 
 func (c *ClientImpl) Initialize(ctx context.Context, params protocol.InitializeParams) (protocol.InitializeResult, error) {
