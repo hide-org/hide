@@ -3,6 +3,7 @@ package handlers_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -12,6 +13,7 @@ import (
 	"github.com/artmoskvin/hide/pkg/model"
 	"github.com/artmoskvin/hide/pkg/project"
 	"github.com/artmoskvin/hide/pkg/project/mocks"
+	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -49,17 +51,24 @@ func TestListFilesHandler_ServeHTTP(t *testing.T) {
 		},
 		{
 			name:   "successful listing with filtering",
-			target: "/projects/123/files?&include=*.txt&exclude=file1",
+			target: "/projects/123/files?&include=*.txt&include=*.json&exclude=file1",
 			mockListFilesFunc: func(ctx context.Context, projectId string, showHidden bool, filter files.PatternFilter) ([]*model.File, error) {
-				// TODO: fix.
+				// check expectations of filter
+				wantFilter := files.PatternFilter{
+					Include: []string{"*.txt", "*.json"},
+					Exclude: []string{"file1"},
+				}
+				if diff := cmp.Diff(filter, wantFilter); diff != "" {
+					return nil, fmt.Errorf("filter does not match, diff %s", diff)
+				}
+
 				return []*model.File{
-					model.EmptyFile("file1.txt"),
 					model.EmptyFile("file2.txt"),
 					model.EmptyFile("file2.json"),
 				}, nil
 			},
 			wantStatusCode: http.StatusOK,
-			wantBody:       `[{"path":"file2.txt"}]`,
+			wantBody:       `[{"path":"file2.txt"},{"path":"file2.json"}]`,
 		},
 		{
 			name:   "project not found",

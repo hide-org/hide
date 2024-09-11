@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"strconv"
 
+	"github.com/artmoskvin/hide/pkg/files"
 	"github.com/gorilla/mux"
 )
 
@@ -26,6 +27,20 @@ func getPathValue(r *http.Request, key string) (string, error) {
 	}
 
 	return value, nil
+}
+
+func getPatternFilter(r *http.Request) (files.PatternFilter, error) {
+	filter := files.PatternFilter{}
+
+	if r.URL.Query().Has("include") {
+		filter.Include = r.URL.Query()["include"]
+	}
+
+	if r.URL.Query().Has("exclude") {
+		filter.Exclude = r.URL.Query()["exclude"]
+	}
+
+	return filter, nil
 }
 
 func parseIntQueryParam(params url.Values, paramName string) (int, bool, error) {
