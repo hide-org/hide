@@ -41,10 +41,11 @@ func TestListFilesHandler_ServeHTTP(t *testing.T) {
 				return []*model.File{
 					model.EmptyFile("file1.txt"),
 					model.EmptyFile("file2.txt"),
+					model.EmptyFile("file2.json"),
 				}, nil
 			},
 			wantStatusCode: http.StatusOK,
-			wantBody:       `[{"path":"file1.txt"},{"path":"file2.txt"}]`,
+			wantBody:       `[{"path":"file2.txt"}]`,
 		},
 		{
 			name:   "project not found",
