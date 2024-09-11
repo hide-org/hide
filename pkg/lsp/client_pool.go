@@ -2,13 +2,21 @@ package lsp
 
 import "sync"
 
+type ClientPool interface {
+	Get(projectId ProjectId, languageId LanguageId) (Client, bool)
+	GetAllForProject(projectId ProjectId) (map[LanguageId]Client, bool)
+	Set(projectId ProjectId, languageId LanguageId, client Client)
+	Delete(projectId ProjectId, languageId LanguageId)
+	DeleteAllForProject(projectId ProjectId)
+}
+
 // In memory store for clients. Applies mutex locking for concurrent access.
-type ClientPool struct {
+type ClientPoolImpl struct {
 	clients map[ProjectId]map[LanguageId]Client
 	mu      sync.Mutex
 }
 
-func (c *ClientPool) Get(projectId ProjectId, languageId LanguageId) (Client, bool) {
+func (c *ClientPoolImpl) Get(projectId ProjectId, languageId LanguageId) (Client, bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -21,7 +29,7 @@ func (c *ClientPool) Get(projectId ProjectId, languageId LanguageId) (Client, bo
 	return nil, false
 }
 
-func (c *ClientPool) GetAllForProject(projectId ProjectId) (map[LanguageId]Client, bool) {
+func (c *ClientPoolImpl) GetAllForProject(projectId ProjectId) (map[LanguageId]Client, bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -32,7 +40,7 @@ func (c *ClientPool) GetAllForProject(projectId ProjectId) (map[LanguageId]Clien
 	return nil, false
 }
 
-func (c *ClientPool) Set(projectId ProjectId, languageId LanguageId, client Client) {
+func (c *ClientPoolImpl) Set(projectId ProjectId, languageId LanguageId, client Client) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -43,7 +51,7 @@ func (c *ClientPool) Set(projectId ProjectId, languageId LanguageId, client Clie
 	c.clients[projectId][languageId] = client
 }
 
-func (c *ClientPool) Delete(projectId ProjectId, languageId LanguageId) {
+func (c *ClientPoolImpl) Delete(projectId ProjectId, languageId LanguageId) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -52,15 +60,15 @@ func (c *ClientPool) Delete(projectId ProjectId, languageId LanguageId) {
 	}
 }
 
-func (c *ClientPool) DeleteAllForProject(projectId ProjectId) {
+func (c *ClientPoolImpl) DeleteAllForProject(projectId ProjectId) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
 	delete(c.clients, projectId)
 }
 
-func NewClientPool() *ClientPool {
-	return &ClientPool{
+func NewClientPool() *ClientPoolImpl {
+	return &ClientPoolImpl{
 		clients: make(map[ProjectId]map[LanguageId]Client),
 	}
 }

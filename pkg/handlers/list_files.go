@@ -24,12 +24,7 @@ func (h ListFilesHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	showHidden, err := parseBoolQueryParam(r.URL.Query(), "showHidden", false)
-
-	if err != nil {
-		http.Error(w, fmt.Sprintf("Invalid `showHidden` query parameter: %s", err), http.StatusBadRequest)
-		return
-	}
+	showHidden := r.URL.Query().Has("showHidden")
 
 	files, err := h.ProjectManager.ListFiles(r.Context(), projectID, showHidden)
 	if err != nil {

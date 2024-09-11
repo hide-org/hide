@@ -55,6 +55,7 @@ func (f *File) GetContent() string {
 	return content.String()
 }
 
+// GetLine returns the line with the given line number. Line numbers are 1-based.
 func (f *File) GetLine(lineNumber int) Line {
 	if lineNumber < 1 || lineNumber > len(f.Lines) {
 		return Line{}
@@ -63,6 +64,7 @@ func (f *File) GetLine(lineNumber int) Line {
 	return f.Lines[lineNumber-1]
 }
 
+// GetLineRange returns the lines between start and end (exclusive). Line numbers are 1-based.
 func (f *File) GetLineRange(start, end int) []Line {
 	// Convert to 0-based indexing
 	start -= 1
@@ -79,10 +81,16 @@ func (f *File) GetLineRange(start, end int) []Line {
 	return f.Lines[start:end]
 }
 
+// WithLineRange returns a new File with the lines between start and end (exclusive). Line numbers are 1-based.
 func (f *File) WithLineRange(start, end int) *File {
 	return &File{Path: f.Path, Lines: f.GetLineRange(start, end)}
 }
 
+func (f *File) WithPath(path string) *File {
+	return &File{Path: path, Lines: f.Lines}
+}
+
+// ReplaceLineRange replaces the lines between start and end (exclusive) with the given content. Line numbers are 1-based.
 func (f *File) ReplaceLineRange(start, end int, content string) (*File, error) {
 	if start == end {
 		return f, nil
@@ -113,6 +121,7 @@ func (f *File) ReplaceLineRange(start, end int, content string) (*File, error) {
 	return &File{Path: f.Path, Lines: result}, nil
 }
 
+// NewFile creates a new File from the given path and content. Content is split into lines. Line numbers are 1-based.
 func NewFile(path string, content string) (*File, error) {
 	lines, err := NewLines(content)
 
@@ -123,6 +132,7 @@ func NewFile(path string, content string) (*File, error) {
 	return &File{Path: path, Lines: lines}, nil
 }
 
+// NewLines splits the given content into lines. Line numbers are 1-based.
 func NewLines(content string) ([]Line, error) {
 	var lines []Line
 
