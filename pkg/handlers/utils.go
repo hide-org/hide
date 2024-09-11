@@ -41,19 +41,3 @@ func parseIntQueryParam(params url.Values, paramName string) (int, bool, error) 
 
 	return value, true, nil
 }
-
-func parseBoolQueryParam(params url.Values, paramName string, defaultValue bool) (bool, error) {
-	param := params.Get(paramName)
-
-	if param == "" {
-		return defaultValue, nil
-	}
-
-	value, err := strconv.ParseBool(param)
-
-	if err != nil {
-		return false, fmt.Errorf("Failed to parse %s: %w", paramName, err)
-	}
-
-	return value, nil
-}
