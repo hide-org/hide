@@ -35,6 +35,18 @@ func TestListFilesHandler_ServeHTTP(t *testing.T) {
 			wantBody:       `[{"path":"file1.txt"},{"path":"file2.txt"}]`,
 		},
 		{
+			name:   "successful listing with filtering",
+			target: "/projects/123/files?&include=.*.txt&exclude=file1",
+			mockListFilesFunc: func(ctx context.Context, projectId string, showHidden bool) ([]*model.File, error) {
+				return []*model.File{
+					model.EmptyFile("file1.txt"),
+					model.EmptyFile("file2.txt"),
+				}, nil
+			},
+			wantStatusCode: http.StatusOK,
+			wantBody:       `[{"path":"file1.txt"},{"path":"file2.txt"}]`,
+		},
+		{
 			name:   "project not found",
 			target: "/projects/123/files?showHidden=false",
 			mockListFilesFunc: func(ctx context.Context, projectId string, showHidden bool) ([]*model.File, error) {

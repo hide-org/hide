@@ -19,7 +19,7 @@ type FileManager interface {
 	ReadFile(ctx context.Context, fs afero.Fs, path string) (*model.File, error)
 	UpdateFile(ctx context.Context, fs afero.Fs, path, content string) (*model.File, error)
 	DeleteFile(ctx context.Context, fs afero.Fs, path string) error
-	ListFiles(ctx context.Context, fs afero.Fs, showHidden bool, ignorePatterns []string) ([]*model.File, error)
+	ListFiles(ctx context.Context, fs afero.Fs, showHidden bool, filter PatternFilter) ([]*model.File, error)
 	ApplyPatch(ctx context.Context, fs afero.Fs, path, patch string) (*model.File, error)
 	UpdateLines(ctx context.Context, fs afero.Fs, path string, lineDiff LineDiffChunk) (*model.File, error)
 }
@@ -104,7 +104,70 @@ func (fm *FileManagerImpl) DeleteFile(ctx context.Context, fs afero.Fs, path str
 	return fs.Remove(path)
 }
 
-func (fm *FileManagerImpl) ListFiles(ctx context.Context, fs afero.Fs, showHidden bool, ignorePatterns []string) ([]*model.File, error) {
+type PatternFilter struct {
+	Include []string
+	Exclude []string
+}
+
+func (p PatternFilter) Keep(path string) (ok bool, err error) {
+	basePath := filepath.Base(path)
+
+	exclude, err := p.shouldExclude(basePath)
+	if err != nil {
+		return false, err
+	}
+	if exclude {
+		return false, nil
+	}
+
+	include, err := p.shouldInclude(basePath)
+	if err != nil {
+		return false, err
+	}
+	if !include {
+		return false, nil
+	}
+
+	return true, nil
+}
+
+func (p PatternFilter) shouldInclude(basePath string) (ok bool, err error) {
+	if len(p.Include) == 0 {
+		return true, nil
+	}
+
+	for _, pattern := range p.Include {
+		matched, err := filepath.Match(pattern, basePath)
+		if err != nil {
+			return false, fmt.Errorf("Error include matching pattern %s: %w", pattern, err)
+		}
+		if matched {
+			return matched, nil
+		}
+	}
+
+	return false, nil
+}
+
+func (p PatternFilter) shouldExclude(basePath string) (ok bool, err error) {
+	if len(p.Exclude) == 0 {
+		return false, nil
+	}
+
+	for _, pattern := range p.Exclude {
+		matched, err := filepath.Match(pattern, basePath)
+		if err != nil {
+			return false, fmt.Errorf("Error exclude matching pattern %s: %w", pattern, err)
+		}
+		if matched {
+			return matched, nil
+		}
+	}
+
+	return false, nil
+}
+
+func (fm *FileManagerImpl) ListFiles(ctx context.Context, fs afero.Fs, showHidden bool, filter PatternFilter) ([]*model.File, error) {
 	var files []*model.File
 
 	err := afero.Walk(fs, "/", func(path string, info os.FileInfo, err error) error {
@@ -125,17 +188,15 @@ func (fm *FileManagerImpl) ListFiles(ctx context.Context, fs afero.Fs, showHidde
 			return nil
 		}
 
-		for _, pattern := range ignorePatterns {
-			matched, err := filepath.Match(pattern, filepath.Base(path))
-			if err != nil {
-				return fmt.Errorf("Error matching pattern %s: %w", pattern, err)
+		ok, err := filter.Keep(path)
+		if err != nil {
+			return err
+		}
+		if !ok {
+			if info.IsDir() {
+				return filepath.SkipDir
 			}
-			if matched {
-				if info.IsDir() {
-					return filepath.SkipDir
-				}
-				return nil
-			}
+			return nil
 		}
 
 		if !info.IsDir() {
