@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/artmoskvin/hide/pkg/files"
 	"github.com/artmoskvin/hide/pkg/handlers"
 	"github.com/artmoskvin/hide/pkg/model"
 	"github.com/artmoskvin/hide/pkg/project/mocks"
@@ -17,7 +18,7 @@ import (
 func TestSearchFileHandler(t *testing.T) {
 	// set up
 	pm := &mocks.MockProjectManager{
-		ListFilesFunc: func(ctx context.Context, projectId string, showHidden bool) ([]*model.File, error) {
+		ListFilesFunc: func(ctx context.Context, projectId string, showHidden bool, filter files.PatternFilter) ([]*model.File, error) {
 			return []*model.File{
 				{
 					Path: "root/folder1/file1.txt",

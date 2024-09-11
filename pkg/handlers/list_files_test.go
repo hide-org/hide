@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/artmoskvin/hide/pkg/files"
 	"github.com/artmoskvin/hide/pkg/handlers"
 	"github.com/artmoskvin/hide/pkg/model"
 	"github.com/artmoskvin/hide/pkg/project"
@@ -18,14 +19,14 @@ func TestListFilesHandler_ServeHTTP(t *testing.T) {
 	tests := []struct {
 		name              string
 		target            string
-		mockListFilesFunc func(ctx context.Context, projectId string, showHidden bool) ([]*model.File, error)
+		mockListFilesFunc func(ctx context.Context, projectId string, showHidden bool, filter files.PatternFilter) ([]*model.File, error)
 		wantStatusCode    int
 		wantBody          string
 	}{
 		{
 			name:   "successful listing",
 			target: "/projects/123/files",
-			mockListFilesFunc: func(ctx context.Context, projectId string, showHidden bool) ([]*model.File, error) {
+			mockListFilesFunc: func(ctx context.Context, projectId string, showHidden bool, filter files.PatternFilter) ([]*model.File, error) {
 				return []*model.File{
 					model.EmptyFile("file1.txt"),
 					model.EmptyFile("file2.txt"),
@@ -37,7 +38,7 @@ func TestListFilesHandler_ServeHTTP(t *testing.T) {
 		{
 			name:   "successful listing with hidden",
 			target: "/projects/123/files?showHidden",
-			mockListFilesFunc: func(ctx context.Context, projectId string, showHidden bool) ([]*model.File, error) {
+			mockListFilesFunc: func(ctx context.Context, projectId string, showHidden bool, filter files.PatternFilter) ([]*model.File, error) {
 				return []*model.File{
 					model.EmptyFile("file1.txt"),
 					model.EmptyFile("file2.txt"),
@@ -49,7 +50,8 @@ func TestListFilesHandler_ServeHTTP(t *testing.T) {
 		{
 			name:   "successful listing with filtering",
 			target: "/projects/123/files?&include=*.txt&exclude=file1",
-			mockListFilesFunc: func(ctx context.Context, projectId string, showHidden bool) ([]*model.File, error) {
+			mockListFilesFunc: func(ctx context.Context, projectId string, showHidden bool, filter files.PatternFilter) ([]*model.File, error) {
+				// TODO: fix.
 				return []*model.File{
 					model.EmptyFile("file1.txt"),
 					model.EmptyFile("file2.txt"),
@@ -62,7 +64,7 @@ func TestListFilesHandler_ServeHTTP(t *testing.T) {
 		{
 			name:   "project not found",
 			target: "/projects/123/files",
-			mockListFilesFunc: func(ctx context.Context, projectId string, showHidden bool) ([]*model.File, error) {
+			mockListFilesFunc: func(ctx context.Context, projectId string, showHidden bool, filter files.PatternFilter) ([]*model.File, error) {
 				return nil, project.NewProjectNotFoundError(projectId)
 			},
 			wantStatusCode: http.StatusNotFound,
@@ -71,7 +73,7 @@ func TestListFilesHandler_ServeHTTP(t *testing.T) {
 		{
 			name:   "internal server error",
 			target: "/projects/123/files",
-			mockListFilesFunc: func(ctx context.Context, projectId string, showHidden bool) ([]*model.File, error) {
+			mockListFilesFunc: func(ctx context.Context, projectId string, showHidden bool, filter files.PatternFilter) ([]*model.File, error) {
 				return nil, errors.New("internal error")
 			},
 			wantStatusCode: http.StatusInternalServerError,
