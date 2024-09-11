@@ -36,7 +36,7 @@ func TestListFilesHandler_ServeHTTP(t *testing.T) {
 		},
 		{
 			name:   "successful listing with filtering",
-			target: "/projects/123/files?&include=.*.txt&exclude=file1",
+			target: "/projects/123/files?&include=*.txt&exclude=file1",
 			mockListFilesFunc: func(ctx context.Context, projectId string, showHidden bool) ([]*model.File, error) {
 				return []*model.File{
 					model.EmptyFile("file1.txt"),
