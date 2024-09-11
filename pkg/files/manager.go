@@ -12,7 +12,6 @@ import (
 
 	"github.com/artmoskvin/hide/pkg/model"
 	"github.com/bluekeyes/go-gitdiff/gitdiff"
-	"github.com/rs/zerolog/log"
 	"github.com/spf13/afero"
 )
 
@@ -194,8 +193,6 @@ func (fm *FileManagerImpl) ListFiles(ctx context.Context, fs afero.Fs, showHidde
 			}
 			return nil
 		}
-
-		log.Info().Msg(path)
 
 		ok, err := filter.keep(path, info)
 		if err != nil {
