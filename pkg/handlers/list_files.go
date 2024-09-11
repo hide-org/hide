@@ -26,10 +26,7 @@ func (h ListFilesHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	showHidden := r.URL.Query().Has("showHidden")
 
-	filter, err := getPatternFilter(r)
-	if err != nil {
-		http.Error(w, fmt.Sprintf("Invalid query parameters %s", err), http.StatusBadRequest)
-	}
+	filter := getPatternFilter(r)
 
 	files, err := h.ProjectManager.ListFiles(r.Context(), projectID, showHidden, filter)
 	if err != nil {

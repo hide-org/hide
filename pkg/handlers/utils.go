@@ -29,7 +29,7 @@ func getPathValue(r *http.Request, key string) (string, error) {
 	return value, nil
 }
 
-func getPatternFilter(r *http.Request) (files.PatternFilter, error) {
+func getPatternFilter(r *http.Request) files.PatternFilter {
 	filter := files.PatternFilter{}
 
 	if r.URL.Query().Has("include") {
@@ -40,7 +40,7 @@ func getPatternFilter(r *http.Request) (files.PatternFilter, error) {
 		filter.Exclude = r.URL.Query()["exclude"]
 	}
 
-	return filter, nil
+	return filter
 }
 
 func parseIntQueryParam(params url.Values, paramName string) (int, bool, error) {
