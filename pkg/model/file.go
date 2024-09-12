@@ -124,7 +124,6 @@ func (f *File) ReplaceLineRange(start, end int, content string) (*File, error) {
 // NewFile creates a new File from the given path and content. Content is split into lines. Line numbers are 1-based.
 func NewFile(path string, content string) (*File, error) {
 	lines, err := NewLines(content)
-
 	if err != nil {
 		return nil, fmt.Errorf("Failed to create lines from content: %w", err)
 	}
@@ -134,11 +133,14 @@ func NewFile(path string, content string) (*File, error) {
 
 // NewLines splits the given content into lines. Line numbers are 1-based.
 func NewLines(content string) ([]Line, error) {
-	var lines []Line
+	if !strings.Contains(content, "\n") {
+		return []Line{{Number: 1, Content: content}}, nil
+	}
 
 	scanner := bufio.NewScanner(strings.NewReader(content))
 	lineNumber := 1
 
+	var lines []Line
 	for scanner.Scan() {
 		lines = append(lines, Line{Number: lineNumber, Content: scanner.Text()})
 		lineNumber++
