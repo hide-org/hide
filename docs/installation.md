@@ -32,49 +32,54 @@ The runtime is responsible for managing the development environments, executing 
     brew install hide
     ```
 
-After installing Hide, you can start the runtime by running the following command:
-
-```bash
-hide run
-```
-
-You should see logs indicating that the server is running, something like: `Server started on 127.0.0.1:8080`. For more options, including how to specify the port, see help:
-
-```bash
-hide --help
-```
-
 ### Building from Source
 
 To build Hide from source, follow these steps:
 
 1. Ensure you have [Go 1.22+](https://go.dev/) or later installed on your system.
-2. Clone the Hide repository:
+2. Clone the repository:
 
     ```bash
     git clone https://github.com/artmoskvin/hide.git
     cd hide
     ```
 
-3. Build the project:
-
-    ```bash
-    make build
-    ```
-
-4. (Optional) Install Hide to your `$GOPATH/bin` directory:
+3. Build Hide and install it to your `$HOME/go/bin` directory:
 
     ```bash
     make install
     ```
 
-After building from source, you can run Hide by running the following command from the project directory:
+    !!! note
 
-```bash
-./hide run
-```
+        Make sure that `$HOME/go/bin` is in your `$PATH` environment variable e.g. `export PATH=$PATH:$HOME/go/bin`.
 
-or if you've installed it to your `$GOPATH/bin`:
+
+4. Install LSP server for your language of choice.
+
+    For Python, install the `pyright` package:
+
+    ```bash
+    pipx install pyright
+    ```
+
+    Note that we use [pipx](https://pipx.pypa.io/stable/) to install the package globally in isolated environment. After installation run `pyright` command in the shell to install `nodejs` if it's missing (Pyright is written in Typescript and it will install `nodejs` for you). 
+
+    For JavaScript and TypeScript, install the `typescript-language-server` package:
+
+    ```bash
+    npm install -g typescript-language-server
+    ```
+
+    For Go, install the `gopls` package:
+
+    ```bash
+    go install golang.org/x/tools/gopls@latest
+    ```
+
+### Running Hide
+
+After installing Hide, you can start the runtime by running the following command:
 
 ```bash
 hide run
