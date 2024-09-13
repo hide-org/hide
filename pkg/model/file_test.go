@@ -34,10 +34,7 @@ func TestNewLines(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := NewLines(tt.content)
-			if (err != nil) != tt.wantErr {
-				t.Fatalf("NewLines() error = %v, wantErr %v", err, tt.wantErr)
-			}
+			got := NewLines(tt.content)
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Fatalf("NewLines() = %v, want %v", got, tt.want)
 			}

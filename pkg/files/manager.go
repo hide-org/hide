@@ -19,7 +19,7 @@ type FileManager interface {
 	ReadFile(ctx context.Context, fs afero.Fs, path string) (*model.File, error)
 	UpdateFile(ctx context.Context, fs afero.Fs, path, content string) (*model.File, error)
 	DeleteFile(ctx context.Context, fs afero.Fs, path string) error
-	ListFiles(ctx context.Context, fs afero.Fs, showHidden bool, ignorePatterns []string) ([]*model.File, error)
+	ListFiles(ctx context.Context, fs afero.Fs, showHidden bool, filter PatternFilter) ([]*model.File, error)
 	ApplyPatch(ctx context.Context, fs afero.Fs, path, patch string) (*model.File, error)
 	UpdateLines(ctx context.Context, fs afero.Fs, path string, lineDiff LineDiffChunk) (*model.File, error)
 }
@@ -40,10 +40,7 @@ func (fm *FileManagerImpl) CreateFile(ctx context.Context, fs afero.Fs, path, co
 		return nil, NewFileAlreadyExistsError(path)
 	}
 
-	file, err := model.NewFile(path, content)
-	if err != nil {
-		return nil, err
-	}
+	file := model.NewFile(path, content)
 
 	dir := filepath.Dir(file.Path)
 	if err := fs.MkdirAll(dir, 0o755); err != nil {
@@ -80,10 +77,7 @@ func (fm *FileManagerImpl) UpdateFile(ctx context.Context, fs afero.Fs, path, co
 		return nil, NewFileNotFoundError(path)
 	}
 
-	file, err := model.NewFile(path, content)
-	if err != nil {
-		return nil, fmt.Errorf("Failed to create file: %w", err)
-	}
+	file := model.NewFile(path, content)
 
 	if err := writeFile(fs, file); err != nil {
 		return nil, fmt.Errorf("Failed to write file %s: %w", path, err)
@@ -104,7 +98,7 @@ func (fm *FileManagerImpl) DeleteFile(ctx context.Context, fs afero.Fs, path str
 	return fs.Remove(path)
 }
 
-func (fm *FileManagerImpl) ListFiles(ctx context.Context, fs afero.Fs, showHidden bool, ignorePatterns []string) ([]*model.File, error) {
+func (fm *FileManagerImpl) ListFiles(ctx context.Context, fs afero.Fs, showHidden bool, filter PatternFilter) ([]*model.File, error) {
 	var files []*model.File
 
 	err := afero.Walk(fs, "/", func(path string, info os.FileInfo, err error) error {
@@ -125,17 +119,12 @@ func (fm *FileManagerImpl) ListFiles(ctx context.Context, fs afero.Fs, showHidde
 			return nil
 		}
 
-		for _, pattern := range ignorePatterns {
-			matched, err := filepath.Match(pattern, filepath.Base(path))
-			if err != nil {
-				return fmt.Errorf("Error matching pattern %s: %w", pattern, err)
-			}
-			if matched {
-				if info.IsDir() {
-					return filepath.SkipDir
-				}
-				return nil
-			}
+		ok, err := filter.keep(path, info)
+		if err != nil {
+			return err
+		}
+		if !ok {
+			return nil
 		}
 
 		if !info.IsDir() {
@@ -241,7 +230,7 @@ func readFile(fs afero.Fs, path string) (*model.File, error) {
 		return nil, err
 	}
 
-	return model.NewFile(path, string(content))
+	return model.NewFile(path, string(content)), nil
 }
 
 func writeFile(fs afero.Fs, file *model.File) error {

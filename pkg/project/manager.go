@@ -52,7 +52,7 @@ type Manager interface {
 	DeleteProject(ctx context.Context, projectId model.ProjectId) <-chan result.Empty
 	GetProject(ctx context.Context, projectId model.ProjectId) (model.Project, error)
 	GetProjects(ctx context.Context) ([]*model.Project, error)
-	ListFiles(ctx context.Context, projectId string, showHidden bool) ([]*model.File, error)
+	ListFiles(ctx context.Context, projectId string, showHidden bool, filter files.PatternFilter) ([]*model.File, error)
 	ReadFile(ctx context.Context, projectId, path string) (*model.File, error)
 	ResolveTaskAlias(ctx context.Context, projectId model.ProjectId, alias string) (devcontainer.Task, error)
 	SearchSymbols(ctx context.Context, projectId model.ProjectId, query string, symbolFilter lsp.SymbolFilter) ([]lsp.SymbolInfo, error)
@@ -120,7 +120,6 @@ func (pm ManagerImpl) CreateProject(ctx context.Context, request CreateProjectRe
 			devContainerConfig = *request.DevContainer
 		} else {
 			config, err := pm.configFromProject(os.DirFS(projectPath))
-
 			if err != nil {
 				log.Error().Err(err).Msgf("Failed to get devcontainer config from repository %s", request.Repository.Url)
 				removeProjectDir(projectPath)
@@ -132,7 +131,6 @@ func (pm ManagerImpl) CreateProject(ctx context.Context, request CreateProjectRe
 		}
 
 		containerId, err := pm.devContainerRunner.Run(ctx, projectPath, devContainerConfig)
-
 		if err != nil {
 			log.Error().Err(err).Msg("Failed to launch devcontainer")
 			removeProjectDir(projectPath)
@@ -151,8 +149,11 @@ func (pm ManagerImpl) CreateProject(ctx context.Context, request CreateProjectRe
 			return
 		}
 
-		ignorePatterns := parseGitignore(gitignore.GetContent())
-		files, err := pm.fileManager.ListFiles(model.NewContextWithProject(context.Background(), &project), afero.NewBasePathFs(afero.NewOsFs(), projectPath), false, ignorePatterns)
+		filter := files.PatternFilter{
+			Exclude: parseGitignore(gitignore.GetContent()),
+		}
+
+		files, err := pm.fileManager.ListFiles(model.NewContextWithProject(context.Background(), &project), afero.NewBasePathFs(afero.NewOsFs(), projectPath), false, filter)
 		if err != nil {
 			log.Error().Err(err).Msg("Failed to list files")
 			removeProjectDir(projectPath)
@@ -185,7 +186,6 @@ func (pm ManagerImpl) CreateProject(ctx context.Context, request CreateProjectRe
 
 func (pm ManagerImpl) GetProject(ctx context.Context, projectId string) (model.Project, error) {
 	project, err := pm.store.GetProject(projectId)
-
 	if err != nil {
 		log.Error().Err(err).Msgf("Failed to get project with id %s", projectId)
 		return model.Project{}, err
@@ -196,7 +196,6 @@ func (pm ManagerImpl) GetProject(ctx context.Context, projectId string) (model.P
 
 func (pm ManagerImpl) GetProjects(ctx context.Context) ([]*model.Project, error) {
 	projects, err := pm.store.GetProjects()
-
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to get projects")
 		return nil, fmt.Errorf("Failed to get projects: %w", err)
@@ -212,7 +211,6 @@ func (pm ManagerImpl) DeleteProject(ctx context.Context, projectId string) <-cha
 		log.Debug().Msgf("Deleting project %s", projectId)
 
 		project, err := pm.GetProject(ctx, projectId)
-
 		if err != nil {
 			log.Error().Err(err).Msgf("Failed to get project with id %s", projectId)
 			c <- result.EmptyFailure(fmt.Errorf("Failed to get project with id %s: %w", projectId, err))
@@ -243,14 +241,12 @@ func (pm ManagerImpl) ResolveTaskAlias(ctx context.Context, projectId string, al
 	log.Debug().Msgf("Resolving task alias %s for project %s", alias, projectId)
 
 	project, err := pm.GetProject(ctx, projectId)
-
 	if err != nil {
 		log.Error().Err(err).Msgf("Failed to get project with id %s", projectId)
 		return devcontainer.Task{}, fmt.Errorf("Failed to get project with id %s: %w", projectId, err)
 	}
 
 	task, err := project.FindTaskByAlias(alias)
-
 	if err != nil {
 		log.Error().Err(err).Msgf("Task with alias %s for project %s not found", alias, projectId)
 		return devcontainer.Task{}, err
@@ -265,14 +261,12 @@ func (pm ManagerImpl) CreateTask(ctx context.Context, projectId string, command 
 	log.Debug().Msgf("Creating task for project %s. Command: %s", projectId, command)
 
 	project, err := pm.GetProject(ctx, projectId)
-
 	if err != nil {
 		log.Error().Err(err).Msgf("Failed to get project with id %s", projectId)
 		return TaskResult{}, fmt.Errorf("Failed to get project with id %s: %w", projectId, err)
 	}
 
 	execResult, err := pm.devContainerRunner.Exec(ctx, project.ContainerId, []string{"/bin/bash", "-c", command})
-
 	if err != nil {
 		log.Error().Err(err).Msgf("Failed to execute command '%s' in container %s", command, project.ContainerId)
 		return TaskResult{}, fmt.Errorf("Failed to execute command: %w", err)
@@ -338,7 +332,6 @@ func (pm ManagerImpl) CreateFile(ctx context.Context, projectId, path, content s
 	log.Debug().Str("projectId", projectId).Str("path", path).Msg("Creating file")
 
 	project, err := pm.GetProject(ctx, projectId)
-
 	if err != nil {
 		log.Error().Err(err).Str("projectId", projectId).Msg("Failed to get project")
 		return nil, fmt.Errorf("Failed to get project with id %s: %w", projectId, err)
@@ -347,7 +340,6 @@ func (pm ManagerImpl) CreateFile(ctx context.Context, projectId, path, content s
 	ctx = model.NewContextWithProject(ctx, &project)
 
 	file, err := pm.fileManager.CreateFile(ctx, afero.NewBasePathFs(afero.NewOsFs(), project.Path), path, content)
-
 	if err != nil {
 		log.Error().Err(err).Str("projectId", projectId).Str("path", path).Msg("Failed to create file")
 		return file, err
@@ -366,7 +358,6 @@ func (pm ManagerImpl) ReadFile(ctx context.Context, projectId, path string) (*mo
 	log.Debug().Str("projectId", projectId).Str("path", path).Msg("Reading file")
 
 	project, err := pm.GetProject(ctx, projectId)
-
 	if err != nil {
 		log.Error().Err(err).Str("projectId", projectId).Msg("Failed to get project")
 		return nil, fmt.Errorf("Failed to get project with id %s: %w", projectId, err)
@@ -374,7 +365,6 @@ func (pm ManagerImpl) ReadFile(ctx context.Context, projectId, path string) (*mo
 
 	ctx = model.NewContextWithProject(ctx, &project)
 	file, err := pm.fileManager.ReadFile(ctx, afero.NewBasePathFs(afero.NewOsFs(), project.Path), path)
-
 	if err != nil {
 		log.Error().Err(err).Str("projectId", projectId).Str("path", path).Msg("Failed to read file")
 		return file, err
@@ -393,7 +383,6 @@ func (pm ManagerImpl) UpdateFile(ctx context.Context, projectId, path, content s
 	log.Debug().Msgf("Updating file %s in project %s", path, projectId)
 
 	project, err := pm.GetProject(ctx, projectId)
-
 	if err != nil {
 		log.Error().Err(err).Str("projectId", projectId).Msg("Failed to get project")
 		return nil, fmt.Errorf("Failed to get project with id %s: %w", projectId, err)
@@ -402,7 +391,6 @@ func (pm ManagerImpl) UpdateFile(ctx context.Context, projectId, path, content s
 	ctx = model.NewContextWithProject(ctx, &project)
 
 	file, err := pm.fileManager.UpdateFile(ctx, afero.NewBasePathFs(afero.NewOsFs(), project.Path), path, content)
-
 	if err != nil {
 		log.Error().Err(err).Str("projectId", projectId).Str("path", path).Msg("Failed to update file")
 		return file, err
@@ -421,7 +409,6 @@ func (pm ManagerImpl) DeleteFile(ctx context.Context, projectId, path string) er
 	log.Debug().Msgf("Deleting file %s in project %s", path, projectId)
 
 	project, err := pm.GetProject(ctx, projectId)
-
 	if err != nil {
 		log.Error().Err(err).Str("projectId", projectId).Msg("Failed to get project")
 		return fmt.Errorf("Failed to get project with id %s: %w", projectId, err)
@@ -430,11 +417,10 @@ func (pm ManagerImpl) DeleteFile(ctx context.Context, projectId, path string) er
 	return pm.fileManager.DeleteFile(model.NewContextWithProject(ctx, &project), afero.NewBasePathFs(afero.NewOsFs(), project.Path), path)
 }
 
-func (pm ManagerImpl) ListFiles(ctx context.Context, projectId string, showHidden bool) ([]*model.File, error) {
+func (pm ManagerImpl) ListFiles(ctx context.Context, projectId string, showHidden bool, filter files.PatternFilter) ([]*model.File, error) {
 	log.Debug().Str("projectId", projectId).Msg("Listing files")
 
 	project, err := pm.GetProject(ctx, projectId)
-
 	if err != nil {
 		log.Error().Err(err).Str("projectId", projectId).Msg("Failed to get project")
 		return nil, fmt.Errorf("Failed to get project with id %s: %w", projectId, err)
@@ -447,9 +433,9 @@ func (pm ManagerImpl) ListFiles(ctx context.Context, projectId string, showHidde
 		return nil, fmt.Errorf("Failed to read .gitignore in project %s: %w", projectId, err)
 	}
 
-	ignorePatterns := parseGitignore(gitignore.GetContent())
-	files, err := pm.fileManager.ListFiles(ctx, afero.NewBasePathFs(afero.NewOsFs(), project.Path), showHidden, ignorePatterns)
+	filter.Exclude = append(filter.Exclude, parseGitignore(gitignore.GetContent())...)
 
+	files, err := pm.fileManager.ListFiles(ctx, afero.NewBasePathFs(afero.NewOsFs(), project.Path), showHidden, filter)
 	if err != nil {
 		log.Error().Err(err).Str("projectId", projectId).Msgf("Failed to list files")
 		return nil, fmt.Errorf("Failed to list files in project %s: %w", projectId, err)
@@ -469,7 +455,6 @@ func (pm ManagerImpl) ApplyPatch(ctx context.Context, projectId, path, patch str
 
 	ctx = model.NewContextWithProject(ctx, &project)
 	file, err := pm.fileManager.ApplyPatch(ctx, afero.NewBasePathFs(afero.NewOsFs(), project.Path), path, patch)
-
 	if err != nil {
 		log.Error().Err(err).Str("projectId", projectId).Str("path", path).Msg("Failed to patch file")
 		return nil, fmt.Errorf("Failed to patch file %s: %w", path, err)
@@ -535,7 +520,7 @@ func (pm ManagerImpl) SearchSymbols(ctx context.Context, projectId model.Project
 }
 
 func (pm ManagerImpl) createProjectDir(path string) error {
-	if err := os.MkdirAll(path, 0755); err != nil {
+	if err := os.MkdirAll(path, 0o755); err != nil {
 		return fmt.Errorf("Failed to create project directory: %w", err)
 	}
 
@@ -546,13 +531,11 @@ func (pm ManagerImpl) createProjectDir(path string) error {
 
 func (pm ManagerImpl) configFromProject(fileSystem fs.FS) (devcontainer.Config, error) {
 	configFile, err := devcontainer.FindConfig(fileSystem)
-
 	if err != nil {
 		return devcontainer.Config{}, fmt.Errorf("Failed to find devcontainer.json: %w", err)
 	}
 
 	config, err := devcontainer.ParseConfig(configFile)
-
 	if err != nil {
 		return devcontainer.Config{}, fmt.Errorf("Failed to parse devcontainer.json: %w", err)
 	}
@@ -612,7 +595,6 @@ func cloneGitRepo(repository Repository, projectPath string) <-chan result.Empty
 	go func() {
 		cmd := exec.Command("git", "clone", repository.Url, projectPath)
 		cmdOut, err := cmd.Output()
-
 		if err != nil {
 			c <- result.EmptyFailure(fmt.Errorf("Failed to clone git repo: %w", err))
 			return
@@ -625,7 +607,6 @@ func cloneGitRepo(repository Repository, projectPath string) <-chan result.Empty
 			cmd = exec.Command("git", "checkout", *repository.Commit)
 			cmd.Dir = projectPath
 			cmdOut, err = cmd.Output()
-
 			if err != nil {
 				c <- result.EmptyFailure(fmt.Errorf("Failed to checkout commit %s: %w", *repository.Commit, err))
 				return
