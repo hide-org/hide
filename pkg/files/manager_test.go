@@ -825,7 +825,7 @@ func TestListFile(t *testing.T) {
 					content string
 				}{
 					{
-						path:    "/logs",
+						path:    "/logs.txt",
 						content: "content",
 					},
 					{
@@ -837,7 +837,7 @@ func TestListFile(t *testing.T) {
 						content: "content",
 					},
 					{
-						path:    "/build/logs",
+						path:    "/build/logs.txt",
 						content: "content",
 					},
 					{
@@ -852,10 +852,10 @@ func TestListFile(t *testing.T) {
 				return fs
 			}(),
 			filter: files.PatternFilter{
-				Include: []string{"**/logs", "**/logs/**"},
+				Include: []string{"**/logs*", "**/logs/**"},
 			},
 			showHidden: false,
-			wantPath:   []string{"/logs", "/logs/debug.log", "/logs/latest/foo.bar", "/build/logs", "/build/logs/debug.log"},
+			wantPath:   []string{"/logs.txt", "/logs/debug.log", "/logs/latest/foo.bar", "/build/logs.txt", "/build/logs/debug.log"},
 		},
 		{
 			name: "include only directories",
@@ -866,7 +866,7 @@ func TestListFile(t *testing.T) {
 					content string
 				}{
 					{
-						path:    "/logs",
+						path:    "/logs.txt",
 						content: "content",
 					},
 					{
@@ -878,7 +878,7 @@ func TestListFile(t *testing.T) {
 						content: "content",
 					},
 					{
-						path:    "/build/logs",
+						path:    "/build/logs.txt",
 						content: "content",
 					},
 					{
@@ -893,10 +893,10 @@ func TestListFile(t *testing.T) {
 				return fs
 			}(),
 			filter: files.PatternFilter{
-				Include: []string{"logs/"},
+				Include: []string{"**/logs/**"},
 			},
 			showHidden: false,
-			wantPath:   []string{"/logs", "/logs/debug.log", "/logs/latest/foo.bar", "/build/logs/debug.log"},
+			wantPath:   []string{"/logs/debug.log", "/logs/latest/foo.bar", "/build/logs/debug.log"},
 		},
 		{
 			name: "include with double asterisk",
@@ -926,7 +926,7 @@ func TestListFile(t *testing.T) {
 				return fs
 			}(),
 			filter: files.PatternFilter{
-				Include: []string{"logs/**/debug.log"},
+				Include: []string{"/logs/**/debug.log"},
 			},
 			showHidden: false,
 			wantPath:   []string{"/logs/debug.log", "/logs/monday/debug.log", "/logs/monday/pm/debug.log"},
@@ -959,7 +959,7 @@ func TestListFile(t *testing.T) {
 				return fs
 			}(),
 			filter: files.PatternFilter{
-				Include: []string{"logs/*day/debug.log"},
+				Include: []string{"/logs/*day/debug.log"},
 			},
 			showHidden: false,
 			wantPath:   []string{"/logs/monday/debug.log"},
@@ -992,7 +992,7 @@ func TestListFile(t *testing.T) {
 				return fs
 			}(),
 			filter: files.PatternFilter{
-				Include: []string{"logs/debug.log"},
+				Include: []string{"/logs/debug.log"},
 			},
 			showHidden: false,
 			wantPath:   []string{"/logs/debug.log"},
