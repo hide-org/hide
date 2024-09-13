@@ -22,7 +22,7 @@ type MockProjectManager struct {
 	DeleteProjectFunc    func(ctx context.Context, projectId string) <-chan result.Empty
 	GetProjectFunc       func(ctx context.Context, projectId string) (model.Project, error)
 	GetProjectsFunc      func(ctx context.Context) ([]*model.Project, error)
-	ListFilesFunc        func(ctx context.Context, projectId string, showHidden bool) ([]*model.File, error)
+	ListFilesFunc        func(ctx context.Context, projectId string, showHidden bool, filter files.PatternFilter) ([]*model.File, error)
 	ReadFileFunc         func(ctx context.Context, projectId, path string) (*model.File, error)
 	ResolveTaskAliasFunc func(ctx context.Context, projectId string, alias string) (devcontainer.Task, error)
 	SearchSymbolsFunc    func(ctx context.Context, projectId model.ProjectId, query string, symbolFilter lsp.SymbolFilter) ([]lsp.SymbolInfo, error)
@@ -74,8 +74,8 @@ func (m *MockProjectManager) DeleteFile(ctx context.Context, projectId, path str
 	return m.DeleteFileFunc(ctx, projectId, path)
 }
 
-func (m *MockProjectManager) ListFiles(ctx context.Context, projectId string, showHidden bool) ([]*model.File, error) {
-	return m.ListFilesFunc(ctx, projectId, showHidden)
+func (m *MockProjectManager) ListFiles(ctx context.Context, projectId string, showHidden bool, filter files.PatternFilter) ([]*model.File, error) {
+	return m.ListFilesFunc(ctx, projectId, showHidden, filter)
 }
 
 func (m *MockProjectManager) ApplyPatch(ctx context.Context, projectId, path, patch string) (*model.File, error) {

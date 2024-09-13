@@ -74,8 +74,10 @@ func (h SearchFilesHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	filter := getPatternFilter(r)
+
 	listFiles := func(ctx context.Context, showHidden bool) ([]*model.File, error) {
-		return h.ProjectManager.ListFiles(ctx, projectID, showHidden)
+		return h.ProjectManager.ListFiles(ctx, projectID, showHidden, filter)
 	}
 
 	result, err := findInFiles(r.Context(), listFiles, check)

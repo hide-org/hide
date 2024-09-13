@@ -3,11 +3,13 @@ package handlers_test
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
+	"github.com/artmoskvin/hide/pkg/files"
 	"github.com/artmoskvin/hide/pkg/handlers"
 	"github.com/artmoskvin/hide/pkg/model"
 	"github.com/artmoskvin/hide/pkg/project/mocks"
@@ -15,31 +17,22 @@ import (
 )
 
 func TestSearchFileHandler(t *testing.T) {
-	// set up
-	pm := &mocks.MockProjectManager{
-		ListFilesFunc: func(ctx context.Context, projectId string, showHidden bool) ([]*model.File, error) {
-			return []*model.File{
-				{
-					Path: "root/folder1/file1.txt",
-					Lines: []model.Line{
-						{Number: 0, Content: "something"},
-						{Number: 1, Content: "here is nothing to see"},
-					},
-				},
-				{
-					Path: "root/folder2/file2.txt",
-					Lines: []model.Line{
-						{Number: 0, Content: "only something to see"},
-						{Number: 1, Content: "Something"},
-					},
-				},
-			}, nil
+	modelFiles := []*model.File{
+		{
+			Path: "root/folder1/file1.txt",
+			Lines: []model.Line{
+				{Number: 0, Content: "something"},
+				{Number: 1, Content: "here is nothing to see"},
+			},
+		},
+		{
+			Path: "root/folder2/file2.txt",
+			Lines: []model.Line{
+				{Number: 0, Content: "only something to see"},
+				{Number: 1, Content: "Something"},
+			},
 		},
 	}
-	h := handlers.SearchFilesHandler{
-		ProjectManager: pm,
-	}
-	r := handlers.NewRouter().WithSearchFileHandler(h).Build()
 
 	// run tests
 	tests := []struct {
@@ -49,6 +42,7 @@ func TestSearchFileHandler(t *testing.T) {
 		target         string
 		wantStatusCode int
 		wantBody       []model.File
+		wantFilter     files.PatternFilter
 		wantErr        bool
 	}{
 		{
@@ -56,6 +50,32 @@ func TestSearchFileHandler(t *testing.T) {
 			ctx:            context.Background(),
 			method:         http.MethodGet,
 			target:         "/projects/p1/search?type=content&query=something",
+			wantStatusCode: http.StatusOK,
+			wantBody: []model.File{
+				{
+					Path: "root/folder1/file1.txt",
+					Lines: []model.Line{
+						{Number: 0, Content: "something"},
+					},
+				},
+				{
+					Path: "root/folder2/file2.txt",
+					Lines: []model.Line{
+						{Number: 0, Content: "only something to see"},
+						{Number: 1, Content: "Something"},
+					},
+				},
+			},
+		},
+		{
+			name:   "ok case insensitive search with pattern filter",
+			ctx:    context.Background(),
+			method: http.MethodGet,
+			target: "/projects/p1/search?type=content&query=something&include=*.json&include=*.txt&exclude=node",
+			wantFilter: files.PatternFilter{
+				Include: []string{"*.json", "*.txt"},
+				Exclude: []string{"node"},
+			},
 			wantStatusCode: http.StatusOK,
 			wantBody: []model.File{
 				{
@@ -126,6 +146,18 @@ func TestSearchFileHandler(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			h := handlers.SearchFilesHandler{
+				ProjectManager: &mocks.MockProjectManager{
+					ListFilesFunc: func(ctx context.Context, projectId string, showHidden bool, filter files.PatternFilter) ([]*model.File, error) {
+						if diff := cmp.Diff(filter, tt.wantFilter); diff != "" {
+							return nil, fmt.Errorf("filter does not match, diff %s", diff)
+						}
+						return modelFiles, nil
+					},
+				},
+			}
+			r := handlers.NewRouter().WithSearchFileHandler(h).Build()
+
 			req := httptest.NewRequest(tt.method, tt.target, nil).WithContext(tt.ctx)
 			rec := httptest.NewRecorder()
 
