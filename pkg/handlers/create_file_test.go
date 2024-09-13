@@ -27,11 +27,11 @@ func TestCreateFileHandler(t *testing.T) {
 		{
 			name: "Success",
 			createFileFunc: func(ctx context.Context, projectId, path, content string) (*model.File, error) {
-				return model.NewFile("/test/path", "test content")
+				return model.NewFile("/test/path", "test content"), nil
 			},
 			requestBody: handlers.CreateFileRequest{Path: "/test/path", Content: "test content"},
 			wantStatus:  http.StatusCreated,
-			wantFile:    func() *model.File { f, _ := model.NewFile("/test/path", "test content"); return f }(),
+			wantFile:    func() *model.File { return model.NewFile("/test/path", "test content") }(),
 		},
 		{
 			name: "ProjectNotFound",
