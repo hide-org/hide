@@ -43,14 +43,11 @@ func (f *File) Equals(other *File) bool {
 }
 
 func (f *File) GetContent() string {
-	var content strings.Builder
-
-	for _, line := range f.Lines {
-		content.WriteString(line.Content)
-		content.WriteString("\n")
+	lines := make([]string, len(f.Lines))
+	for i, line := range f.Lines {
+		lines[i] = line.Content
 	}
-
-	return content.String()
+	return strings.Join(lines, "\n")
 }
 
 // GetLine returns the line with the given line number. Line numbers are 1-based.
