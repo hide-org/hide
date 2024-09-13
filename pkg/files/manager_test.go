@@ -19,7 +19,7 @@ func TestReadFile(t *testing.T) {
 
 	fm := files.NewFileManager()
 	actual, err := fm.ReadFile(context.Background(), fs, path)
-	expected, _ := model.NewFile(path, content)
+	expected := model.NewFile(path, content)
 
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
@@ -173,7 +173,7 @@ func TestFileManagerImpl_UpdateLines_Success(t *testing.T) {
 	tests := []struct {
 		name     string
 		lineDiff files.LineDiffChunk
-		expected model.File
+		expected *model.File
 	}{
 		{
 			name: "Update 1 line",
@@ -182,48 +182,25 @@ func TestFileManagerImpl_UpdateLines_Success(t *testing.T) {
 				EndLine:   2,
 				Content:   "line11",
 			},
-			expected: model.File{
-				Path: "test.txt",
-				Lines: []model.Line{
-					{Number: 1, Content: "line11"},
-					{Number: 2, Content: "line2"},
-					{Number: 3, Content: "line3"},
-				},
-			},
+			expected: model.NewFile("test.txt", "line11\nline2\nline3\n"),
 		},
 		{
 			name: "Update multiple lines",
 			lineDiff: files.LineDiffChunk{
 				StartLine: 1,
 				EndLine:   3,
-				Content:   "line11\nline12\n",
+				Content:   "line11\nline12",
 			},
-			expected: model.File{
-				Path: "test.txt",
-				Lines: []model.Line{
-					{Number: 1, Content: "line11"},
-					{Number: 2, Content: "line12"},
-					{Number: 3, Content: "line3"},
-				},
-			},
+			expected: model.NewFile("test.txt", "line11\nline12\nline3\n"),
 		},
 		{
 			name: "Add multiple lines at the end",
 			lineDiff: files.LineDiffChunk{
 				StartLine: 3,
 				EndLine:   4,
-				Content:   "line10\nline11\nline12\n",
+				Content:   "line10\nline11\nline12",
 			},
-			expected: model.File{
-				Path: "test.txt",
-				Lines: []model.Line{
-					{Number: 1, Content: "line1"},
-					{Number: 2, Content: "line2"},
-					{Number: 3, Content: "line10"},
-					{Number: 4, Content: "line11"},
-					{Number: 5, Content: "line12"},
-				},
-			},
+			expected: model.NewFile("test.txt", "line1\nline2\nline10\nline11\nline12\n"),
 		},
 	}
 
@@ -237,7 +214,7 @@ func TestFileManagerImpl_UpdateLines_Success(t *testing.T) {
 				t.Fatalf("Unexpected error: %v", err)
 			}
 
-			if !actual.Equals(&tt.expected) {
+			if !actual.Equals(tt.expected) {
 				t.Errorf("Expected %+v, got %+v", tt.expected, actual)
 			}
 		})
@@ -257,7 +234,7 @@ func TestFileManagerImpl_UpdateLines_Failure(t *testing.T) {
 				EndLine:   10,
 				Content:   "line11",
 			},
-			expected: "Start line must be less than or equal to 3",
+			expected: "Start line must be less than or equal to 4",
 		},
 		{
 			name: "End line > number of lines + 1",
@@ -266,7 +243,7 @@ func TestFileManagerImpl_UpdateLines_Failure(t *testing.T) {
 				EndLine:   11,
 				Content:   "line11",
 			},
-			expected: "End line must be less than or equal to 4",
+			expected: "End line must be less than or equal to 5",
 		},
 	}
 
@@ -291,12 +268,12 @@ func TestUpdateFile_Success(t *testing.T) {
 	tests := []struct {
 		name     string
 		content  string
-		expected model.File
+		expected *model.File
 	}{
 		{
 			name:     "Update file",
 			content:  "line1\nline2\nline3\n",
-			expected: model.File{Path: "test.txt", Lines: []model.Line{{Number: 1, Content: "line1"}, {Number: 2, Content: "line2"}, {Number: 3, Content: "line3"}}},
+			expected: model.NewFile("test.txt", "line1\nline2\nline3\n"),
 		},
 	}
 
@@ -310,7 +287,7 @@ func TestUpdateFile_Success(t *testing.T) {
 				t.Fatalf("Unexpected error: %v", err)
 			}
 
-			if !actual.Equals(&tt.expected) {
+			if !actual.Equals(tt.expected) {
 				t.Errorf("Expected %+v, got %+v", tt.expected, actual)
 			}
 		})

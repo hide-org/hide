@@ -42,10 +42,7 @@ func (fm *FileManagerImpl) CreateFile(ctx context.Context, fs afero.Fs, path, co
 		return nil, NewFileAlreadyExistsError(path)
 	}
 
-	file, err := model.NewFile(path, content)
-	if err != nil {
-		return nil, err
-	}
+	file := model.NewFile(path, content)
 
 	dir := filepath.Dir(file.Path)
 	if err := fs.MkdirAll(dir, 0o755); err != nil {
@@ -82,10 +79,7 @@ func (fm *FileManagerImpl) UpdateFile(ctx context.Context, fs afero.Fs, path, co
 		return nil, NewFileNotFoundError(path)
 	}
 
-	file, err := model.NewFile(path, content)
-	if err != nil {
-		return nil, fmt.Errorf("Failed to create file: %w", err)
-	}
+	file := model.NewFile(path, content)
 
 	if err := writeFile(fs, file); err != nil {
 		return nil, fmt.Errorf("Failed to write file %s: %w", path, err)
@@ -307,7 +301,7 @@ func readFile(fs afero.Fs, path string) (*model.File, error) {
 		return nil, err
 	}
 
-	return model.NewFile(path, string(content))
+	return model.NewFile(path, string(content)), nil
 }
 
 func writeFile(fs afero.Fs, file *model.File) error {
