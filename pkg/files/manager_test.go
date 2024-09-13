@@ -14,11 +14,11 @@ func TestReadFile(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	path := "test.txt"
 	content := "line1\nline2\nline3\n"
-	afero.WriteFile(fs, path, []byte(content), 0644)
+	afero.WriteFile(fs, path, []byte(content), 0o644)
 
 	fm := files.NewFileManager()
 	actual, err := fm.ReadFile(context.Background(), fs, path)
-	expected, _ := model.NewFile(path, content)
+	expected := model.NewFile(path, content)
 
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
@@ -31,7 +31,7 @@ func TestReadFile(t *testing.T) {
 
 func TestReadNonExistentFile(t *testing.T) {
 	fs := afero.NewMemMapFs()
-	afero.WriteFile(fs, "test.txt", []byte("line1\nline2\nline3\n"), 0644)
+	afero.WriteFile(fs, "test.txt", []byte("line1\nline2\nline3\n"), 0o644)
 
 	fm := files.NewFileManager()
 	_, err := fm.ReadFile(context.Background(), fs, "non-existent.txt")
@@ -88,7 +88,7 @@ func TestFileManagerImpl_ApplyPatch_Success(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			filesystem := afero.NewMemMapFs()
-			afero.WriteFile(filesystem, "test.txt", []byte("line1\nline2\nline3\nline4\nline5\nline6\nline7\nline8\nline9\nline10\n"), 0644)
+			afero.WriteFile(filesystem, "test.txt", []byte("line1\nline2\nline3\nline4\nline5\nline6\nline7\nline8\nline9\nline10\n"), 0o644)
 			fm := files.NewFileManager()
 			actual, err := fm.ApplyPatch(context.Background(), filesystem, "test.txt", tt.patch)
 			if err != nil {
@@ -154,7 +154,7 @@ func TestFileManagerImpl_ApplyPatch_Failure(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			fileSystem := afero.NewMemMapFs()
-			afero.WriteFile(fileSystem, "test.txt", []byte("line1\nline2\nline3\n"), 0644)
+			afero.WriteFile(fileSystem, "test.txt", []byte("line1\nline2\nline3\n"), 0o644)
 			fm := files.NewFileManager()
 			_, err := fm.ApplyPatch(context.Background(), fileSystem, tt.file, tt.patch)
 			if err == nil {
@@ -230,7 +230,7 @@ func TestFileManagerImpl_UpdateLines_Success(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			fm := files.NewFileManager()
 			filesystem := afero.NewMemMapFs()
-			afero.WriteFile(filesystem, "test.txt", []byte("line1\nline2\nline3\n"), 0644)
+			afero.WriteFile(filesystem, "test.txt", []byte("line1\nline2\nline3\n"), 0o644)
 			actual, err := fm.UpdateLines(context.Background(), filesystem, "test.txt", tt.lineDiff)
 			if err != nil {
 				t.Fatalf("Unexpected error: %v", err)
@@ -272,7 +272,7 @@ func TestFileManagerImpl_UpdateLines_Failure(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			filesystem := afero.NewMemMapFs()
-			afero.WriteFile(filesystem, "test.txt", []byte("line1\nline2\nline3\n"), 0644)
+			afero.WriteFile(filesystem, "test.txt", []byte("line1\nline2\nline3\n"), 0o644)
 			fm := files.NewFileManager()
 			_, err := fm.UpdateLines(context.Background(), filesystem, "test.txt", tt.lineDiff)
 			if err == nil {
@@ -302,7 +302,7 @@ func TestUpdateFile_Success(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			filesystem := afero.NewMemMapFs()
-			afero.WriteFile(filesystem, "test.txt", []byte("line11\nline12\n"), 0644)
+			afero.WriteFile(filesystem, "test.txt", []byte("line11\nline12\n"), 0o644)
 			fm := files.NewFileManager()
 			actual, err := fm.UpdateFile(context.Background(), filesystem, "test.txt", tt.content)
 			if err != nil {

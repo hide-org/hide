@@ -1,8 +1,6 @@
 package model
 
 import (
-	"bufio"
-	"fmt"
 	"strings"
 
 	protocol "github.com/tliron/glsp/protocol_3_16"
@@ -96,10 +94,7 @@ func (f *File) ReplaceLineRange(start, end int, content string) (*File, error) {
 		return f, nil
 	}
 
-	replacement, err := NewLines(content)
-	if err != nil {
-		return f, err
-	}
+	replacement := NewLines(content)
 
 	newLength := len(f.Lines) - (end - start) + len(replacement)
 	result := make([]Line, newLength)
@@ -122,31 +117,18 @@ func (f *File) ReplaceLineRange(start, end int, content string) (*File, error) {
 }
 
 // NewFile creates a new File from the given path and content. Content is split into lines. Line numbers are 1-based.
-func NewFile(path string, content string) (*File, error) {
-	lines, err := NewLines(content)
-	if err != nil {
-		return nil, fmt.Errorf("Failed to create lines from content: %w", err)
-	}
-
-	return &File{Path: path, Lines: lines}, nil
+func NewFile(path string, content string) *File {
+	return &File{Path: path, Lines: NewLines(content)}
 }
 
 // NewLines splits the given content into lines. Line numbers are 1-based.
-func NewLines(content string) ([]Line, error) {
-	if !strings.Contains(content, "\n") {
-		return []Line{{Number: 1, Content: content}}, nil
-	}
-
-	scanner := bufio.NewScanner(strings.NewReader(content))
-	lineNumber := 1
-
+func NewLines(content string) []Line {
 	var lines []Line
-	for scanner.Scan() {
-		lines = append(lines, Line{Number: lineNumber, Content: scanner.Text()})
-		lineNumber++
+	for i, v := range strings.Split(content, "\n") {
+		lines = append(lines, Line{Number: i + 1, Content: v})
 	}
 
-	return lines, scanner.Err()
+	return lines
 }
 
 func EmptyFile(path string) *File {
