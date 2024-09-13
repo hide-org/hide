@@ -12,6 +12,7 @@ import (
 
 	"github.com/artmoskvin/hide/pkg/model"
 	"github.com/bluekeyes/go-gitdiff/gitdiff"
+	"github.com/gobwas/glob"
 	"github.com/spf13/afero"
 )
 
@@ -111,9 +112,9 @@ type PatternFilter struct {
 }
 
 func (p PatternFilter) keep(path string, info fs.FileInfo) (ok bool, err error) {
-	basePath := filepath.Base(path)
+	// basePath := filepath.Base(path)
 
-	exclude, err := p.shouldExclude(basePath, info)
+	exclude, err := p.shouldExclude(path, info)
 	if err != nil {
 		return false, err
 	}
@@ -121,7 +122,7 @@ func (p PatternFilter) keep(path string, info fs.FileInfo) (ok bool, err error) 
 		return false, nil
 	}
 
-	include, err := p.shouldInclude(basePath, info)
+	include, err := p.shouldInclude(path, info)
 	if err != nil {
 		return false, err
 	}
@@ -132,41 +133,42 @@ func (p PatternFilter) keep(path string, info fs.FileInfo) (ok bool, err error) 
 	return true, nil
 }
 
-func (p PatternFilter) shouldInclude(basePath string, info fs.FileInfo) (ok bool, err error) {
+func (p PatternFilter) shouldInclude(path string, info fs.FileInfo) (ok bool, err error) {
 	// always include directories
 	if len(p.Include) == 0 || info.IsDir() {
 		return true, nil
 	}
 
 	for _, pattern := range p.Include {
-		matched, err := filepath.Match(pattern, basePath)
+		g, err := glob.Compile(pattern)
 		if err != nil {
 			return false, fmt.Errorf("Error include matching pattern %s: %w", pattern, err)
 		}
-		if matched {
-			return matched, nil
+		if g.Match(path) {
+			return true, nil
 		}
 	}
 
 	return false, nil
 }
 
-func (p PatternFilter) shouldExclude(basePath string, info fs.FileInfo) (ok bool, err error) {
+func (p PatternFilter) shouldExclude(path string, info fs.FileInfo) (ok bool, err error) {
 	if len(p.Exclude) == 0 {
 		return false, nil
 	}
 
 	for _, pattern := range p.Exclude {
-		matched, err := filepath.Match(pattern, basePath)
+		g, err := glob.Compile(pattern)
 		if err != nil {
 			return false, fmt.Errorf("Error exclude matching pattern %s: %w", pattern, err)
 		}
-		if matched {
+
+		if g.Match(path) {
 			if info.IsDir() {
 				// exclude whole directory
 				return false, filepath.SkipDir
 			}
-			return matched, nil
+			return true, nil
 		}
 	}
 
