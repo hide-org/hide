@@ -24,11 +24,9 @@ func (h ListFilesHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	showHidden := r.URL.Query().Has("showHidden")
+	opts := getListFilesOptions(r)
 
-	filter := getPatternFilter(r)
-
-	files, err := h.ProjectManager.ListFiles(r.Context(), projectID, showHidden, filter)
+	files, err := h.ProjectManager.ListFiles(r.Context(), projectID, opts...)
 	if err != nil {
 		var projectNotFoundError *project.ProjectNotFoundError
 		if errors.As(err, &projectNotFoundError) {

@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/artmoskvin/hide/pkg/files"
+	mockfiles "github.com/artmoskvin/hide/pkg/files/mocks"
 	"github.com/artmoskvin/hide/pkg/handlers"
 	"github.com/artmoskvin/hide/pkg/model"
 	"github.com/artmoskvin/hide/pkg/project/mocks"
@@ -148,10 +149,16 @@ func TestSearchFileHandler(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			h := handlers.SearchFilesHandler{
 				ProjectManager: &mocks.MockProjectManager{
-					ListFilesFunc: func(ctx context.Context, projectId string, showHidden bool, filter files.PatternFilter) ([]*model.File, error) {
-						if diff := cmp.Diff(filter, tt.wantFilter); diff != "" {
+					ListFilesFunc: func(ctx context.Context, projectId string, opts ...files.ListFileOption) ([]*model.File, error) {
+						diff := mockfiles.DiffListFilesOpts(files.ListFilesOptions{
+							WithContent: true,
+							Filter:      tt.wantFilter,
+						}, opts...)
+
+						if diff != "" {
 							return nil, fmt.Errorf("filter does not match, diff %s", diff)
 						}
+
 						return modelFiles, nil
 					},
 				},

@@ -29,6 +29,14 @@ func getPathValue(r *http.Request, key string) (string, error) {
 	return value, nil
 }
 
+func getListFilesOptions(r *http.Request) []files.ListFileOption {
+	opts := []files.ListFileOption{files.ListFilesWithFilter(getPatternFilter(r))}
+	if r.URL.Query().Has("showHidden") {
+		opts = append(opts, files.ListFilesWithShowHidden())
+	}
+	return opts
+}
+
 func getPatternFilter(r *http.Request) files.PatternFilter {
 	filter := files.PatternFilter{}
 

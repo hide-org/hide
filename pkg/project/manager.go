@@ -52,7 +52,7 @@ type Manager interface {
 	DeleteProject(ctx context.Context, projectId model.ProjectId) <-chan result.Empty
 	GetProject(ctx context.Context, projectId model.ProjectId) (model.Project, error)
 	GetProjects(ctx context.Context) ([]*model.Project, error)
-	ListFiles(ctx context.Context, projectId string, showHidden bool, filter files.PatternFilter) ([]*model.File, error)
+	ListFiles(ctx context.Context, projectId string, opts ...files.ListFileOption) ([]*model.File, error)
 	ReadFile(ctx context.Context, projectId, path string) (*model.File, error)
 	ResolveTaskAlias(ctx context.Context, projectId model.ProjectId, alias string) (devcontainer.Task, error)
 	SearchSymbols(ctx context.Context, projectId model.ProjectId, query string, symbolFilter lsp.SymbolFilter) ([]lsp.SymbolInfo, error)
@@ -149,11 +149,11 @@ func (pm ManagerImpl) CreateProject(ctx context.Context, request CreateProjectRe
 			return
 		}
 
-		filter := files.PatternFilter{
+		opts := []files.ListFileOption{files.ListFilesWithFilter(files.PatternFilter{
 			Exclude: parseGitignore(gitignore.GetContent()),
-		}
+		})}
 
-		files, err := pm.fileManager.ListFiles(model.NewContextWithProject(context.Background(), &project), afero.NewBasePathFs(afero.NewOsFs(), projectPath), false, filter)
+		files, err := pm.fileManager.ListFiles(model.NewContextWithProject(context.Background(), &project), afero.NewBasePathFs(afero.NewOsFs(), projectPath), opts...)
 		if err != nil {
 			log.Error().Err(err).Msg("Failed to list files")
 			removeProjectDir(projectPath)
@@ -417,7 +417,7 @@ func (pm ManagerImpl) DeleteFile(ctx context.Context, projectId, path string) er
 	return pm.fileManager.DeleteFile(model.NewContextWithProject(ctx, &project), afero.NewBasePathFs(afero.NewOsFs(), project.Path), path)
 }
 
-func (pm ManagerImpl) ListFiles(ctx context.Context, projectId string, showHidden bool, filter files.PatternFilter) ([]*model.File, error) {
+func (pm ManagerImpl) ListFiles(ctx context.Context, projectId string, opts ...files.ListFileOption) ([]*model.File, error) {
 	log.Debug().Str("projectId", projectId).Msg("Listing files")
 
 	project, err := pm.GetProject(ctx, projectId)
@@ -433,9 +433,11 @@ func (pm ManagerImpl) ListFiles(ctx context.Context, projectId string, showHidde
 		return nil, fmt.Errorf("Failed to read .gitignore in project %s: %w", projectId, err)
 	}
 
-	filter.Exclude = append(filter.Exclude, parseGitignore(gitignore.GetContent())...)
+	opts = append(opts, files.ListFilesWithFilter(
+		files.PatternFilter{Exclude: parseGitignore(gitignore.GetContent())},
+	))
 
-	files, err := pm.fileManager.ListFiles(ctx, afero.NewBasePathFs(afero.NewOsFs(), project.Path), showHidden, filter)
+	files, err := pm.fileManager.ListFiles(ctx, afero.NewBasePathFs(afero.NewOsFs(), project.Path), opts...)
 	if err != nil {
 		log.Error().Err(err).Str("projectId", projectId).Msgf("Failed to list files")
 		return nil, fmt.Errorf("Failed to list files in project %s: %w", projectId, err)
