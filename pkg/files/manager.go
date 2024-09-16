@@ -40,18 +40,16 @@ func (fm *FileManagerImpl) CreateFile(ctx context.Context, fs afero.Fs, path, co
 		return nil, NewFileAlreadyExistsError(path)
 	}
 
-	file := model.NewFile(path, content)
-
-	dir := filepath.Dir(file.Path)
+	dir := filepath.Dir(path)
 	if err := fs.MkdirAll(dir, 0o755); err != nil {
 		return nil, fmt.Errorf("Failed to create directory %s: %w", dir, err)
 	}
 
-	if err := writeFile(fs, file); err != nil {
+	if err := afero.WriteFile(fs, path, []byte(content), 0o644); err != nil {
 		return nil, fmt.Errorf("Failed to write file %s: %w", path, err)
 	}
 
-	return file, nil
+	return model.NewFile(path, content), nil
 }
 
 func (fm *FileManagerImpl) ReadFile(ctx context.Context, fs afero.Fs, path string) (*model.File, error) {
