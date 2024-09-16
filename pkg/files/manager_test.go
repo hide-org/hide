@@ -2,7 +2,6 @@ package files_test
 
 import (
 	"context"
-	"slices"
 	"strings"
 	"testing"
 
@@ -329,7 +328,7 @@ func TestListFile(t *testing.T) {
 		name     string
 		fs       afero.Fs
 		opts     []files.ListFileOption
-		wantPath []string
+		wantFile []*model.File
 	}{
 		{
 			name: "all files",
@@ -366,7 +365,13 @@ func TestListFile(t *testing.T) {
 				}
 				return fs
 			}(),
-			wantPath: []string{"/hello.txt", "/something/something.txt", "/something/items.json", "/node_modules/module1/file.js", "/node_modules/module2/file.js"},
+			wantFile: []*model.File{
+				model.EmptyFile("/hello.txt"),
+				model.EmptyFile("/something/something.txt"),
+				model.EmptyFile("/something/items.json"),
+				model.EmptyFile("/node_modules/module1/file.js"),
+				model.EmptyFile("/node_modules/module2/file.js"),
+			},
 		},
 		{
 			name: "with exclude filter",
@@ -409,7 +414,9 @@ func TestListFile(t *testing.T) {
 					Exclude: []string{"*.json", "node_modules"},
 				}),
 			},
-			wantPath: []string{"/something/something.txt"},
+			wantFile: []*model.File{
+				model.EmptyFile("/something/something.txt"),
+			},
 		},
 		{
 			name: "match directory anywhere",
@@ -451,7 +458,11 @@ func TestListFile(t *testing.T) {
 					Include: []string{"**/logs/**"},
 				}),
 			},
-			wantPath: []string{"/logs/debug.log", "/logs/monday/foo.bar", "/build/logs/debug.log"},
+			wantFile: []*model.File{
+				model.EmptyFile("/logs/debug.log"),
+				model.EmptyFile("/logs/monday/foo.bar"),
+				model.EmptyFile("/build/logs/debug.log"),
+			},
 		},
 		{
 			name: "match directory with file",
@@ -485,7 +496,10 @@ func TestListFile(t *testing.T) {
 					Include: []string{"**/logs/debug.log"},
 				}),
 			},
-			wantPath: []string{"/logs/debug.log", "/build/logs/debug.log"},
+			wantFile: []*model.File{
+				model.EmptyFile("/logs/debug.log"),
+				model.EmptyFile("/build/logs/debug.log"),
+			},
 		},
 		{
 			name: "match file extension",
@@ -527,7 +541,11 @@ func TestListFile(t *testing.T) {
 					Include: []string{"*.log"},
 				}),
 			},
-			wantPath: []string{"/logs/debug.log", "/logs/build/debug.log", "/build/logs/debug.log"},
+			wantFile: []*model.File{
+				model.EmptyFile("/logs/debug.log"),
+				model.EmptyFile("/logs/build/debug.log"),
+				model.EmptyFile("/build/logs/debug.log"),
+			},
 		},
 		{
 			name: "match file extension with exclude",
@@ -562,7 +580,9 @@ func TestListFile(t *testing.T) {
 					Exclude: []string{"**/build/**"},
 				}),
 			},
-			wantPath: []string{"/logs/debug.log"},
+			wantFile: []*model.File{
+				model.EmptyFile("/logs/debug.log"),
+			},
 		},
 		{
 			name: "include files only from root",
@@ -592,7 +612,9 @@ func TestListFile(t *testing.T) {
 					Include: []string{"/debug.log"},
 				}),
 			},
-			wantPath: []string{"/debug.log"},
+			wantFile: []*model.File{
+				model.EmptyFile("/debug.log"),
+			},
 		},
 		{
 			name: "include files by name",
@@ -622,7 +644,10 @@ func TestListFile(t *testing.T) {
 					Include: []string{"**/debug.log"},
 				}),
 			},
-			wantPath: []string{"/debug.log", "/build/debug.log"},
+			wantFile: []*model.File{
+				model.EmptyFile("/debug.log"),
+				model.EmptyFile("/build/debug.log"),
+			},
 		},
 		{
 			name: "include files with question mark",
@@ -656,7 +681,10 @@ func TestListFile(t *testing.T) {
 					Include: []string{"**/debug?.log"},
 				}),
 			},
-			wantPath: []string{"/debug0.log", "/debug1.log"},
+			wantFile: []*model.File{
+				model.EmptyFile("/debug0.log"),
+				model.EmptyFile("/debug1.log"),
+			},
 		},
 		{
 			name: "include files with numeric range",
@@ -690,7 +718,10 @@ func TestListFile(t *testing.T) {
 					Include: []string{"**/debug[0-9].log"},
 				}),
 			},
-			wantPath: []string{"/debug0.log", "/debug1.log"},
+			wantFile: []*model.File{
+				model.EmptyFile("/debug0.log"),
+				model.EmptyFile("/debug1.log"),
+			},
 		},
 		{
 			name: "include files with character set",
@@ -728,7 +759,10 @@ func TestListFile(t *testing.T) {
 					Include: []string{"**/debug[01].log"},
 				}),
 			},
-			wantPath: []string{"/debug0.log", "/debug1.log"},
+			wantFile: []*model.File{
+				model.EmptyFile("/debug0.log"),
+				model.EmptyFile("/debug1.log"),
+			},
 		},
 		{
 			name: "include files with negated character set",
@@ -766,7 +800,10 @@ func TestListFile(t *testing.T) {
 					Include: []string{"/debug[!01].log"},
 				}),
 			},
-			wantPath: []string{"/debug2.log", "/debug3.log"},
+			wantFile: []*model.File{
+				model.EmptyFile("/debug2.log"),
+				model.EmptyFile("/debug3.log"),
+			},
 		},
 		{
 			name: "include files with alphabetical range",
@@ -800,7 +837,9 @@ func TestListFile(t *testing.T) {
 					Include: []string{"/debug[a-z].log"},
 				}),
 			},
-			wantPath: []string{"/debuga.log"},
+			wantFile: []*model.File{
+				model.EmptyFile("/debuga.log"),
+			},
 		},
 		{
 			name: "include files and directories",
@@ -842,7 +881,13 @@ func TestListFile(t *testing.T) {
 					Include: []string{"**/logs*", "**/logs/**"},
 				}),
 			},
-			wantPath: []string{"/logs.txt", "/logs/debug.log", "/logs/latest/foo.bar", "/build/logs.txt", "/build/logs/debug.log"},
+			wantFile: []*model.File{
+				model.EmptyFile("/logs.txt"),
+				model.EmptyFile("/logs/debug.log"),
+				model.EmptyFile("/logs/latest/foo.bar"),
+				model.EmptyFile("/build/logs.txt"),
+				model.EmptyFile("/build/logs/debug.log"),
+			},
 		},
 		{
 			name: "include only directories",
@@ -884,7 +929,11 @@ func TestListFile(t *testing.T) {
 					Include: []string{"**/logs/**"},
 				}),
 			},
-			wantPath: []string{"/logs/debug.log", "/logs/latest/foo.bar", "/build/logs/debug.log"},
+			wantFile: []*model.File{
+				model.EmptyFile("/logs/debug.log"),
+				model.EmptyFile("/logs/latest/foo.bar"),
+				model.EmptyFile("/build/logs/debug.log"),
+			},
 		},
 		{
 			name: "include with double asterisk",
@@ -918,7 +967,11 @@ func TestListFile(t *testing.T) {
 					Include: []string{"/logs/**/debug.log"},
 				}),
 			},
-			wantPath: []string{"/logs/debug.log", "/logs/monday/debug.log", "/logs/monday/pm/debug.log"},
+			wantFile: []*model.File{
+				model.EmptyFile("/logs/debug.log"),
+				model.EmptyFile("/logs/monday/debug.log"),
+				model.EmptyFile("/logs/monday/pm/debug.log"),
+			},
 		},
 		{
 			name: "include with wildcard in directory",
@@ -952,7 +1005,9 @@ func TestListFile(t *testing.T) {
 					Include: []string{"/logs/*day/debug.log"},
 				}),
 			},
-			wantPath: []string{"/logs/monday/debug.log"},
+			wantFile: []*model.File{
+				model.EmptyFile("/logs/monday/debug.log"),
+			},
 		},
 		{
 			name: "include file with directory",
@@ -986,7 +1041,71 @@ func TestListFile(t *testing.T) {
 					Include: []string{"/logs/debug.log"},
 				}),
 			},
-			wantPath: []string{"/logs/debug.log"},
+			wantFile: []*model.File{
+				model.EmptyFile("/logs/debug.log"),
+			},
+		},
+		{
+			name: "with content",
+			fs: func() afero.Fs {
+				fs := afero.NewMemMapFs()
+				for _, file := range []struct {
+					path    string
+					content string
+				}{
+					{
+						path:    "/test1.txt",
+						content: "content-1",
+					},
+					{
+						path:    "/test2.txt",
+						content: "content-2",
+					},
+				} {
+					if err := afero.WriteFile(fs, file.path, []byte(file.content), 0o644); err != nil {
+						t.Fatal(err)
+					}
+				}
+				return fs
+			}(),
+			opts: []files.ListFileOption{
+				files.ListFilesWithContent(),
+			},
+			wantFile: []*model.File{
+				model.NewFile("/test1.txt", "content-1"),
+				model.NewFile("/test2.txt", "content-2"),
+			},
+		},
+		{
+			name: "with hidden",
+			fs: func() afero.Fs {
+				fs := afero.NewMemMapFs()
+				for _, file := range []struct {
+					path    string
+					content string
+				}{
+					{
+						path:    "/.hidden.txt",
+						content: "content",
+					},
+					{
+						path:    "/file.txt",
+						content: "content",
+					},
+				} {
+					if err := afero.WriteFile(fs, file.path, []byte(file.content), 0o644); err != nil {
+						t.Fatal(err)
+					}
+				}
+				return fs
+			}(),
+			opts: []files.ListFileOption{
+				files.ListFilesWithShowHidden(),
+			},
+			wantFile: []*model.File{
+				model.EmptyFile("/.hidden.txt"),
+				model.EmptyFile("/file.txt"),
+			},
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
@@ -997,15 +1116,24 @@ func TestListFile(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			if len(tt.wantPath) != len(files) {
-				t.Fatalf("got %d path, want %d path", len(files), len(tt.wantPath))
+			if len(tt.wantFile) != len(files) {
+				t.Fatalf("got %d path, want %d path", len(files), len(tt.wantFile))
 			}
 
 			for _, f := range files {
-				if !slices.Contains(tt.wantPath, f.Path) {
+				if !ContainsFile(tt.wantFile, f) {
 					t.Fatalf("%s is missing", f.Path)
 				}
 			}
 		})
 	}
+}
+
+func ContainsFile(files []*model.File, target *model.File) bool {
+	for _, file := range files {
+		if file.Equals(target) {
+			return true
+		}
+	}
+	return false
 }
