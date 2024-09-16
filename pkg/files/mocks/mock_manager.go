@@ -5,6 +5,7 @@ import (
 
 	"github.com/artmoskvin/hide/pkg/files"
 	"github.com/artmoskvin/hide/pkg/model"
+	"github.com/google/go-cmp/cmp"
 	"github.com/spf13/afero"
 )
 
@@ -45,4 +46,13 @@ func (m *MockFileManager) ApplyPatch(ctx context.Context, fs afero.Fs, path, pat
 
 func (m *MockFileManager) UpdateLines(ctx context.Context, fs afero.Fs, path string, lineDiff files.LineDiffChunk) (*model.File, error) {
 	return m.UpdateLinesFunc(ctx, fs, path, lineDiff)
+}
+
+func DiffListFilesOpts(want files.ListFilesOptions, got ...files.ListFileOption) (diff string) {
+	gotO := &files.ListFilesOptions{}
+	for _, o := range got {
+		o(gotO)
+	}
+
+	return cmp.Diff(*gotO, want)
 }
