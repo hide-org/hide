@@ -136,4 +136,4 @@ Hide tries to be as close to the devcontainer specification as possible. However
 - Devcontainer Features are not supported yet.
 - Devcontainer image labels are not supported yet.
 
-If you notice any other issues or have suggestions for improvements, please open an issue or submit a pull request on the [Hide repository](https://github.com/artmoskvin/hide).
+If you notice any other issues or have suggestions for improvements, please open an issue or submit a pull request on the [Hide repository](https://github.com/hide-org/hide).

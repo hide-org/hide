@@ -1,7 +1,7 @@
 site_name: Hide
 site_url: https://hide.sh
-repo_url: https://github.com/artmoskvin/hide
-repo_name: artmoskvin/hide
+repo_url: https://github.com/hide-org/hide
+repo_name: hide-org/hide
 nav:
   - Home: 
     - index.md
@@ -51,8 +51,9 @@ theme:
   font:
     text: Roboto
     code: Roboto Mono
+  logo: assets/hide-logo.svg
+  favicon: assets/hide-favicon.png
   icon:
-    logo: octicons/hubot-24
     repo: fontawesome/brands/github
   features:
     - navigation.instant
@@ -86,7 +87,7 @@ markdown_extensions:
 extra:
   social:
     - icon: fontawesome/brands/github
-      link: https://github.com/artmoskvin/hide
+      link: https://github.com/hide-org/hide
     - icon: fontawesome/brands/x-twitter
       link: https://twitter.com/art_moskvin
 copyright: Copyright &copy; 2024 Artem Moskvin

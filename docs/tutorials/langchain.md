@@ -2,7 +2,7 @@
 
 In this tutorial, we will use the Langchain framework to build a simple coding agent that can solve coding problems based on a given prompt. We will demonstrate how to use Hide to create a development environment, and how an agent can interact with it using the Hide toolkit. 
 
-For this tutorial, we will use the [Tiny Math Service](https://github.com/artmoskvin/tiny-math-service) as our example project. This project is a simple Python service that performs basic mathematical operations. It is capable of performing addition, subtraction, multiplication, and division operations. It also has some tests that we can use to assert the code quality of the agent.
+For this tutorial, we will use the [Math API](https://github.com/hide-org/math-api) as our example project. This project is a simple Python service that performs basic mathematical operations. It is capable of performing addition, subtraction, multiplication, and division operations. It also has some tests that we can use to assert the code quality of the agent.
 
 We choose OpenAI as the LLM provider for this tutorial, but you can use any other provider as well.
 
@@ -64,7 +64,7 @@ from langchain_openai import ChatOpenAI
 
 OPENAI_API_KEY = "ENTER YOUR KEY"
 HIDE_BASE_URL = "http://localhost:8080"
-PROJECT_GIT_URL = "https://github.com/artmoskvin/tiny-math-service.git"
+PROJECT_GIT_URL = "https://github.com/hide-org/math-api.git"
 
 if "OPENAI_API_KEY" not in os.environ:
     os.environ["OPENAI_API_KEY"] = OPENAI_API_KEY
@@ -109,7 +109,7 @@ Now, our agent is ready and we can start testing it :tada:
 
 ## Simple Questions
 
-Let's test our agent by asking it a simple question. For example, in the [devcontainer configuration](https://github.com/artmoskvin/tiny-math-service/blob/main/.devcontainer.json) for Tiny Math Service, we defined several tasks, one of which is for running tests. Agents can run tasks using the Hide toolkit. Let's ask our agent to run the tests and see if it can figure out how to do it:
+Let's test our agent by asking it a simple question. For example, in the [devcontainer configuration](https://github.com/hide-org/math-api/blob/main/.devcontainer.json) for Tiny Math Service, we defined several tasks, one of which is for running tests. Agents can run tasks using the Hide toolkit. Let's ask our agent to run the tests and see if it can figure out how to do it:
 
 ```python
 response = agent_executor.invoke({"input": "Run the tests for the math service"})

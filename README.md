@@ -26,7 +26,7 @@ For installation instructions for your OS, see the [Docker Engine documentation]
 1. Add the Hide tap to your Homebrew:
 
     ```bash
-    brew tap artmoskvin/hide
+    brew tap hide-org/formulae
     ```
 
 2. Install Hide using the brew install command:
@@ -43,7 +43,7 @@ To build Hide from source, follow these steps:
 2. Clone the Hide repository:
 
     ```bash
-    git clone https://github.com/artmoskvin/hide.git
+    git clone https://github.com/hide-org/hide.git
     cd hide
     ```
 

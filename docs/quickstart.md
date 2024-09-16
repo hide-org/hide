@@ -33,11 +33,11 @@ A project is a containerized development environment for a specific codebase. Cr
 
 ```python
 project = hc.create_project(
-    repository=model.Repository(url="https://github.com/artmoskvin/tiny-math-service.git")
+    repository=model.Repository(url="https://github.com/hide-org/math-api.git")
 )
 ```
 
-Here, we use the [Tiny Math Service](https://github.com/artmoskvin/tiny-math-service) which is a simple Python service performing basic mathematical operations. It has a devcontainer configuration file (`.devcontainer.json`) that is used to create a development environment for the project.
+Here, we use the [Math API](https://github.com/hide-org/math-api) which is a simple Python service performing basic mathematical operations. It has a devcontainer configuration file (`.devcontainer.json`) that is used to create a development environment for the project.
 
 !!! note
 
@@ -49,7 +49,7 @@ If your repository doesn't have a devcontainer configuration, you can define one
 from hide.devcontainer.model import ImageDevContainer
 
 project = hc.create_project(
-    repository=model.Repository(url="https://github.com/artmoskvin/tiny-math-service.git"),
+    repository=model.Repository(url="https://github.com/hide-org/math-api.git"),
     devcontainer=ImageDevContainer(
         image="mcr.microsoft.com/devcontainers/python:3.12-bullseye",
         onCreateCommand="pip install poetry && poetry install",
@@ -73,7 +73,7 @@ Before we jump to the coding agents, let's take a look at how you can interact w
 
 ### Running Tasks
 
-You could notice that the devcontainer [configuration](https://github.com/artmoskvin/tiny-math-service/blob/main/.devcontainer.json) for the [Tiny Math Service](https://github.com/artmoskvin/tiny-math-service) contains a `customizations` section that defines a custom task called `test`. We can use this alias to run tests in our project:
+You could notice that the devcontainer [configuration](https://github.com/hide-org/math-api/blob/main/.devcontainer.json) for the [Math API](https://github.com/hide-org/math-api) contains a `customizations` section that defines a custom task called `test`. We can use this alias to run tests in our project:
 
 ```python
 result = hc.run_task(

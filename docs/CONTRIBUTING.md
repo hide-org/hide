@@ -63,7 +63,7 @@ The project maintainers will review your pull request. They may suggest some cha
 
 If you're new to the project, look for issues labeled `good first issue`. These are typically easier tasks that are suitable for newcomers to the project.
 
-You can find these issues [here](https://github.com/artmoskvin/hide/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22).
+You can find these issues [here](https://github.com/hide-org/hide/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22).
 
 ## Style Guide
 
