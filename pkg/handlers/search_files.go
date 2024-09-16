@@ -9,6 +9,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/artmoskvin/hide/pkg/files"
 	"github.com/artmoskvin/hide/pkg/model"
 	"github.com/artmoskvin/hide/pkg/project"
 )
@@ -74,10 +75,9 @@ func (h SearchFilesHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	filter := getPatternFilter(r)
-
+	opts := append(getListFilesOptions(r), files.ListFilesWithContent())
 	listFiles := func(ctx context.Context, showHidden bool) ([]*model.File, error) {
-		return h.ProjectManager.ListFiles(ctx, projectID, showHidden, filter)
+		return h.ProjectManager.ListFiles(ctx, projectID, opts...)
 	}
 
 	result, err := findInFiles(r.Context(), listFiles, check)

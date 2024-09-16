@@ -19,7 +19,7 @@ type FileManager interface {
 	ReadFile(ctx context.Context, fs afero.Fs, path string) (*model.File, error)
 	UpdateFile(ctx context.Context, fs afero.Fs, path, content string) (*model.File, error)
 	DeleteFile(ctx context.Context, fs afero.Fs, path string) error
-	ListFiles(ctx context.Context, fs afero.Fs, showHidden bool, filter PatternFilter) ([]*model.File, error)
+	ListFiles(ctx context.Context, fs afero.Fs, opts ...ListFileOption) ([]*model.File, error)
 	ApplyPatch(ctx context.Context, fs afero.Fs, path, patch string) (*model.File, error)
 	UpdateLines(ctx context.Context, fs afero.Fs, path string, lineDiff LineDiffChunk) (*model.File, error)
 }
@@ -96,8 +96,40 @@ func (fm *FileManagerImpl) DeleteFile(ctx context.Context, fs afero.Fs, path str
 	return fs.Remove(path)
 }
 
-func (fm *FileManagerImpl) ListFiles(ctx context.Context, fs afero.Fs, showHidden bool, filter PatternFilter) ([]*model.File, error) {
+type ListFilesOptions struct {
+	WithContent bool
+	ShowHidden  bool
+	Filter      PatternFilter
+}
+
+type ListFileOption func(opts *ListFilesOptions)
+
+func ListFilesWithContent() ListFileOption {
+	return func(opts *ListFilesOptions) {
+		opts.WithContent = true
+	}
+}
+
+func ListFilesWithShowHidden() ListFileOption {
+	return func(opts *ListFilesOptions) {
+		opts.ShowHidden = true
+	}
+}
+
+func ListFilesWithFilter(filter PatternFilter) ListFileOption {
+	return func(opts *ListFilesOptions) {
+		opts.Filter.Include = append(opts.Filter.Include, filter.Include...)
+		opts.Filter.Exclude = append(opts.Filter.Exclude, filter.Exclude...)
+	}
+}
+
+func (fm *FileManagerImpl) ListFiles(ctx context.Context, fs afero.Fs, opts ...ListFileOption) ([]*model.File, error) {
 	var files []*model.File
+
+	opt := &ListFilesOptions{}
+	for _, o := range opts {
+		o(opt)
+	}
 
 	err := afero.Walk(fs, "/", func(path string, info os.FileInfo, err error) error {
 		select {
@@ -110,14 +142,14 @@ func (fm *FileManagerImpl) ListFiles(ctx context.Context, fs afero.Fs, showHidde
 			return fmt.Errorf("Error walking file tree on path %s: %w", path, err)
 		}
 
-		if !showHidden && isHidden(path) {
+		if !opt.ShowHidden && isHidden(path) {
 			if info.IsDir() {
 				return filepath.SkipDir
 			}
 			return nil
 		}
 
-		ok, err := filter.keep(path, info)
+		ok, err := opt.Filter.keep(path, info)
 		if err != nil {
 			return err
 		}
@@ -126,12 +158,18 @@ func (fm *FileManagerImpl) ListFiles(ctx context.Context, fs afero.Fs, showHidde
 		}
 
 		if !info.IsDir() {
+			if !opt.WithContent {
+				files = append(files, model.EmptyFile(path))
+				return nil
+			}
+
 			file, err := readFile(fs, path)
 			if err != nil {
 				return fmt.Errorf("Error reading file %s: %w", path, err)
 			}
 
 			files = append(files, file)
+			return nil
 		}
 
 		return nil

@@ -9,11 +9,11 @@ import (
 	"testing"
 
 	"github.com/artmoskvin/hide/pkg/files"
+	mockfiles "github.com/artmoskvin/hide/pkg/files/mocks"
 	"github.com/artmoskvin/hide/pkg/handlers"
 	"github.com/artmoskvin/hide/pkg/model"
 	"github.com/artmoskvin/hide/pkg/project"
 	"github.com/artmoskvin/hide/pkg/project/mocks"
-	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -21,14 +21,14 @@ func TestListFilesHandler_ServeHTTP(t *testing.T) {
 	tests := []struct {
 		name              string
 		target            string
-		mockListFilesFunc func(ctx context.Context, projectId string, showHidden bool, filter files.PatternFilter) ([]*model.File, error)
+		mockListFilesFunc func(ctx context.Context, projectId string, opts ...files.ListFileOption) ([]*model.File, error)
 		wantStatusCode    int
 		wantBody          string
 	}{
 		{
 			name:   "successful listing",
 			target: "/projects/123/files",
-			mockListFilesFunc: func(ctx context.Context, projectId string, showHidden bool, filter files.PatternFilter) ([]*model.File, error) {
+			mockListFilesFunc: func(ctx context.Context, projectId string, opts ...files.ListFileOption) ([]*model.File, error) {
 				return []*model.File{
 					model.EmptyFile("file1.txt"),
 					model.EmptyFile("file2.txt"),
@@ -40,7 +40,7 @@ func TestListFilesHandler_ServeHTTP(t *testing.T) {
 		{
 			name:   "successful listing with hidden",
 			target: "/projects/123/files?showHidden",
-			mockListFilesFunc: func(ctx context.Context, projectId string, showHidden bool, filter files.PatternFilter) ([]*model.File, error) {
+			mockListFilesFunc: func(ctx context.Context, projectId string, opts ...files.ListFileOption) ([]*model.File, error) {
 				return []*model.File{
 					model.EmptyFile("file1.txt"),
 					model.EmptyFile("file2.txt"),
@@ -52,13 +52,16 @@ func TestListFilesHandler_ServeHTTP(t *testing.T) {
 		{
 			name:   "successful listing with filtering",
 			target: "/projects/123/files?&include=*.txt&include=*.json&exclude=file1",
-			mockListFilesFunc: func(ctx context.Context, projectId string, showHidden bool, filter files.PatternFilter) ([]*model.File, error) {
+			mockListFilesFunc: func(ctx context.Context, projectId string, opts ...files.ListFileOption) ([]*model.File, error) {
 				// check expectations of filter
-				wantFilter := files.PatternFilter{
-					Include: []string{"*.txt", "*.json"},
-					Exclude: []string{"file1"},
-				}
-				if diff := cmp.Diff(filter, wantFilter); diff != "" {
+				if diff := mockfiles.DiffListFilesOpts(
+					files.ListFilesOptions{
+						WithContent: false,
+						Filter: files.PatternFilter{
+							Include: []string{"*.txt", "*.json"},
+							Exclude: []string{"file1"},
+						},
+					}, opts...); diff != "" {
 					return nil, fmt.Errorf("filter does not match, diff %s", diff)
 				}
 
@@ -73,7 +76,7 @@ func TestListFilesHandler_ServeHTTP(t *testing.T) {
 		{
 			name:   "project not found",
 			target: "/projects/123/files",
-			mockListFilesFunc: func(ctx context.Context, projectId string, showHidden bool, filter files.PatternFilter) ([]*model.File, error) {
+			mockListFilesFunc: func(ctx context.Context, projectId string, opts ...files.ListFileOption) ([]*model.File, error) {
 				return nil, project.NewProjectNotFoundError(projectId)
 			},
 			wantStatusCode: http.StatusNotFound,
@@ -82,7 +85,7 @@ func TestListFilesHandler_ServeHTTP(t *testing.T) {
 		{
 			name:   "internal server error",
 			target: "/projects/123/files",
-			mockListFilesFunc: func(ctx context.Context, projectId string, showHidden bool, filter files.PatternFilter) ([]*model.File, error) {
+			mockListFilesFunc: func(ctx context.Context, projectId string, opts ...files.ListFileOption) ([]*model.File, error) {
 				return nil, errors.New("internal error")
 			},
 			wantStatusCode: http.StatusInternalServerError,

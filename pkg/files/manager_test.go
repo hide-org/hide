@@ -326,11 +326,10 @@ func TestUpdateFile_Failure(t *testing.T) {
 func TestListFile(t *testing.T) {
 	// RUN test
 	for _, tt := range []struct {
-		name       string
-		fs         afero.Fs
-		filter     files.PatternFilter
-		showHidden bool
-		wantPath   []string
+		name     string
+		fs       afero.Fs
+		opts     []files.ListFileOption
+		wantPath []string
 	}{
 		{
 			name: "all files",
@@ -367,9 +366,7 @@ func TestListFile(t *testing.T) {
 				}
 				return fs
 			}(),
-			filter:     files.PatternFilter{},
-			showHidden: false,
-			wantPath:   []string{"/hello.txt", "/something/something.txt", "/something/items.json", "/node_modules/module1/file.js", "/node_modules/module2/file.js"},
+			wantPath: []string{"/hello.txt", "/something/something.txt", "/something/items.json", "/node_modules/module1/file.js", "/node_modules/module2/file.js"},
 		},
 		{
 			name: "with exclude filter",
@@ -406,12 +403,13 @@ func TestListFile(t *testing.T) {
 				}
 				return fs
 			}(),
-			filter: files.PatternFilter{
-				Include: []string{"*something*"},
-				Exclude: []string{"*.json", "node_modules"},
+			opts: []files.ListFileOption{
+				files.ListFilesWithFilter(files.PatternFilter{
+					Include: []string{"*something*"},
+					Exclude: []string{"*.json", "node_modules"},
+				}),
 			},
-			showHidden: false,
-			wantPath:   []string{"/something/something.txt"},
+			wantPath: []string{"/something/something.txt"},
 		},
 		{
 			name: "match directory anywhere",
@@ -448,11 +446,12 @@ func TestListFile(t *testing.T) {
 				}
 				return fs
 			}(),
-			filter: files.PatternFilter{
-				Include: []string{"**/logs/**"},
+			opts: []files.ListFileOption{
+				files.ListFilesWithFilter(files.PatternFilter{
+					Include: []string{"**/logs/**"},
+				}),
 			},
-			showHidden: false,
-			wantPath:   []string{"/logs/debug.log", "/logs/monday/foo.bar", "/build/logs/debug.log"},
+			wantPath: []string{"/logs/debug.log", "/logs/monday/foo.bar", "/build/logs/debug.log"},
 		},
 		{
 			name: "match directory with file",
@@ -481,11 +480,12 @@ func TestListFile(t *testing.T) {
 				}
 				return fs
 			}(),
-			filter: files.PatternFilter{
-				Include: []string{"**/logs/debug.log"},
+			opts: []files.ListFileOption{
+				files.ListFilesWithFilter(files.PatternFilter{
+					Include: []string{"**/logs/debug.log"},
+				}),
 			},
-			showHidden: false,
-			wantPath:   []string{"/logs/debug.log", "/build/logs/debug.log"},
+			wantPath: []string{"/logs/debug.log", "/build/logs/debug.log"},
 		},
 		{
 			name: "match file extension",
@@ -522,11 +522,12 @@ func TestListFile(t *testing.T) {
 				}
 				return fs
 			}(),
-			filter: files.PatternFilter{
-				Include: []string{"*.log"},
+			opts: []files.ListFileOption{
+				files.ListFilesWithFilter(files.PatternFilter{
+					Include: []string{"*.log"},
+				}),
 			},
-			showHidden: false,
-			wantPath:   []string{"/logs/debug.log", "/logs/build/debug.log", "/build/logs/debug.log"},
+			wantPath: []string{"/logs/debug.log", "/logs/build/debug.log", "/build/logs/debug.log"},
 		},
 		{
 			name: "match file extension with exclude",
@@ -555,12 +556,13 @@ func TestListFile(t *testing.T) {
 				}
 				return fs
 			}(),
-			filter: files.PatternFilter{
-				Include: []string{"*.log"},
-				Exclude: []string{"**/build/**"},
+			opts: []files.ListFileOption{
+				files.ListFilesWithFilter(files.PatternFilter{
+					Include: []string{"*.log"},
+					Exclude: []string{"**/build/**"},
+				}),
 			},
-			showHidden: false,
-			wantPath:   []string{"/logs/debug.log"},
+			wantPath: []string{"/logs/debug.log"},
 		},
 		{
 			name: "include files only from root",
@@ -585,11 +587,12 @@ func TestListFile(t *testing.T) {
 				}
 				return fs
 			}(),
-			filter: files.PatternFilter{
-				Include: []string{"/debug.log"},
+			opts: []files.ListFileOption{
+				files.ListFilesWithFilter(files.PatternFilter{
+					Include: []string{"/debug.log"},
+				}),
 			},
-			showHidden: false,
-			wantPath:   []string{"/debug.log"},
+			wantPath: []string{"/debug.log"},
 		},
 		{
 			name: "include files by name",
@@ -614,11 +617,12 @@ func TestListFile(t *testing.T) {
 				}
 				return fs
 			}(),
-			filter: files.PatternFilter{
-				Include: []string{"**/debug.log"},
+			opts: []files.ListFileOption{
+				files.ListFilesWithFilter(files.PatternFilter{
+					Include: []string{"**/debug.log"},
+				}),
 			},
-			showHidden: false,
-			wantPath:   []string{"/debug.log", "/build/debug.log"},
+			wantPath: []string{"/debug.log", "/build/debug.log"},
 		},
 		{
 			name: "include files with question mark",
@@ -647,11 +651,12 @@ func TestListFile(t *testing.T) {
 				}
 				return fs
 			}(),
-			filter: files.PatternFilter{
-				Include: []string{"**/debug?.log"},
+			opts: []files.ListFileOption{
+				files.ListFilesWithFilter(files.PatternFilter{
+					Include: []string{"**/debug?.log"},
+				}),
 			},
-			showHidden: false,
-			wantPath:   []string{"/debug0.log", "/debug1.log"},
+			wantPath: []string{"/debug0.log", "/debug1.log"},
 		},
 		{
 			name: "include files with numeric range",
@@ -680,11 +685,12 @@ func TestListFile(t *testing.T) {
 				}
 				return fs
 			}(),
-			filter: files.PatternFilter{
-				Include: []string{"**/debug[0-9].log"},
+			opts: []files.ListFileOption{
+				files.ListFilesWithFilter(files.PatternFilter{
+					Include: []string{"**/debug[0-9].log"},
+				}),
 			},
-			showHidden: false,
-			wantPath:   []string{"/debug0.log", "/debug1.log"},
+			wantPath: []string{"/debug0.log", "/debug1.log"},
 		},
 		{
 			name: "include files with character set",
@@ -717,11 +723,12 @@ func TestListFile(t *testing.T) {
 				}
 				return fs
 			}(),
-			filter: files.PatternFilter{
-				Include: []string{"**/debug[01].log"},
+			opts: []files.ListFileOption{
+				files.ListFilesWithFilter(files.PatternFilter{
+					Include: []string{"**/debug[01].log"},
+				}),
 			},
-			showHidden: false,
-			wantPath:   []string{"/debug0.log", "/debug1.log"},
+			wantPath: []string{"/debug0.log", "/debug1.log"},
 		},
 		{
 			name: "include files with negated character set",
@@ -754,11 +761,12 @@ func TestListFile(t *testing.T) {
 				}
 				return fs
 			}(),
-			filter: files.PatternFilter{
-				Include: []string{"/debug[!01].log"},
+			opts: []files.ListFileOption{
+				files.ListFilesWithFilter(files.PatternFilter{
+					Include: []string{"/debug[!01].log"},
+				}),
 			},
-			showHidden: false,
-			wantPath:   []string{"/debug2.log", "/debug3.log"},
+			wantPath: []string{"/debug2.log", "/debug3.log"},
 		},
 		{
 			name: "include files with alphabetical range",
@@ -787,11 +795,12 @@ func TestListFile(t *testing.T) {
 				}
 				return fs
 			}(),
-			filter: files.PatternFilter{
-				Include: []string{"/debug[a-z].log"},
+			opts: []files.ListFileOption{
+				files.ListFilesWithFilter(files.PatternFilter{
+					Include: []string{"/debug[a-z].log"},
+				}),
 			},
-			showHidden: false,
-			wantPath:   []string{"/debuga.log"},
+			wantPath: []string{"/debuga.log"},
 		},
 		{
 			name: "include files and directories",
@@ -828,11 +837,12 @@ func TestListFile(t *testing.T) {
 				}
 				return fs
 			}(),
-			filter: files.PatternFilter{
-				Include: []string{"**/logs*", "**/logs/**"},
+			opts: []files.ListFileOption{
+				files.ListFilesWithFilter(files.PatternFilter{
+					Include: []string{"**/logs*", "**/logs/**"},
+				}),
 			},
-			showHidden: false,
-			wantPath:   []string{"/logs.txt", "/logs/debug.log", "/logs/latest/foo.bar", "/build/logs.txt", "/build/logs/debug.log"},
+			wantPath: []string{"/logs.txt", "/logs/debug.log", "/logs/latest/foo.bar", "/build/logs.txt", "/build/logs/debug.log"},
 		},
 		{
 			name: "include only directories",
@@ -869,11 +879,12 @@ func TestListFile(t *testing.T) {
 				}
 				return fs
 			}(),
-			filter: files.PatternFilter{
-				Include: []string{"**/logs/**"},
+			opts: []files.ListFileOption{
+				files.ListFilesWithFilter(files.PatternFilter{
+					Include: []string{"**/logs/**"},
+				}),
 			},
-			showHidden: false,
-			wantPath:   []string{"/logs/debug.log", "/logs/latest/foo.bar", "/build/logs/debug.log"},
+			wantPath: []string{"/logs/debug.log", "/logs/latest/foo.bar", "/build/logs/debug.log"},
 		},
 		{
 			name: "include with double asterisk",
@@ -902,11 +913,12 @@ func TestListFile(t *testing.T) {
 				}
 				return fs
 			}(),
-			filter: files.PatternFilter{
-				Include: []string{"/logs/**/debug.log"},
+			opts: []files.ListFileOption{
+				files.ListFilesWithFilter(files.PatternFilter{
+					Include: []string{"/logs/**/debug.log"},
+				}),
 			},
-			showHidden: false,
-			wantPath:   []string{"/logs/debug.log", "/logs/monday/debug.log", "/logs/monday/pm/debug.log"},
+			wantPath: []string{"/logs/debug.log", "/logs/monday/debug.log", "/logs/monday/pm/debug.log"},
 		},
 		{
 			name: "include with wildcard in directory",
@@ -935,11 +947,12 @@ func TestListFile(t *testing.T) {
 				}
 				return fs
 			}(),
-			filter: files.PatternFilter{
-				Include: []string{"/logs/*day/debug.log"},
+			opts: []files.ListFileOption{
+				files.ListFilesWithFilter(files.PatternFilter{
+					Include: []string{"/logs/*day/debug.log"},
+				}),
 			},
-			showHidden: false,
-			wantPath:   []string{"/logs/monday/debug.log"},
+			wantPath: []string{"/logs/monday/debug.log"},
 		},
 		{
 			name: "include file with directory",
@@ -968,17 +981,18 @@ func TestListFile(t *testing.T) {
 				}
 				return fs
 			}(),
-			filter: files.PatternFilter{
-				Include: []string{"/logs/debug.log"},
+			opts: []files.ListFileOption{
+				files.ListFilesWithFilter(files.PatternFilter{
+					Include: []string{"/logs/debug.log"},
+				}),
 			},
-			showHidden: false,
-			wantPath:   []string{"/logs/debug.log"},
+			wantPath: []string{"/logs/debug.log"},
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			fm := files.NewFileManager()
 
-			files, err := fm.ListFiles(context.Background(), tt.fs, tt.showHidden, tt.filter)
+			files, err := fm.ListFiles(context.Background(), tt.fs, tt.opts...)
 			if err != nil {
 				t.Fatal(err)
 			}
