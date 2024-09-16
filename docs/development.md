@@ -62,7 +62,7 @@ To release a new version of Hide, follow these steps:
 
     For additional options and for UI instructions, refer to the [GitHub documentation](https://docs.github.com/en/repositories/releasing-projects-on-github/managing-releases-in-a-repository).
 
-2. Update the version in the [hide-brew](https://github.com/artmoskvin/homebrew-hide) formula:
+2. Update the version in the [hide brew](https://github.com/hide-org/homebrew-formulae/blob/main/Formula/hide.rb) formula:
   1. Copy the URL of the new release (tar.gz file) from the GitHub UI or the command line.
   2. Get the SHA256 checksum of the new release (tar.gz file) using the command line:
 
