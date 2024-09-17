@@ -76,7 +76,7 @@ func (h SearchFilesHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	opts := append(getListFilesOptions(r), files.ListFilesWithContent())
-	listFiles := func(ctx context.Context, showHidden bool) ([]*model.File, error) {
+	listFiles := func(ctx context.Context) ([]*model.File, error) {
 		return h.ProjectManager.ListFiles(ctx, projectID, opts...)
 	}
 
@@ -134,8 +134,8 @@ func regexSearch(query string) (check func(s string) bool, err error) {
 	}, nil
 }
 
-func findInFiles(ctx context.Context, listFiles func(ctx context.Context, showHidden bool) ([]*model.File, error), check func(s string) bool) ([]model.File, error) {
-	files, err := listFiles(ctx, false)
+func findInFiles(ctx context.Context, listFiles func(ctx context.Context) ([]*model.File, error), check func(s string) bool) ([]model.File, error) {
+	files, err := listFiles(ctx)
 	if err != nil {
 		return nil, err
 	}
