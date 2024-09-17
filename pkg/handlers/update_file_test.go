@@ -12,6 +12,7 @@ import (
 
 	"github.com/artmoskvin/hide/pkg/files"
 	"github.com/artmoskvin/hide/pkg/handlers"
+	"github.com/artmoskvin/hide/pkg/middleware"
 	"github.com/artmoskvin/hide/pkg/model"
 	"github.com/artmoskvin/hide/pkg/project"
 	project_mocks "github.com/artmoskvin/hide/pkg/project/mocks"
@@ -288,7 +289,7 @@ func TestPathStartingWithSlash(t *testing.T) {
 		}
 
 		handler := handlers.UpdateFileHandler{ProjectManager: mockManager}
-		router := handlers.NewRouter().WithUpdateFileHandler(handler).Build()
+		router := handlers.NewRouter().WithUpdateFileHandler(middleware.PathValidator(handler)).Build()
 
 		payload, _ := json.Marshal(handlers.UpdateFileRequest{
 			Type: handlers.LineDiff,

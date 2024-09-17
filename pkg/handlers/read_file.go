@@ -21,7 +21,7 @@ func (h ReadFileHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	filePath, err := getFilePath(r)
+	filePath, err := GetFilePath(r)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Invalid file path: %s", err), http.StatusBadRequest)
 		return
@@ -42,7 +42,6 @@ func (h ReadFileHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	file, err := h.ProjectManager.ReadFile(r.Context(), projectID, filePath)
-
 	if err != nil {
 		var projectNotFoundError *project.ProjectNotFoundError
 		if errors.As(err, &projectNotFoundError) {

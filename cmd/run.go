@@ -15,6 +15,7 @@ import (
 	"github.com/artmoskvin/hide/pkg/files"
 	"github.com/artmoskvin/hide/pkg/handlers"
 	"github.com/artmoskvin/hide/pkg/lsp"
+	"github.com/artmoskvin/hide/pkg/middleware"
 	"github.com/artmoskvin/hide/pkg/model"
 	"github.com/artmoskvin/hide/pkg/project"
 	"github.com/artmoskvin/hide/pkg/random"
@@ -114,9 +115,9 @@ var runCmd = &cobra.Command{
 			WithListTasksHandler(handlers.ListTasksHandler{Manager: projectManager}).
 			WithCreateFileHandler(handlers.CreateFileHandler{ProjectManager: projectManager}).
 			WithListFilesHandler(handlers.ListFilesHandler{ProjectManager: projectManager}).
-			WithReadFileHandler(handlers.ReadFileHandler{ProjectManager: projectManager}).
-			WithUpdateFileHandler(handlers.UpdateFileHandler{ProjectManager: projectManager}).
-			WithDeleteFileHandler(handlers.DeleteFileHandler{ProjectManager: projectManager}).
+			WithReadFileHandler(middleware.PathValidator(handlers.ReadFileHandler{ProjectManager: projectManager})).
+			WithUpdateFileHandler(middleware.PathValidator(handlers.UpdateFileHandler{ProjectManager: projectManager})).
+			WithDeleteFileHandler(middleware.PathValidator(handlers.DeleteFileHandler{ProjectManager: projectManager})).
 			WithSearchFileHandler(handlers.SearchFilesHandler{ProjectManager: projectManager}).
 			WithSearchSymbolsHandler(handlers.NewSearchSymbolsHandler(projectManager)).
 			Build()
