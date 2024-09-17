@@ -15,7 +15,7 @@ func getProjectID(r *http.Request) (string, error) {
 	return getPathValue(r, "id")
 }
 
-func getFilePath(r *http.Request) (string, error) {
+func GetFilePath(r *http.Request) (string, error) {
 	return getPathValue(r, "path")
 }
 
