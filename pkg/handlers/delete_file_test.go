@@ -9,6 +9,7 @@ import (
 
 	"github.com/artmoskvin/hide/pkg/files"
 	"github.com/artmoskvin/hide/pkg/handlers"
+	"github.com/artmoskvin/hide/pkg/middleware"
 	"github.com/artmoskvin/hide/pkg/project"
 	"github.com/artmoskvin/hide/pkg/project/mocks"
 	"github.com/stretchr/testify/assert"
@@ -82,7 +83,7 @@ func TestDeleteFileHandler_ServeHTTP(t *testing.T) {
 			req := httptest.NewRequest(http.MethodDelete, tt.target, nil)
 			rr := httptest.NewRecorder()
 
-			router := handlers.NewRouter().WithDeleteFileHandler(handler).Build()
+			router := handlers.NewRouter().WithDeleteFileHandler(middleware.PathValidator(handler)).Build()
 			router.ServeHTTP(rr, req)
 
 			assert.Equal(t, tt.wantStatusCode, rr.Code)

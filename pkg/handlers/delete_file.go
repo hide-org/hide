@@ -19,7 +19,7 @@ func (h DeleteFileHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	filePath, err := getFilePath(r)
+	filePath, err := GetFilePath(r)
 	if err != nil {
 		http.Error(w, "invalid file path", http.StatusBadRequest)
 		return

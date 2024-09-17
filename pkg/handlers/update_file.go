@@ -80,7 +80,7 @@ func (h UpdateFileHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	filePath, err := getFilePath(r)
+	filePath, err := GetFilePath(r)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Invalid file path: %s", err), http.StatusBadRequest)
 		return
