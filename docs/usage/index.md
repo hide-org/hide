@@ -12,6 +12,6 @@ Our guides are designed to help you understand and effectively use Hide's core f
 
 4. :construction: **Git Guide**: Git integration guide.
 
-5. :construction: **Search Guide**: Learn how to efficiently search and navigate through your codebase.
+5. **Search Guide**: Learn how to efficiently search and navigate through your codebase.
 
 Choose a guide from the navigation menu to get started!
