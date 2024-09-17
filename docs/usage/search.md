@@ -25,7 +25,18 @@ To perform a content search:
 === "python"
 
     ```python
-    # Coming soon
+    import hide
+    from hide import model
+
+    hc = hide.Client()
+    project = hc.create_project(
+        repository=model.Repository(url="https://github.com/your-username/your-repo")
+    )
+    
+    files = hc.search_files(
+        project_id=project.id, 
+        query="your search query"
+    )
     ```
 
 ### Advanced Options
@@ -51,7 +62,25 @@ You can specify the search type using query parameters:
 === "python"
 
     ```python
-    # Coming soon
+    import hide
+    from hide import model
+
+    hc = hide.Client()
+    project = hc.create_project(
+        repository=model.Repository(url="https://github.com/your-username/your-repo")
+    )
+    
+    files = hc.search_files(
+        project_id=project.id, 
+        query="YourExactPhrase", 
+        exact=True
+    )
+
+    files = hc.search_files(
+        project_id=project.id, 
+        query="Your.*Regex", 
+        regex=True
+    )
     ```
 
 ### Additional Parameters
@@ -86,7 +115,45 @@ Here are some examples:
 === "python"
 
     ```python
-    # Coming soon
+    import hide
+    from hide import model
+
+    hc = hide.Client()
+    project = hc.create_project(
+        repository=model.Repository(url="https://github.com/your-username/your-repo")
+    )
+    
+    files = hc.search_files(
+        project_id=project.id, 
+        query="your_query", 
+        show_hidden=True
+    )
+
+    files = hc.search_files(
+        project_id=project.id, 
+        query="your_query", 
+        include=["*.json", "*.txt"]
+    )
+
+    files = hc.search_files(
+        project_id=project.id, 
+        query="your_query", 
+        exclude=["/node_modules"]
+    )
+
+    files = hc.search_files(
+        project_id=project.id, 
+        query="your_query", 
+        exclude=["**/node_modules"]
+    )
+
+    files = hc.search_files(
+        project_id=project.id, 
+        query="your_query", 
+        include=["*.json", "*.txt"], 
+        exclude=["**/node_modules"], 
+        show_hidden=True
+    )
     ```
 
 These additional parameters allow you to fine-tune your search to specific file types or directories, making it easier to find exactly what you're looking for in your project.
@@ -108,7 +175,17 @@ To search for files:
 === "python"
 
     ```python
-    # Coming soon
+    import hide
+    from hide import model
+
+    hc = hide.Client()
+    project = hc.create_project(
+        repository=model.Repository(url="https://github.com/your-username/your-repo")
+    )
+
+    files = hc.list_files(
+        project_id=project.id, 
+    )
     ```
 
 ### Filtering Files
@@ -118,20 +195,50 @@ You can use `include` and `exclude` parameters to filter the search results:
 === "curl"
 
     ```bash
-    # Include only Python files
+    # Search for files containing the word "test" in their path
+    curl -X GET "http://localhost:8080/projects/{projectId}/files?include=test"
+
+    # Search for all Python files
     curl -X GET "http://localhost:8080/projects/{projectId}/files?include=*.py"
 
-    # Exclude test files
+    # Search for all files except for test files
     curl -X GET "http://localhost:8080/projects/{projectId}/files?exclude=test_*.py"
 
     # Combine include and exclude
-    curl -X GET "http://localhost:8080/projects/{projectId}/files?include=*.py&exclude=test_*.py"
+    curl -X GET "http://localhost:8080/projects/{projectId}/files?include=test&include=*.py&exclude=test_*.py"
     ```
 
 === "python"
 
     ```python
-    # Coming soon
+    import hide
+    from hide import model
+
+    hc = hide.Client()
+    project = hc.create_project(
+        repository=model.Repository(url="https://github.com/your-username/your-repo")
+    )
+
+    files = hc.list_files(
+        project_id=project.id, 
+        include=["test"]
+    )
+
+    files = hc.list_files(
+        project_id=project.id, 
+        include=["*.py"]
+    )
+
+    files = hc.list_files(
+        project_id=project.id, 
+        exclude=["test_*.py"]
+    )
+
+    files = hc.list_files(
+        project_id=project.id, 
+        include=["test", "*.py"],
+        exclude=["test_*.py"]
+    )
     ```
 
 ## Symbol Search
@@ -151,7 +258,18 @@ To search for symbols:
 === "python"
 
     ```python
-    # Coming soon
+    import hide
+    from hide import model
+
+    hc = hide.Client()
+    project = hc.create_project(
+        repository=model.Repository(url="https://github.com/your-username/your-repo")
+    )
+
+    symbols = hc.search_symbols(
+        project_id=project.id, 
+        query="your_symbol_name"
+    )
     ```
 
 ### Advanced Options
@@ -165,16 +283,35 @@ You can customize the symbol search with additional parameters:
 
     ```bash
     # Limit results to 20
-    curl -X GET "http://localhost:8080/projects/{projectId}/symbols?type=symbol&query=your_symbol_name&limit=20"
+    curl -X GET "http://localhost:8080/projects/{projectId}/search?type=symbol&query=your_symbol_name&limit=20"
 
     # Include only functions and classes (example, actual parameters may vary)
-    curl -X GET "http://localhost:8080/projects/{projectId}/symbols?type=symbol&query=your_symbol_name&include=function&include=class"
+    curl -X GET "http://localhost:8080/projects/{projectId}/search?type=symbol&query=your_symbol_name&include=function&include=class"
     ```
 
 === "python"
 
     ```python
     # Coming soon
+    import hide
+    from hide import model
+
+    hc = hide.Client()
+    project = hc.create_project(
+        repository=model.Repository(url="https://github.com/your-username/your-repo")
+    )
+    
+    symbols = hc.search_symbols(
+        project_id=project.id, 
+        query="your_symbol_name", 
+        limit=20
+    )
+
+    symbols = hc.search_symbols(
+        project_id=project.id, 
+        query="your_symbol_name", 
+        include=["function", "class"]
+    )
     ```
 
 ## Tips for Effective Searching
