@@ -159,6 +159,11 @@ func (fm *FileManagerImpl) ListFiles(ctx context.Context, fs afero.Fs, opts ...L
 
 		if !info.IsDir() {
 			if !opt.WithContent {
+				path, err = filepath.Rel("/", path)
+				if err != nil {
+					return err
+				}
+
 				files = append(files, model.EmptyFile(path))
 				return nil
 			}
@@ -166,6 +171,11 @@ func (fm *FileManagerImpl) ListFiles(ctx context.Context, fs afero.Fs, opts ...L
 			file, err := readFile(fs, path)
 			if err != nil {
 				return fmt.Errorf("Error reading file %s: %w", path, err)
+			}
+
+			file.Path, err = filepath.Rel("/", file.Path)
+			if err != nil {
+				return err
 			}
 
 			files = append(files, file)
