@@ -331,223 +331,510 @@ func TestListFile(t *testing.T) {
 		opts     []files.ListFileOption
 		wantFile []*model.File
 	}{
-		// {
-		// 	name: "all files",
-		// 	fs: func() afero.Fs {
-		// 		fs := afero.NewMemMapFs()
-		// 		for _, file := range []struct {
-		// 			path    string
-		// 			content string
-		// 		}{
-		// 			{
-		// 				path:    "/hello.txt",
-		// 				content: "Hi there\n",
-		// 			},
-		// 			{
-		// 				path:    "/something/something.txt",
-		// 				content: "something1\nsomething2\nsomething3\n",
-		// 			},
-		// 			{
-		// 				path:    "/something/items.json",
-		// 				content: `["a1","a2"]`,
-		// 			},
-		// 			{
-		// 				path:    "/node_modules/module1/file.js",
-		// 				content: `import tmp`,
-		// 			},
-		// 			{
-		// 				path:    "/node_modules/module2/file.js",
-		// 				content: `import tmp`,
-		// 			},
-		// 		} {
-		// 			if err := afero.WriteFile(fs, file.path, []byte(file.content), 0o644); err != nil {
-		// 				t.Fatal(err)
-		// 			}
-		// 		}
-		// 		return fs
-		// 	}(),
-		// 	wantFile: []*model.File{
-		// 		model.EmptyFile("hello.txt"),
-		// 		model.EmptyFile("node_modules/module1/file.js"),
-		// 		model.EmptyFile("node_modules/module2/file.js"),
-		// 		model.EmptyFile("something/items.json"),
-		// 		model.EmptyFile("something/something.txt"),
-		// 	},
-		// },
-		// {
-		// 	name: "with exclude filter",
-		// 	fs: func() afero.Fs {
-		// 		fs := afero.NewMemMapFs()
-		// 		for _, file := range []struct {
-		// 			path    string
-		// 			content string
-		// 		}{
-		// 			{
-		// 				path:    "/hello.txt",
-		// 				content: "Hi there\n",
-		// 			},
-		// 			{
-		// 				path:    "/something/something.txt",
-		// 				content: "something1\nsomething2\nsomething3\n",
-		// 			},
-		// 			{
-		// 				path:    "/something/items.json",
-		// 				content: `["a1","a2"]`,
-		// 			},
-		// 			{
-		// 				path:    "/node_modules/module1/file.js",
-		// 				content: `import tmp`,
-		// 			},
-		// 			{
-		// 				path:    "/node_modules/module2/file.js",
-		// 				content: `import tmp`,
-		// 			},
-		// 		} {
-		// 			if err := afero.WriteFile(fs, file.path, []byte(file.content), 0o644); err != nil {
-		// 				t.Fatal(err)
-		// 			}
-		// 		}
-		// 		return fs
-		// 	}(),
-		// 	opts: []files.ListFileOption{
-		// 		files.ListFilesWithFilter(files.PatternFilter{
-		// 			Include: []string{"*something*"},
-		// 			Exclude: []string{"*.json", "node_modules"},
-		// 		}),
-		// 	},
-		// 	wantFile: []*model.File{
-		// 		model.EmptyFile("something/something.txt"),
-		// 	},
-		// },
-		// {
-		// 	name: "match directory anywhere",
-		// 	fs: func() afero.Fs {
-		// 		fs := afero.NewMemMapFs()
-		// 		for _, file := range []struct {
-		// 			path    string
-		// 			content string
-		// 		}{
-		// 			{
-		// 				path:    "/logs/debug.log",
-		// 				content: "content",
-		// 			},
-		// 			{
-		// 				path:    "/logs/monday/foo.bar",
-		// 				content: "content",
-		// 			},
-		// 			{
-		// 				path:    "/build/logs/debug.log",
-		// 				content: "content",
-		// 			},
-		// 			{
-		// 				path:    "/node_modules/module1/file.js",
-		// 				content: "content",
-		// 			},
-		// 			{
-		// 				path:    "/node_modules/module2/file.js",
-		// 				content: "content",
-		// 			},
-		// 		} {
-		// 			if err := afero.WriteFile(fs, file.path, []byte(file.content), 0o644); err != nil {
-		// 				t.Fatal(err)
-		// 			}
-		// 		}
-		// 		return fs
-		// 	}(),
-		// 	opts: []files.ListFileOption{
-		// 		files.ListFilesWithFilter(files.PatternFilter{
-		// 			Include: []string{"**/logs/**"},
-		// 		}),
-		// 	},
-		// 	wantFile: []*model.File{
-		// 		model.EmptyFile("build/logs/debug.log"),
-		// 		model.EmptyFile("logs/debug.log"),
-		// 		model.EmptyFile("logs/monday/foo.bar"),
-		// 	},
-		// },
-		// {
-		// 	name: "match directory with file",
-		// 	fs: func() afero.Fs {
-		// 		fs := afero.NewMemMapFs()
-		// 		for _, file := range []struct {
-		// 			path    string
-		// 			content string
-		// 		}{
-		// 			{
-		// 				path:    "/logs/debug.log",
-		// 				content: "content",
-		// 			},
-		// 			{
-		// 				path:    "/logs/build/debug.log",
-		// 				content: "content",
-		// 			},
-		// 			{
-		// 				path:    "/build/logs/debug.log",
-		// 				content: "content",
-		// 			},
-		// 		} {
-		// 			if err := afero.WriteFile(fs, file.path, []byte(file.content), 0o644); err != nil {
-		// 				t.Fatal(err)
-		// 			}
-		// 		}
-		// 		return fs
-		// 	}(),
-		// 	opts: []files.ListFileOption{
-		// 		files.ListFilesWithFilter(files.PatternFilter{
-		// 			Include: []string{"**/logs/debug.log"},
-		// 		}),
-		// 	},
-		// 	wantFile: []*model.File{
-		// 		model.EmptyFile("build/logs/debug.log"),
-		// 		model.EmptyFile("logs/debug.log"),
-		// 	},
-		// },
-		// {
-		// 	name: "match file extension",
-		// 	fs: func() afero.Fs {
-		// 		fs := afero.NewMemMapFs()
-		// 		for _, file := range []struct {
-		// 			path    string
-		// 			content string
-		// 		}{
-		// 			{
-		// 				path:    "/logs/debug.log",
-		// 				content: "content",
-		// 			},
-		// 			{
-		// 				path:    "/logs/build/debug.log",
-		// 				content: "content",
-		// 			},
-		// 			{
-		// 				path:    "/build/logs/debug.log",
-		// 				content: "content",
-		// 			},
-		// 			{
-		// 				path:    "/node_modules/module1/file.js",
-		// 				content: "content",
-		// 			},
-		// 			{
-		// 				path:    "/node_modules/module2/file.js",
-		// 				content: "content",
-		// 			},
-		// 		} {
-		// 			if err := afero.WriteFile(fs, file.path, []byte(file.content), 0o644); err != nil {
-		// 				t.Fatal(err)
-		// 			}
-		// 		}
-		// 		return fs
-		// 	}(),
-		// 	opts: []files.ListFileOption{
-		// 		files.ListFilesWithFilter(files.PatternFilter{
-		// 			Include: []string{"*.log"},
-		// 		}),
-		// 	},
-		// 	wantFile: []*model.File{
-		// 		model.EmptyFile("build/logs/debug.log"),
-		// 		model.EmptyFile("logs/build/debug.log"),
-		// 		model.EmptyFile("logs/debug.log"),
-		// 	},
-		// },
+		{
+			name: "all files",
+			fs: func() afero.Fs {
+				fs := afero.NewMemMapFs()
+				for _, file := range []struct {
+					path    string
+					content string
+				}{
+					{
+						path:    "/hello.txt",
+						content: "Hi there\n",
+					},
+					{
+						path:    "/something/something.txt",
+						content: "something1\nsomething2\nsomething3\n",
+					},
+					{
+						path:    "/something/items.json",
+						content: `["a1","a2"]`,
+					},
+					{
+						path:    "/node_modules/module1/file.js",
+						content: `import tmp`,
+					},
+					{
+						path:    "/node_modules/module2/file.js",
+						content: `import tmp`,
+					},
+				} {
+					if err := afero.WriteFile(fs, file.path, []byte(file.content), 0o644); err != nil {
+						t.Fatal(err)
+					}
+				}
+				return fs
+			}(),
+			wantFile: []*model.File{
+				model.EmptyFile("hello.txt"),
+				model.EmptyFile("node_modules/module1/file.js"),
+				model.EmptyFile("node_modules/module2/file.js"),
+				model.EmptyFile("something/items.json"),
+				model.EmptyFile("something/something.txt"),
+			},
+		},
+		{
+			name: "with exclude filter",
+			fs: func() afero.Fs {
+				fs := afero.NewMemMapFs()
+				for _, file := range []struct {
+					path    string
+					content string
+				}{
+					{
+						path:    "/hello.txt",
+						content: "Hi there\n",
+					},
+					{
+						path:    "/something/something.txt",
+						content: "something1\nsomething2\nsomething3\n",
+					},
+					{
+						path:    "/something/items.json",
+						content: `["a1","a2"]`,
+					},
+					{
+						path:    "/node_modules/module1/file.js",
+						content: `import tmp`,
+					},
+					{
+						path:    "/node_modules/module2/file.js",
+						content: `import tmp`,
+					},
+				} {
+					if err := afero.WriteFile(fs, file.path, []byte(file.content), 0o644); err != nil {
+						t.Fatal(err)
+					}
+				}
+				return fs
+			}(),
+			opts: []files.ListFileOption{
+				// files.ListFilesWithFilter(files.PatternFilter{
+				// 	Include: []string{"something"},
+				// 	Exclude: []string{"*.json", "node_modules"},
+				// }),
+				files.ListFilesWithFilter(files.NewPatternFilter(nil, []string{"*.json", "node_modules"})),
+			},
+			wantFile: []*model.File{
+				model.EmptyFile("hello.txt"),
+				model.EmptyFile("something/something.txt"),
+			},
+		},
+		{
+			name: "include files and directories (logs)",
+			fs: func() afero.Fs {
+				fs := afero.NewMemMapFs()
+				for _, file := range []struct {
+					path    string
+					content string
+				}{
+					{
+						path:    "/build/debug/logs",
+						content: "content",
+					},
+					{
+						path:    "/build/logs/debug.log",
+						content: "content",
+					},
+					{
+						path:    "/debug/logs",
+						content: "content",
+					},
+					{
+						path:    "/logs/debug.log",
+						content: "content",
+					},
+					{
+						path:    "/logs/latest/foo.bar",
+						content: "content",
+					},
+					// TODO: what if `logs` is a file in root?
+				} {
+					if err := afero.WriteFile(fs, file.path, []byte(file.content), 0o644); err != nil {
+						t.Fatal(err)
+					}
+				}
+				return fs
+			}(),
+			opts: []files.ListFileOption{
+				files.ListFilesWithFilter(
+					// files.PatternFilter{
+					// 	Include: []string{"logs"},
+					// 	// Include: []string{"**/logs", "**/logs/**", "logs/**"},
+					// },
+					files.NewPatternFilter([]string{"logs"}, nil),
+				),
+			},
+			wantFile: []*model.File{
+				model.EmptyFile("build/debug/logs"),
+				model.EmptyFile("build/logs/debug.log"),
+				model.EmptyFile("debug/logs"),
+				model.EmptyFile("logs/debug.log"),
+				model.EmptyFile("logs/latest/foo.bar"),
+			},
+		},
+		// #TODO: same as above?
+		{
+			name: "include directory from anywhere (**/logs)",
+			fs: func() afero.Fs {
+				fs := afero.NewMemMapFs()
+				for _, file := range []struct {
+					path    string
+					content string
+				}{
+					{
+						path:    "/build/logs/debug.log",
+						content: "content",
+					},
+					{
+						path:    "/logs/debug.log",
+						content: "content",
+					},
+					{
+						path:    "/logs/monday/foo.bar",
+						content: "content",
+					},
+					{
+						path:    "/node_modules/module1/file.js",
+						content: "content",
+					},
+					{
+						path:    "/node_modules/module2/file.js",
+						content: "content",
+					},
+				} {
+					if err := afero.WriteFile(fs, file.path, []byte(file.content), 0o644); err != nil {
+						t.Fatal(err)
+					}
+				}
+				return fs
+			}(),
+			opts: []files.ListFileOption{
+				// files.ListFilesWithFilter(files.PatternFilter{
+				// 	Include: []string{"**/logs"},
+				// 	// Include: []string{"logs/**", "**/logs/**"},
+				// }),
+				files.ListFilesWithFilter(files.NewPatternFilter([]string{"**/logs"}, nil)),
+			},
+			wantFile: []*model.File{
+				model.EmptyFile("build/logs/debug.log"),
+				model.EmptyFile("logs/debug.log"),
+				model.EmptyFile("logs/monday/foo.bar"),
+			},
+		},
+		{
+			name: "match zero or more dirs (logs/**/debug.log)",
+			fs: func() afero.Fs {
+				fs := afero.NewMemMapFs()
+				for _, file := range []struct {
+					path    string
+					content string
+				}{
+					{
+						path:    "/logs/debug.log",
+						content: "content",
+					},
+					{
+						path:    "/logs/monday/debug.log",
+						content: "content",
+					},
+					{
+						path:    "/logs/monday/pm/debug.log",
+						content: "content",
+					},
+				} {
+					if err := afero.WriteFile(fs, file.path, []byte(file.content), 0o644); err != nil {
+						t.Fatal(err)
+					}
+				}
+				return fs
+			}(),
+			opts: []files.ListFileOption{
+				// files.ListFilesWithFilter(files.PatternFilter{
+				// 	Include: []string{"logs/**/debug.log"},
+				// }),
+				files.ListFilesWithFilter(files.NewPatternFilter([]string{"logs/**/debug.log"}, nil)),
+			},
+			wantFile: []*model.File{
+				model.EmptyFile("logs/debug.log"),
+				model.EmptyFile("logs/monday/debug.log"),
+				model.EmptyFile("logs/monday/pm/debug.log"),
+			},
+		},
+		{
+			name: "match dirs with wildcard (logs/*day/debug.log)",
+			fs: func() afero.Fs {
+				fs := afero.NewMemMapFs()
+				for _, file := range []struct {
+					path    string
+					content string
+				}{
+					{
+						path:    "/logs/debug.log",
+						content: "content",
+					},
+					{
+						path:    "/logs/monday/debug.log",
+						content: "content",
+					},
+					{
+						path:    "/logs/monday/pm/debug.log",
+						content: "content",
+					},
+				} {
+					if err := afero.WriteFile(fs, file.path, []byte(file.content), 0o644); err != nil {
+						t.Fatal(err)
+					}
+				}
+				return fs
+			}(),
+			opts: []files.ListFileOption{
+				// files.ListFilesWithFilter(files.PatternFilter{
+				// 	Include: []string{"logs/*day/debug.log"},
+				// }),
+				files.ListFilesWithFilter(files.NewPatternFilter([]string{"logs/*day/debug.log"}, nil)),
+			},
+			wantFile: []*model.File{
+				model.EmptyFile("logs/monday/debug.log"),
+			},
+		},
+		{
+			name: "include only directories (logs/)",
+			fs: func() afero.Fs {
+				fs := afero.NewMemMapFs()
+				for _, file := range []struct {
+					path    string
+					content string
+				}{
+					{
+						path:    "/build/debug/logs",
+						content: "content",
+					},
+					{
+						path:    "/build/logs/debug.log",
+						content: "content",
+					},
+					{
+						path:    "/debug/logs",
+						content: "content",
+					},
+					{
+						path:    "/logs/debug.log",
+						content: "content",
+					},
+					{
+						path:    "/logs/latest/foo.bar",
+						content: "content",
+					},
+				} {
+					if err := afero.WriteFile(fs, file.path, []byte(file.content), 0o644); err != nil {
+						t.Fatal(err)
+					}
+				}
+				return fs
+			}(),
+			opts: []files.ListFileOption{
+				// files.ListFilesWithFilter(files.PatternFilter{
+				// 	Include: []string{"logs/"},
+				// 	// Include: []string{"logs/**", "**/logs/**"},
+				// }),
+				files.ListFilesWithFilter(files.NewPatternFilter([]string{"logs/"}, nil)),
+			},
+			wantFile: []*model.File{
+				model.EmptyFile("build/logs/debug.log"),
+				model.EmptyFile("logs/debug.log"),
+				model.EmptyFile("logs/latest/foo.bar"),
+			},
+		},
+		{
+			name: "include file with parent directory from anywhere (**/logs/debug.log)",
+			fs: func() afero.Fs {
+				fs := afero.NewMemMapFs()
+				for _, file := range []struct {
+					path    string
+					content string
+				}{
+					{
+						path:    "/build/logs/debug.log",
+						content: "content",
+					},
+					{
+						path:    "/logs/build/debug.log",
+						content: "content",
+					},
+					{
+						path:    "/logs/debug.log",
+						content: "content",
+					},
+				} {
+					if err := afero.WriteFile(fs, file.path, []byte(file.content), 0o644); err != nil {
+						t.Fatal(err)
+					}
+				}
+				return fs
+			}(),
+			opts: []files.ListFileOption{
+				// files.ListFilesWithFilter(files.PatternFilter{
+				// 	Include: []string{"**/logs/debug.log"},
+				// 	// Include: []string{"**/logs/debug.log", "logs/debug.log"},
+				// }),
+				files.ListFilesWithFilter(files.NewPatternFilter([]string{"**/logs/debug.log"}, nil)),
+			},
+			wantFile: []*model.File{
+				model.EmptyFile("build/logs/debug.log"),
+				model.EmptyFile("logs/debug.log"),
+			},
+		},
+		{
+			name: "include file with parent directory (logs/debug.log)",
+			fs: func() afero.Fs {
+				fs := afero.NewMemMapFs()
+				for _, file := range []struct {
+					path    string
+					content string
+				}{
+					{
+						path:    "/logs/debug.log",
+						content: "content",
+					},
+					{
+						path:    "/debug.log",
+						content: "content",
+					},
+					{
+						path:    "/build/logs/debug.log",
+						content: "content",
+					},
+				} {
+					if err := afero.WriteFile(fs, file.path, []byte(file.content), 0o644); err != nil {
+						t.Fatal(err)
+					}
+				}
+				return fs
+			}(),
+			opts: []files.ListFileOption{
+				// files.ListFilesWithFilter(files.PatternFilter{
+				// 	Include: []string{"logs/debug.log"},
+				// }),
+				files.ListFilesWithFilter(files.NewPatternFilter([]string{"logs/debug.log"}, nil)),
+			},
+			wantFile: []*model.File{
+				model.EmptyFile("logs/debug.log"),
+			},
+		},
+		{
+			name: "include files only from root (/debug.log)",
+			fs: func() afero.Fs {
+				fs := afero.NewMemMapFs()
+				for _, file := range []struct {
+					path    string
+					content string
+				}{
+					{
+						path:    "/build/debug.log",
+						content: "content",
+					},
+					{
+						path:    "/debug.log",
+						content: "content",
+					},
+				} {
+					if err := afero.WriteFile(fs, file.path, []byte(file.content), 0o644); err != nil {
+						t.Fatal(err)
+					}
+				}
+				return fs
+			}(),
+			opts: []files.ListFileOption{
+				// files.ListFilesWithFilter(files.PatternFilter{
+				// 	Include: []string{"/debug.log"},
+				// 	// Include: []string{"debug.log"},
+				// }),
+				files.ListFilesWithFilter(files.NewPatternFilter([]string{"/debug.log"}, nil)),
+			},
+			wantFile: []*model.File{
+				model.EmptyFile("debug.log"),
+			},
+		},
+		{
+			name: "include files from anywhere (debug.log)",
+			fs: func() afero.Fs {
+				fs := afero.NewMemMapFs()
+				for _, file := range []struct {
+					path    string
+					content string
+				}{
+					{
+						path:    "/build/debug.log",
+						content: "content",
+					},
+					{
+						path:    "/debug.log",
+						content: "content",
+					},
+				} {
+					if err := afero.WriteFile(fs, file.path, []byte(file.content), 0o644); err != nil {
+						t.Fatal(err)
+					}
+				}
+				return fs
+			}(),
+			opts: []files.ListFileOption{
+				// files.ListFilesWithFilter(files.PatternFilter{
+				// 	Include: []string{"debug.log"},
+				// 	// Include: []string{"debug.log", "**/debug.log"},
+				// }),
+				files.ListFilesWithFilter(files.NewPatternFilter([]string{"debug.log"}, nil)),
+			},
+			wantFile: []*model.File{
+				model.EmptyFile("build/debug.log"),
+				model.EmptyFile("debug.log"),
+			},
+		},
+		{
+			name: "include files by extension",
+			fs: func() afero.Fs {
+				fs := afero.NewMemMapFs()
+				for _, file := range []struct {
+					path    string
+					content string
+				}{
+					{
+						path:    "/debug.log",
+						content: "content",
+					},
+					{
+						path:    "/logs/debug.log",
+						content: "content",
+					},
+					{
+						path:    "/node_modules/module1/file.js",
+						content: "content",
+					},
+					{
+						path:    "/node_modules/module2/file.js",
+						content: "content",
+					},
+				} {
+					if err := afero.WriteFile(fs, file.path, []byte(file.content), 0o644); err != nil {
+						t.Fatal(err)
+					}
+				}
+				return fs
+			}(),
+			opts: []files.ListFileOption{
+				// files.ListFilesWithFilter(files.PatternFilter{
+				// 	Include: []string{"*.log"},
+				// }),
+				files.ListFilesWithFilter(files.NewPatternFilter([]string{"*.log"}, nil)),
+			},
+			wantFile: []*model.File{
+				model.EmptyFile("debug.log"),
+				model.EmptyFile("logs/debug.log"),
+			},
+		},
+		// TODO: how to handle negation patterns? (e.g. `!important.log`)
 		// {
 		// 	name: "match file extension with exclude",
 		// 	fs: func() afero.Fs {
@@ -585,71 +872,6 @@ func TestListFile(t *testing.T) {
 		// 		model.EmptyFile("logs/debug.log"),
 		// 	},
 		// },
-		// {
-		// 	name: "include files only from root",
-		// 	fs: func() afero.Fs {
-		// 		fs := afero.NewMemMapFs()
-		// 		for _, file := range []struct {
-		// 			path    string
-		// 			content string
-		// 		}{
-		// 			{
-		// 				path:    "/debug.log",
-		// 				content: "content",
-		// 			},
-		// 			{
-		// 				path:    "/build/debug.log",
-		// 				content: "content",
-		// 			},
-		// 		} {
-		// 			if err := afero.WriteFile(fs, file.path, []byte(file.content), 0o644); err != nil {
-		// 				t.Fatal(err)
-		// 			}
-		// 		}
-		// 		return fs
-		// 	}(),
-		// 	opts: []files.ListFileOption{
-		// 		files.ListFilesWithFilter(files.PatternFilter{
-		// 			Include: []string{"debug.log"},
-		// 		}),
-		// 	},
-		// 	wantFile: []*model.File{
-		// 		model.EmptyFile("debug.log"),
-		// 	},
-		// },
-		{
-			name: "include files by name",
-			fs: func() afero.Fs {
-				fs := afero.NewMemMapFs()
-				for _, file := range []struct {
-					path    string
-					content string
-				}{
-					{
-						path:    "/debug.log",
-						content: "content",
-					},
-					{
-						path:    "/build/debug.log",
-						content: "content",
-					},
-				} {
-					if err := afero.WriteFile(fs, file.path, []byte(file.content), 0o644); err != nil {
-						t.Fatal(err)
-					}
-				}
-				return fs
-			}(),
-			opts: []files.ListFileOption{
-				files.ListFilesWithFilter(files.PatternFilter{
-					Include: []string{"**/debug.log"},
-				}),
-			},
-			wantFile: []*model.File{
-				model.EmptyFile("build/debug.log"),
-				model.EmptyFile("debug.log"),
-			},
-		},
 		{
 			name: "include files with question mark",
 			fs: func() afero.Fs {
@@ -678,9 +900,10 @@ func TestListFile(t *testing.T) {
 				return fs
 			}(),
 			opts: []files.ListFileOption{
-				files.ListFilesWithFilter(files.PatternFilter{
-					Include: []string{"**/debug?.log"},
-				}),
+				// files.ListFilesWithFilter(files.PatternFilter{
+				// 	Include: []string{"debug?.log"},
+				// }),
+				files.ListFilesWithFilter(files.NewPatternFilter([]string{"debug?.log"}, nil)),
 			},
 			wantFile: []*model.File{
 				model.EmptyFile("debug0.log"),
@@ -715,9 +938,10 @@ func TestListFile(t *testing.T) {
 				return fs
 			}(),
 			opts: []files.ListFileOption{
-				files.ListFilesWithFilter(files.PatternFilter{
-					Include: []string{"**/debug[0-9].log"},
-				}),
+				// files.ListFilesWithFilter(files.PatternFilter{
+				// 	Include: []string{"debug[0-9].log"},
+				// }),
+				files.ListFilesWithFilter(files.NewPatternFilter([]string{"debug[0-9].log"}, nil)),
 			},
 			wantFile: []*model.File{
 				model.EmptyFile("debug0.log"),
@@ -756,9 +980,10 @@ func TestListFile(t *testing.T) {
 				return fs
 			}(),
 			opts: []files.ListFileOption{
-				files.ListFilesWithFilter(files.PatternFilter{
-					Include: []string{"**/debug[01].log"},
-				}),
+				// files.ListFilesWithFilter(files.PatternFilter{
+				// 	Include: []string{"debug[01].log"},
+				// }),
+				files.ListFilesWithFilter(files.NewPatternFilter([]string{"debug[01].log"}, nil)),
 			},
 			wantFile: []*model.File{
 				model.EmptyFile("debug0.log"),
@@ -797,9 +1022,10 @@ func TestListFile(t *testing.T) {
 				return fs
 			}(),
 			opts: []files.ListFileOption{
-				files.ListFilesWithFilter(files.PatternFilter{
-					Include: []string{"debug[!01].log"},
-				}),
+				// files.ListFilesWithFilter(files.PatternFilter{
+				// 	Include: []string{"debug[!01].log"},
+				// }),
+				files.ListFilesWithFilter(files.NewPatternFilter([]string{"debug[!01].log"}, nil)),
 			},
 			wantFile: []*model.File{
 				model.EmptyFile("debug2.log"),
@@ -834,216 +1060,13 @@ func TestListFile(t *testing.T) {
 				return fs
 			}(),
 			opts: []files.ListFileOption{
-				files.ListFilesWithFilter(files.PatternFilter{
-					Include: []string{"debug[a-z].log"},
-				}),
+				// files.ListFilesWithFilter(files.PatternFilter{
+				// 	Include: []string{"debug[a-z].log"},
+				// }),
+				files.ListFilesWithFilter(files.NewPatternFilter([]string{"debug[a-z].log"}, nil)),
 			},
 			wantFile: []*model.File{
 				model.EmptyFile("debuga.log"),
-			},
-		},
-		{
-			name: "include files and directories",
-			fs: func() afero.Fs {
-				fs := afero.NewMemMapFs()
-				for _, file := range []struct {
-					path    string
-					content string
-				}{
-					{
-						path:    "/logs.txt",
-						content: "content",
-					},
-					{
-						path:    "/logs/debug.log",
-						content: "content",
-					},
-					{
-						path:    "/logs/latest/foo.bar",
-						content: "content",
-					},
-					{
-						path:    "/build/logs.txt",
-						content: "content",
-					},
-					{
-						path:    "/build/logs/debug.log",
-						content: "content",
-					},
-				} {
-					if err := afero.WriteFile(fs, file.path, []byte(file.content), 0o644); err != nil {
-						t.Fatal(err)
-					}
-				}
-				return fs
-			}(),
-			opts: []files.ListFileOption{
-				files.ListFilesWithFilter(files.PatternFilter{
-					Include: []string{"**/logs*", "**/logs/**"},
-				}),
-			},
-			wantFile: []*model.File{
-				model.EmptyFile("build/logs/debug.log"),
-				model.EmptyFile("build/logs.txt"),
-				model.EmptyFile("logs/debug.log"),
-				model.EmptyFile("logs/latest/foo.bar"),
-				model.EmptyFile("logs.txt"),
-			},
-		},
-		{
-			name: "include only directories",
-			fs: func() afero.Fs {
-				fs := afero.NewMemMapFs()
-				for _, file := range []struct {
-					path    string
-					content string
-				}{
-					{
-						path:    "/logs.txt",
-						content: "content",
-					},
-					{
-						path:    "/logs/debug.log",
-						content: "content",
-					},
-					{
-						path:    "/logs/latest/foo.bar",
-						content: "content",
-					},
-					{
-						path:    "/build/logs.txt",
-						content: "content",
-					},
-					{
-						path:    "/build/logs/debug.log",
-						content: "content",
-					},
-				} {
-					if err := afero.WriteFile(fs, file.path, []byte(file.content), 0o644); err != nil {
-						t.Fatal(err)
-					}
-				}
-				return fs
-			}(),
-			opts: []files.ListFileOption{
-				files.ListFilesWithFilter(files.PatternFilter{
-					Include: []string{"**/logs/**"},
-				}),
-			},
-			wantFile: []*model.File{
-				model.EmptyFile("build/logs/debug.log"),
-				model.EmptyFile("logs/debug.log"),
-				model.EmptyFile("logs/latest/foo.bar"),
-			},
-		},
-		{
-			name: "include with double asterisk",
-			fs: func() afero.Fs {
-				fs := afero.NewMemMapFs()
-				for _, file := range []struct {
-					path    string
-					content string
-				}{
-					{
-						path:    "/logs/debug.log",
-						content: "content",
-					},
-					{
-						path:    "/logs/monday/debug.log",
-						content: "content",
-					},
-					{
-						path:    "/logs/monday/pm/debug.log",
-						content: "content",
-					},
-				} {
-					if err := afero.WriteFile(fs, file.path, []byte(file.content), 0o644); err != nil {
-						t.Fatal(err)
-					}
-				}
-				return fs
-			}(),
-			opts: []files.ListFileOption{
-				files.ListFilesWithFilter(files.PatternFilter{
-					Include: []string{"logs/**/debug.log"},
-				}),
-			},
-			wantFile: []*model.File{
-				model.EmptyFile("logs/debug.log"),
-				model.EmptyFile("logs/monday/debug.log"),
-				model.EmptyFile("logs/monday/pm/debug.log"),
-			},
-		},
-		{
-			name: "include with wildcard in directory",
-			fs: func() afero.Fs {
-				fs := afero.NewMemMapFs()
-				for _, file := range []struct {
-					path    string
-					content string
-				}{
-					{
-						path:    "/logs/debug.log",
-						content: "content",
-					},
-					{
-						path:    "/logs/monday/debug.log",
-						content: "content",
-					},
-					{
-						path:    "/logs/monday/pm/debug.log",
-						content: "content",
-					},
-				} {
-					if err := afero.WriteFile(fs, file.path, []byte(file.content), 0o644); err != nil {
-						t.Fatal(err)
-					}
-				}
-				return fs
-			}(),
-			opts: []files.ListFileOption{
-				files.ListFilesWithFilter(files.PatternFilter{
-					Include: []string{"logs/*day/debug.log"},
-				}),
-			},
-			wantFile: []*model.File{
-				model.EmptyFile("logs/monday/debug.log"),
-			},
-		},
-		{
-			name: "include file with directory",
-			fs: func() afero.Fs {
-				fs := afero.NewMemMapFs()
-				for _, file := range []struct {
-					path    string
-					content string
-				}{
-					{
-						path:    "/logs/debug.log",
-						content: "content",
-					},
-					{
-						path:    "/debug.log",
-						content: "content",
-					},
-					{
-						path:    "/build/logs/debug.log",
-						content: "content",
-					},
-				} {
-					if err := afero.WriteFile(fs, file.path, []byte(file.content), 0o644); err != nil {
-						t.Fatal(err)
-					}
-				}
-				return fs
-			}(),
-			opts: []files.ListFileOption{
-				files.ListFilesWithFilter(files.PatternFilter{
-					Include: []string{"logs/debug.log"},
-				}),
-			},
-			wantFile: []*model.File{
-				model.EmptyFile("logs/debug.log"),
 			},
 		},
 		{

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io/fs"
 	"path/filepath"
+	"strings"
 
 	"github.com/gobwas/glob"
 )
@@ -73,4 +74,79 @@ func (p PatternFilter) shouldExclude(path string, info fs.FileInfo) (ok bool, er
 	}
 
 	return false, nil
+}
+
+func expandPatterns(patterns []string) []string {
+	patternz := []string{}
+
+	for _, pattern := range patterns {
+		if !strings.Contains(pattern, "/") {
+			// glob to files and dirs
+			patternz = append(
+				patternz,
+				fmt.Sprintf("**/%s", pattern),
+				fmt.Sprintf("%s", pattern),
+				fmt.Sprintf("**/%s/**", pattern),
+				fmt.Sprintf("%s/**", pattern),
+			)
+
+			// TODO: can pattern satisfy several conditions?
+			continue
+		}
+
+		if strings.HasSuffix(pattern, "/") {
+			// glob to dirs only
+			patternz = append(
+				patternz,
+				fmt.Sprintf("**/%s**", pattern),
+				fmt.Sprintf("%s**", pattern),
+				// TODO: does this match on empty dirs?
+			)
+
+			continue
+		}
+
+		if strings.HasPrefix(pattern, "/") {
+			// remove prefix because we match on relative path
+			patternz = append(
+				patternz,
+				pattern[len("/"):],
+				// TODO: should we include children dirs?
+			)
+
+			continue
+		}
+
+		if strings.HasPrefix(pattern, "**/") {
+			// glob to files and dirs
+			patternz = append(
+				patternz,
+				pattern,
+				fmt.Sprintf("%s/**", pattern),
+				fmt.Sprintf("%s", pattern[len("**/"):]),
+				fmt.Sprintf("%s/**", pattern[len("**/"):]),
+			)
+
+			continue
+		}
+
+		patternz = append(patternz, pattern)
+	}
+
+	return patternz
+}
+
+func NewPatternFilter(include []string, exclude []string) PatternFilter {
+	incl := []string{}
+	excl := []string{}
+
+	if include != nil {
+		incl = expandPatterns(include)
+	}
+
+	if exclude != nil {
+		excl = expandPatterns(exclude)
+	}
+
+	return PatternFilter{Include: incl, Exclude: excl}
 }
