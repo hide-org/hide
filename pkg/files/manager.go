@@ -149,7 +149,12 @@ func (fm *FileManagerImpl) ListFiles(ctx context.Context, fs afero.Fs, opts ...L
 			return nil
 		}
 
-		ok, err := opt.Filter.keep(path, info)
+		relPath, err := filepath.Rel("/", path)
+		if err != nil {
+			return err
+		}
+
+		ok, err := opt.Filter.keep(relPath, info)
 		if err != nil {
 			return err
 		}
@@ -159,12 +164,7 @@ func (fm *FileManagerImpl) ListFiles(ctx context.Context, fs afero.Fs, opts ...L
 
 		if !info.IsDir() {
 			if !opt.WithContent {
-				path, err = filepath.Rel("/", path)
-				if err != nil {
-					return err
-				}
-
-				files = append(files, model.EmptyFile(path))
+				files = append(files, model.EmptyFile(relPath))
 				return nil
 			}
 
@@ -172,11 +172,7 @@ func (fm *FileManagerImpl) ListFiles(ctx context.Context, fs afero.Fs, opts ...L
 			if err != nil {
 				return fmt.Errorf("Error reading file %s: %w", path, err)
 			}
-
-			file.Path, err = filepath.Rel("/", file.Path)
-			if err != nil {
-				return err
-			}
+			file.Path = relPath
 
 			files = append(files, file)
 			return nil
