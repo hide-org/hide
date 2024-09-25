@@ -7,6 +7,7 @@ import (
 
 	"github.com/artmoskvin/hide/pkg/files"
 	"github.com/artmoskvin/hide/pkg/model"
+	"github.com/google/go-cmp/cmp"
 	"github.com/spf13/afero"
 )
 
@@ -366,11 +367,11 @@ func TestListFile(t *testing.T) {
 				return fs
 			}(),
 			wantFile: []*model.File{
-				model.EmptyFile("/hello.txt"),
-				model.EmptyFile("/something/something.txt"),
-				model.EmptyFile("/something/items.json"),
-				model.EmptyFile("/node_modules/module1/file.js"),
-				model.EmptyFile("/node_modules/module2/file.js"),
+				model.EmptyFile("hello.txt"),
+				model.EmptyFile("node_modules/module1/file.js"),
+				model.EmptyFile("node_modules/module2/file.js"),
+				model.EmptyFile("something/items.json"),
+				model.EmptyFile("something/something.txt"),
 			},
 		},
 		{
@@ -415,7 +416,7 @@ func TestListFile(t *testing.T) {
 				}),
 			},
 			wantFile: []*model.File{
-				model.EmptyFile("/something/something.txt"),
+				model.EmptyFile("something/something.txt"),
 			},
 		},
 		{
@@ -459,9 +460,9 @@ func TestListFile(t *testing.T) {
 				}),
 			},
 			wantFile: []*model.File{
-				model.EmptyFile("/logs/debug.log"),
-				model.EmptyFile("/logs/monday/foo.bar"),
-				model.EmptyFile("/build/logs/debug.log"),
+				model.EmptyFile("build/logs/debug.log"),
+				model.EmptyFile("logs/debug.log"),
+				model.EmptyFile("logs/monday/foo.bar"),
 			},
 		},
 		{
@@ -497,8 +498,8 @@ func TestListFile(t *testing.T) {
 				}),
 			},
 			wantFile: []*model.File{
-				model.EmptyFile("/logs/debug.log"),
-				model.EmptyFile("/build/logs/debug.log"),
+				model.EmptyFile("build/logs/debug.log"),
+				model.EmptyFile("logs/debug.log"),
 			},
 		},
 		{
@@ -542,9 +543,9 @@ func TestListFile(t *testing.T) {
 				}),
 			},
 			wantFile: []*model.File{
-				model.EmptyFile("/logs/debug.log"),
-				model.EmptyFile("/logs/build/debug.log"),
-				model.EmptyFile("/build/logs/debug.log"),
+				model.EmptyFile("build/logs/debug.log"),
+				model.EmptyFile("logs/build/debug.log"),
+				model.EmptyFile("logs/debug.log"),
 			},
 		},
 		{
@@ -581,7 +582,7 @@ func TestListFile(t *testing.T) {
 				}),
 			},
 			wantFile: []*model.File{
-				model.EmptyFile("/logs/debug.log"),
+				model.EmptyFile("logs/debug.log"),
 			},
 		},
 		{
@@ -613,7 +614,7 @@ func TestListFile(t *testing.T) {
 				}),
 			},
 			wantFile: []*model.File{
-				model.EmptyFile("/debug.log"),
+				model.EmptyFile("debug.log"),
 			},
 		},
 		{
@@ -645,8 +646,8 @@ func TestListFile(t *testing.T) {
 				}),
 			},
 			wantFile: []*model.File{
-				model.EmptyFile("/debug.log"),
-				model.EmptyFile("/build/debug.log"),
+				model.EmptyFile("build/debug.log"),
+				model.EmptyFile("debug.log"),
 			},
 		},
 		{
@@ -682,8 +683,8 @@ func TestListFile(t *testing.T) {
 				}),
 			},
 			wantFile: []*model.File{
-				model.EmptyFile("/debug0.log"),
-				model.EmptyFile("/debug1.log"),
+				model.EmptyFile("debug0.log"),
+				model.EmptyFile("debug1.log"),
 			},
 		},
 		{
@@ -719,8 +720,8 @@ func TestListFile(t *testing.T) {
 				}),
 			},
 			wantFile: []*model.File{
-				model.EmptyFile("/debug0.log"),
-				model.EmptyFile("/debug1.log"),
+				model.EmptyFile("debug0.log"),
+				model.EmptyFile("debug1.log"),
 			},
 		},
 		{
@@ -760,8 +761,8 @@ func TestListFile(t *testing.T) {
 				}),
 			},
 			wantFile: []*model.File{
-				model.EmptyFile("/debug0.log"),
-				model.EmptyFile("/debug1.log"),
+				model.EmptyFile("debug0.log"),
+				model.EmptyFile("debug1.log"),
 			},
 		},
 		{
@@ -801,8 +802,8 @@ func TestListFile(t *testing.T) {
 				}),
 			},
 			wantFile: []*model.File{
-				model.EmptyFile("/debug2.log"),
-				model.EmptyFile("/debug3.log"),
+				model.EmptyFile("debug2.log"),
+				model.EmptyFile("debug3.log"),
 			},
 		},
 		{
@@ -838,7 +839,7 @@ func TestListFile(t *testing.T) {
 				}),
 			},
 			wantFile: []*model.File{
-				model.EmptyFile("/debuga.log"),
+				model.EmptyFile("debuga.log"),
 			},
 		},
 		{
@@ -882,11 +883,11 @@ func TestListFile(t *testing.T) {
 				}),
 			},
 			wantFile: []*model.File{
-				model.EmptyFile("/logs.txt"),
-				model.EmptyFile("/logs/debug.log"),
-				model.EmptyFile("/logs/latest/foo.bar"),
-				model.EmptyFile("/build/logs.txt"),
-				model.EmptyFile("/build/logs/debug.log"),
+				model.EmptyFile("build/logs/debug.log"),
+				model.EmptyFile("build/logs.txt"),
+				model.EmptyFile("logs/debug.log"),
+				model.EmptyFile("logs/latest/foo.bar"),
+				model.EmptyFile("logs.txt"),
 			},
 		},
 		{
@@ -930,9 +931,9 @@ func TestListFile(t *testing.T) {
 				}),
 			},
 			wantFile: []*model.File{
-				model.EmptyFile("/logs/debug.log"),
-				model.EmptyFile("/logs/latest/foo.bar"),
-				model.EmptyFile("/build/logs/debug.log"),
+				model.EmptyFile("build/logs/debug.log"),
+				model.EmptyFile("logs/debug.log"),
+				model.EmptyFile("logs/latest/foo.bar"),
 			},
 		},
 		{
@@ -968,9 +969,9 @@ func TestListFile(t *testing.T) {
 				}),
 			},
 			wantFile: []*model.File{
-				model.EmptyFile("/logs/debug.log"),
-				model.EmptyFile("/logs/monday/debug.log"),
-				model.EmptyFile("/logs/monday/pm/debug.log"),
+				model.EmptyFile("logs/debug.log"),
+				model.EmptyFile("logs/monday/debug.log"),
+				model.EmptyFile("logs/monday/pm/debug.log"),
 			},
 		},
 		{
@@ -1006,7 +1007,7 @@ func TestListFile(t *testing.T) {
 				}),
 			},
 			wantFile: []*model.File{
-				model.EmptyFile("/logs/monday/debug.log"),
+				model.EmptyFile("logs/monday/debug.log"),
 			},
 		},
 		{
@@ -1042,7 +1043,7 @@ func TestListFile(t *testing.T) {
 				}),
 			},
 			wantFile: []*model.File{
-				model.EmptyFile("/logs/debug.log"),
+				model.EmptyFile("logs/debug.log"),
 			},
 		},
 		{
@@ -1072,8 +1073,8 @@ func TestListFile(t *testing.T) {
 				files.ListFilesWithContent(),
 			},
 			wantFile: []*model.File{
-				model.NewFile("/test1.txt", "content-1"),
-				model.NewFile("/test2.txt", "content-2"),
+				model.NewFile("test1.txt", "content-1"),
+				model.NewFile("test2.txt", "content-2"),
 			},
 		},
 		{
@@ -1103,8 +1104,8 @@ func TestListFile(t *testing.T) {
 				files.ListFilesWithShowHidden(),
 			},
 			wantFile: []*model.File{
-				model.EmptyFile("/.hidden.txt"),
-				model.EmptyFile("/file.txt"),
+				model.EmptyFile(".hidden.txt"),
+				model.EmptyFile("file.txt"),
 			},
 		},
 	} {
@@ -1116,24 +1117,9 @@ func TestListFile(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			if len(tt.wantFile) != len(files) {
-				t.Fatalf("got %d path, want %d path", len(files), len(tt.wantFile))
-			}
-
-			for _, f := range files {
-				if !ContainsFile(tt.wantFile, f) {
-					t.Fatalf("%s is missing", f.Path)
-				}
+			if diff := cmp.Diff(files, tt.wantFile); diff != "" {
+				t.Fatalf("got diff %s", diff)
 			}
 		})
 	}
-}
-
-func ContainsFile(files []*model.File, target *model.File) bool {
-	for _, file := range files {
-		if file.Equals(target) {
-			return true
-		}
-	}
-	return false
 }
