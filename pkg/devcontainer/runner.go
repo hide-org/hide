@@ -50,6 +50,7 @@ func (r *DockerRunner) Run(ctx context.Context, projectPath string, config Confi
 	switch {
 	case config.IsImageDevContainer():
 		imageId = config.DockerImageProps.Image
+		// Pulls only if local image does not exist
 		err = r.imageManager.PullImage(ctx, config.DockerImageProps.Image)
 		if err != nil {
 			err = fmt.Errorf("Failed to pull image: %w", err)
@@ -72,7 +73,6 @@ func (r *DockerRunner) Run(ctx context.Context, projectPath string, config Confi
 
 	// Create container
 	containerId, err := r.containerManager.CreateContainer(ctx, imageId, projectPath, config)
-
 	if err != nil {
 		return "", fmt.Errorf("Failed to create container: %w", err)
 	}
@@ -145,7 +145,6 @@ func (r *DockerRunner) executeLifecycleCommandInContainer(ctx context.Context, l
 		log.Debug().Str("name", name).Str("command", fmt.Sprintf("%s", command)).Msg("Running command")
 
 		result, err := r.Exec(ctx, containerId, command)
-
 		if err != nil {
 			return fmt.Errorf("Failed to run command %s %s in container %s: %w", name, command, containerId, err)
 		}

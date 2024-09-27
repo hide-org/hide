@@ -11,6 +11,7 @@ import (
 	"github.com/artmoskvin/hide/pkg/devcontainer/mocks"
 	"github.com/artmoskvin/hide/pkg/random"
 	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/image"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
@@ -29,6 +30,8 @@ func TestDockerImageManager_PullImage(t *testing.T) {
 			mockSetup: func(m *mocks.MockDockerImageClient) {
 				m.On("ImagePull", mock.Anything, "test-image", mock.AnythingOfType("image.PullOptions")).
 					Return(io.NopCloser(bytes.NewReader([]byte{})), nil)
+				m.On("ImageList", mock.Anything, mock.Anything).
+					Return([]image.Summary{}, nil)
 			},
 		},
 		{
@@ -37,13 +40,18 @@ func TestDockerImageManager_PullImage(t *testing.T) {
 			mockSetup: func(m *mocks.MockDockerImageClient) {
 				m.On("ImagePull", mock.Anything, "test-image", mock.AnythingOfType("image.PullOptions")).
 					Return(nil, errors.New("error pulling image"))
+				m.On("ImageList", mock.Anything, mock.Anything).
+					Return([]image.Summary{}, nil)
 			},
 			expectedError: "error pulling image",
 		},
 		{
 			name:      "Error pulling image because of invalid credentials",
 			imageName: "test-image",
-			mockSetup: func(m *mocks.MockDockerImageClient) {},
+			mockSetup: func(m *mocks.MockDockerImageClient) {
+				m.On("ImageList", mock.Anything, mock.Anything).
+					Return([]image.Summary{}, nil)
+			},
 			credentials: &mocks.MockRegistryCredentials{
 				GetCredentialsFunc: func() (string, error) {
 					return "", errors.New("error getting credentials")
