@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/pkg/archive"
@@ -30,6 +31,15 @@ func NewImageManager(dockerImageCli client.ImageAPIClient, randomString func(int
 
 func (im *DockerImageManager) PullImage(ctx context.Context, name string) error {
 	log.Debug().Str("image", name).Msg("Pulling image")
+
+	imgs, err := im.ImageList(ctx, image.ListOptions{Filters: filters.NewArgs(filters.Arg("reference", name))})
+	if err != nil {
+		return fmt.Errorf("Failed to list local images, %w", err)
+	}
+	if len(imgs) != 0 {
+		log.Debug().Str("image", name).Msg("Local image exists")
+		return nil
+	}
 
 	authStr, err := im.credentials.GetCredentials()
 	if err != nil {
