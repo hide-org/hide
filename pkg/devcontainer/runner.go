@@ -44,29 +44,7 @@ func (r *DockerRunner) Run(ctx context.Context, projectPath string, config Confi
 	}
 
 	// Pull or build image
-	var imageId string
-	var err error
-
-	switch {
-	case config.IsImageDevContainer():
-		imageId = config.DockerImageProps.Image
-		// Pulls only if local image does not exist
-		err = r.imageManager.PullImage(ctx, config.DockerImageProps.Image)
-		if err != nil {
-			err = fmt.Errorf("Failed to pull image: %w", err)
-		}
-	case config.IsDockerfileDevContainer():
-		imageId, err = r.imageManager.BuildImage(ctx, projectPath, config)
-		if err != nil {
-			err = fmt.Errorf("Failed to build image: %w", err)
-		}
-	case config.IsComposeDevContainer():
-		// TODO: build docker-compose file
-		err = fmt.Errorf("Docker Compose is not supported yet")
-	default:
-		err = fmt.Errorf("Invalid devcontainer configuration")
-	}
-
+	imageId, err := r.pullOrBuildImage(ctx, config, projectPath)
 	if err != nil {
 		return "", fmt.Errorf("Failed to pull or build image: %w", err)
 	}
@@ -156,4 +134,35 @@ func (r *DockerRunner) executeLifecycleCommandInContainer(ctx context.Context, l
 	}
 
 	return nil
+}
+
+func (r *DockerRunner) pullOrBuildImage(ctx context.Context, config Config, projectPath string) (string, error) {
+	switch {
+	case config.IsImageDevContainer():
+		imageId := config.DockerImageProps.Image
+		exists, err := r.imageManager.CheckLocalImage(ctx, imageId)
+		if err != nil {
+			return "", fmt.Errorf("Failed to check if image %s exists: %w", imageId, err)
+		}
+
+		// Pulls only if local image does not exist
+		if !exists {
+			if err = r.imageManager.PullImage(ctx, imageId); err != nil {
+				return "", fmt.Errorf("Failed to pull image %s: %w", imageId, err)
+			}
+		}
+
+		return imageId, nil
+	case config.IsDockerfileDevContainer():
+		imageId, err := r.imageManager.BuildImage(ctx, projectPath, config)
+		if err != nil {
+			return "", fmt.Errorf("Failed to build image: %w", err)
+		}
+		return imageId, nil
+	case config.IsComposeDevContainer():
+		// TODO: build docker-compose file
+		return "", fmt.Errorf("Docker Compose is not supported yet")
+	default:
+		return "", fmt.Errorf("Invalid devcontainer configuration")
+	}
 }
