@@ -24,7 +24,7 @@ func (m *MockImageManager) BuildImage(ctx context.Context, workingDir string, co
 	return args.String(0), args.Error(1)
 }
 
-func (m *MockImageManager) CheckLocalImage(ctx context.Context, name string) (bool, error) {
+func (m *MockImageManager) LocalImageExists(ctx context.Context, name string) (bool, error) {
 	args := m.Called(ctx, name)
 	return args.Bool(0), args.Error(1)
 }

@@ -260,7 +260,7 @@ func TestDockerImageManager_BuildImage(t *testing.T) {
 	}
 }
 
-func TestDockerImageManager_CheckLocalImage(t *testing.T) {
+func TestDockerImageManager_LocalImageExists(t *testing.T) {
 	tests := []struct {
 		name           string
 		image          string
@@ -305,7 +305,7 @@ func TestDockerImageManager_CheckLocalImage(t *testing.T) {
 
 			imageManager := devcontainer.NewImageManager(mockClient, random.String, nil)
 
-			result, err := imageManager.CheckLocalImage(context.Background(), tt.image)
+			result, err := imageManager.LocalImageExists(context.Background(), tt.image)
 
 			if tt.expectedResult {
 				assert.True(t, result)

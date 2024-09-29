@@ -140,7 +140,7 @@ func (r *DockerRunner) pullOrBuildImage(ctx context.Context, config Config, proj
 	switch {
 	case config.IsImageDevContainer():
 		imageId := config.DockerImageProps.Image
-		exists, err := r.imageManager.CheckLocalImage(ctx, imageId)
+		exists, err := r.imageManager.LocalImageExists(ctx, imageId)
 		if err != nil {
 			return "", fmt.Errorf("Failed to check if image %s exists: %w", imageId, err)
 		}

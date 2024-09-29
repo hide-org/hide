@@ -27,7 +27,7 @@ func TestDockerRunner_Run(t *testing.T) {
 				},
 			},
 			setupMocks: func(me *mocks.MockExecutor, mim *mocks.MockImageManager, mcm *mocks.MockContainerManager) {
-				mim.On("CheckLocalImage", mock.Anything, "test-image").Return(true, nil)
+				mim.On("LocalImageExists", mock.Anything, "test-image").Return(true, nil)
 				mcm.On("CreateContainer", mock.Anything, "test-image", mock.Anything, mock.Anything).Return("container-id", nil)
 				mcm.On("StartContainer", mock.Anything, "container-id").Return(nil)
 			},
@@ -41,7 +41,7 @@ func TestDockerRunner_Run(t *testing.T) {
 				},
 			},
 			setupMocks: func(me *mocks.MockExecutor, mim *mocks.MockImageManager, mcm *mocks.MockContainerManager) {
-				mim.On("CheckLocalImage", mock.Anything, "test-image").Return(false, nil)
+				mim.On("LocalImageExists", mock.Anything, "test-image").Return(false, nil)
 				mim.On("PullImage", mock.Anything, "test-image").Return(nil)
 				mcm.On("CreateContainer", mock.Anything, "test-image", mock.Anything, mock.Anything).Return("container-id", nil)
 				mcm.On("StartContainer", mock.Anything, "container-id").Return(nil)
@@ -87,7 +87,7 @@ func TestDockerRunner_Run(t *testing.T) {
 				},
 			},
 			setupMocks: func(me *mocks.MockExecutor, mim *mocks.MockImageManager, mcm *mocks.MockContainerManager) {
-				mim.On("CheckLocalImage", mock.Anything, "test-image").Return(false, errors.New("check error"))
+				mim.On("LocalImageExists", mock.Anything, "test-image").Return(false, errors.New("check error"))
 			},
 			wantError: "Failed to check if image test-image exists: check error",
 		},
@@ -99,7 +99,7 @@ func TestDockerRunner_Run(t *testing.T) {
 				},
 			},
 			setupMocks: func(me *mocks.MockExecutor, mim *mocks.MockImageManager, mcm *mocks.MockContainerManager) {
-				mim.On("CheckLocalImage", mock.Anything, "test-image").Return(false, nil)
+				mim.On("LocalImageExists", mock.Anything, "test-image").Return(false, nil)
 				mim.On("PullImage", mock.Anything, "test-image").Return(errors.New("pull error"))
 			},
 			wantError: "Failed to pull image test-image: pull error",
@@ -124,7 +124,7 @@ func TestDockerRunner_Run(t *testing.T) {
 				},
 			},
 			setupMocks: func(me *mocks.MockExecutor, mim *mocks.MockImageManager, mcm *mocks.MockContainerManager) {
-				mim.On("CheckLocalImage", mock.Anything, "test-image").Return(true, nil)
+				mim.On("LocalImageExists", mock.Anything, "test-image").Return(true, nil)
 				mcm.On("CreateContainer", mock.Anything, "test-image", mock.Anything, mock.Anything).Return("", errors.New("create error"))
 			},
 			wantError: "Failed to create container: create error",
@@ -137,7 +137,7 @@ func TestDockerRunner_Run(t *testing.T) {
 				},
 			},
 			setupMocks: func(me *mocks.MockExecutor, mim *mocks.MockImageManager, mcm *mocks.MockContainerManager) {
-				mim.On("CheckLocalImage", mock.Anything, "test-image").Return(true, nil)
+				mim.On("LocalImageExists", mock.Anything, "test-image").Return(true, nil)
 				mcm.On("CreateContainer", mock.Anything, "test-image", mock.Anything, mock.Anything).Return("container-id", nil)
 				mcm.On("StartContainer", mock.Anything, "container-id").Return(errors.New("start error"))
 			},
@@ -159,7 +159,7 @@ func TestDockerRunner_Run(t *testing.T) {
 				},
 			},
 			setupMocks: func(me *mocks.MockExecutor, mim *mocks.MockImageManager, mcm *mocks.MockContainerManager) {
-				mim.On("CheckLocalImage", mock.Anything, "test-image").Return(true, nil)
+				mim.On("LocalImageExists", mock.Anything, "test-image").Return(true, nil)
 				mcm.On("CreateContainer", mock.Anything, "test-image", mock.Anything, mock.Anything).Return("container-id", nil)
 				mcm.On("StartContainer", mock.Anything, "container-id").Return(nil)
 				me.On("Run", []string{"initialize"}, mock.Anything, mock.Anything, mock.Anything).Return(nil)
@@ -182,7 +182,7 @@ func TestDockerRunner_Run(t *testing.T) {
 				},
 			},
 			setupMocks: func(me *mocks.MockExecutor, mim *mocks.MockImageManager, mcm *mocks.MockContainerManager) {
-				mim.On("CheckLocalImage", mock.Anything, "test-image").Return(true, nil)
+				mim.On("LocalImageExists", mock.Anything, "test-image").Return(true, nil)
 				mcm.On("CreateContainer", mock.Anything, "test-image", mock.Anything, mock.Anything).Return("container-id", nil)
 				mcm.On("StartContainer", mock.Anything, "container-id").Return(nil)
 				mcm.On("Exec", mock.Anything, "container-id", []string{"test", "command"}).Return(devcontainer.ExecResult{ExitCode: 1, StdErr: "command failed"}, nil)
