@@ -43,10 +43,10 @@ func (r *DockerRunner) Run(ctx context.Context, projectPath string, config Confi
 		}
 	}
 
-	// Pull or build image
-	imageId, err := r.pullOrBuildImage(ctx, config, projectPath)
+	// Get image
+	imageId, err := r.getImage(ctx, config, projectPath)
 	if err != nil {
-		return "", fmt.Errorf("Failed to pull or build image: %w", err)
+		return "", fmt.Errorf("Failed to get image: %w", err)
 	}
 
 	// Create container
@@ -136,23 +136,10 @@ func (r *DockerRunner) executeLifecycleCommandInContainer(ctx context.Context, l
 	return nil
 }
 
-func (r *DockerRunner) pullOrBuildImage(ctx context.Context, config Config, projectPath string) (string, error) {
+func (r *DockerRunner) getImage(ctx context.Context, config Config, projectPath string) (string, error) {
 	switch {
 	case config.IsImageDevContainer():
-		imageId := config.DockerImageProps.Image
-		exists, err := r.imageManager.LocalImageExists(ctx, imageId)
-		if err != nil {
-			return "", fmt.Errorf("Failed to check if image %s exists: %w", imageId, err)
-		}
-
-		// Pulls only if local image does not exist
-		if !exists {
-			if err = r.imageManager.PullImage(ctx, imageId); err != nil {
-				return "", fmt.Errorf("Failed to pull image %s: %w", imageId, err)
-			}
-		}
-
-		return imageId, nil
+		return r.getOrPullImage(ctx, config.DockerImageProps.Image)
 	case config.IsDockerfileDevContainer():
 		imageId, err := r.imageManager.BuildImage(ctx, projectPath, config)
 		if err != nil {
@@ -165,4 +152,25 @@ func (r *DockerRunner) pullOrBuildImage(ctx context.Context, config Config, proj
 	default:
 		return "", fmt.Errorf("Invalid devcontainer configuration")
 	}
+}
+
+func (r *DockerRunner) getOrPullImage(ctx context.Context, imageId string) (string, error) {
+	if imageId == "" {
+		return "", fmt.Errorf("image id is empty")
+	}
+
+	exists, err := r.imageManager.LocalImageExists(ctx, imageId)
+	if err != nil {
+		return "", fmt.Errorf("Failed to check if image %s exists: %w", imageId, err)
+	}
+
+	if exists {
+		return imageId, nil
+	}
+
+	if err := r.imageManager.PullImage(ctx, imageId); err != nil {
+		return "", fmt.Errorf("Failed to pull image %s: %w", imageId, err)
+	}
+
+	return imageId, nil
 }
