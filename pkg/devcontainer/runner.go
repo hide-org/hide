@@ -43,36 +43,14 @@ func (r *DockerRunner) Run(ctx context.Context, projectPath string, config Confi
 		}
 	}
 
-	// Pull or build image
-	var imageId string
-	var err error
-
-	switch {
-	case config.IsImageDevContainer():
-		imageId = config.DockerImageProps.Image
-		err = r.imageManager.PullImage(ctx, config.DockerImageProps.Image)
-		if err != nil {
-			err = fmt.Errorf("Failed to pull image: %w", err)
-		}
-	case config.IsDockerfileDevContainer():
-		imageId, err = r.imageManager.BuildImage(ctx, projectPath, config)
-		if err != nil {
-			err = fmt.Errorf("Failed to build image: %w", err)
-		}
-	case config.IsComposeDevContainer():
-		// TODO: build docker-compose file
-		err = fmt.Errorf("Docker Compose is not supported yet")
-	default:
-		err = fmt.Errorf("Invalid devcontainer configuration")
-	}
-
+	// Get image
+	imageId, err := r.getImage(ctx, config, projectPath)
 	if err != nil {
-		return "", fmt.Errorf("Failed to pull or build image: %w", err)
+		return "", fmt.Errorf("Failed to get image: %w", err)
 	}
 
 	// Create container
 	containerId, err := r.containerManager.CreateContainer(ctx, imageId, projectPath, config)
-
 	if err != nil {
 		return "", fmt.Errorf("Failed to create container: %w", err)
 	}
@@ -145,7 +123,6 @@ func (r *DockerRunner) executeLifecycleCommandInContainer(ctx context.Context, l
 		log.Debug().Str("name", name).Str("command", fmt.Sprintf("%s", command)).Msg("Running command")
 
 		result, err := r.Exec(ctx, containerId, command)
-
 		if err != nil {
 			return fmt.Errorf("Failed to run command %s %s in container %s: %w", name, command, containerId, err)
 		}
@@ -157,4 +134,43 @@ func (r *DockerRunner) executeLifecycleCommandInContainer(ctx context.Context, l
 	}
 
 	return nil
+}
+
+func (r *DockerRunner) getImage(ctx context.Context, config Config, projectPath string) (string, error) {
+	switch {
+	case config.IsImageDevContainer():
+		return r.getOrPullImage(ctx, config.DockerImageProps.Image)
+	case config.IsDockerfileDevContainer():
+		imageId, err := r.imageManager.BuildImage(ctx, projectPath, config)
+		if err != nil {
+			return "", fmt.Errorf("Failed to build image: %w", err)
+		}
+		return imageId, nil
+	case config.IsComposeDevContainer():
+		// TODO: build docker-compose file
+		return "", fmt.Errorf("Docker Compose is not supported yet")
+	default:
+		return "", fmt.Errorf("Invalid devcontainer configuration")
+	}
+}
+
+func (r *DockerRunner) getOrPullImage(ctx context.Context, imageId string) (string, error) {
+	if imageId == "" {
+		return "", fmt.Errorf("image id is empty")
+	}
+
+	exists, err := r.imageManager.LocalImageExists(ctx, imageId)
+	if err != nil {
+		return "", fmt.Errorf("Failed to check if image %s exists: %w", imageId, err)
+	}
+
+	if exists {
+		return imageId, nil
+	}
+
+	if err := r.imageManager.PullImage(ctx, imageId); err != nil {
+		return "", fmt.Errorf("Failed to pull image %s: %w", imageId, err)
+	}
+
+	return imageId, nil
 }

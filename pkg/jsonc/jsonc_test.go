@@ -26,3 +26,13 @@ func TestToJSON(t *testing.T) {
 		t.Fatalf("expected '%s', got '%s'", expect, out)
 	}
 }
+
+func TestToJSON2(t *testing.T) {
+	json := "{\n  \"name\": \"Sample Dev Container\",\n  \"image\": \"pttest:local\",\n  \"settings\": {},\n  \"extensions\": [],\n  \"postCreateCommand\": \"echo Welcome to the dev container\",\n  \"forwardPorts\": [3000],\n  \"remoteUser\": \"vscode\"\n}"
+	expect := json
+
+	out := string(ToJSON([]byte(json)))
+	if out != expect {
+		t.Fatalf("expected '%s', got '%s'", expect, out)
+	}
+}
