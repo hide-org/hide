@@ -11,6 +11,7 @@ import (
 	"github.com/artmoskvin/hide/pkg/devcontainer/mocks"
 	"github.com/artmoskvin/hide/pkg/random"
 	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/image"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
@@ -252,6 +253,71 @@ func TestDockerImageManager_BuildImage(t *testing.T) {
 			} else {
 				assert.NoError(t, err)
 				assert.Contains(t, result, tt.expectedResult)
+			}
+
+			mockClient.AssertExpectations(t)
+		})
+	}
+}
+
+func TestDockerImageManager_LocalImageExists(t *testing.T) {
+	tests := []struct {
+		name           string
+		image          string
+		mockSetup      func(m *mocks.MockDockerImageClient)
+		expectedResult bool
+		expectedError  string
+	}{
+		{
+			name:  "image exists",
+			image: "test-image",
+			mockSetup: func(m *mocks.MockDockerImageClient) {
+				m.On("ImageList", mock.Anything, mock.Anything).
+					Return([]image.Summary{{ID: "test-image"}}, nil)
+			},
+			expectedResult: true,
+		},
+		{
+			name:  "image doesn't exist",
+			image: "test-image",
+			mockSetup: func(m *mocks.MockDockerImageClient) {
+				m.On("ImageList", mock.Anything, mock.Anything).
+					Return([]image.Summary{}, nil)
+			},
+			expectedResult: false,
+		},
+		{
+			name:  "error",
+			image: "test-image",
+			mockSetup: func(m *mocks.MockDockerImageClient) {
+				m.On("ImageList", mock.Anything, mock.Anything).
+					Return([]image.Summary{}, errors.New("test error"))
+			},
+			expectedResult: false,
+			expectedError:  "test error",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockClient := &mocks.MockDockerImageClient{}
+			tt.mockSetup(mockClient)
+
+			imageManager := devcontainer.NewImageManager(mockClient, random.String, nil)
+
+			result, err := imageManager.LocalImageExists(context.Background(), tt.image)
+
+			if tt.expectedResult {
+				assert.True(t, result)
+			} else {
+				assert.False(t, result)
+			}
+
+			if tt.expectedError != "" {
+				assert.Error(t, err)
+				assert.Contains(t, err.Error(), tt.expectedError)
+			} else {
+				assert.NoError(t, err)
 			}
 
 			mockClient.AssertExpectations(t)

@@ -23,3 +23,8 @@ func (m *MockImageManager) BuildImage(ctx context.Context, workingDir string, co
 	args := m.Called(ctx, workingDir, config)
 	return args.String(0), args.Error(1)
 }
+
+func (m *MockImageManager) LocalImageExists(ctx context.Context, name string) (bool, error) {
+	args := m.Called(ctx, name)
+	return args.Bool(0), args.Error(1)
+}
