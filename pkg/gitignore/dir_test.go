@@ -1,6 +1,7 @@
 package gitignore
 
 import (
+	"io/fs"
 	"os"
 	"path/filepath"
 	"testing"
@@ -10,7 +11,7 @@ import (
 )
 
 type MatcherSuite struct {
-	GFS afero.Fs // git repository root
+	afero.Fs // git repository root
 }
 
 func (s *MatcherSuite) SetUpTest(t *testing.T) {
@@ -18,155 +19,39 @@ func (s *MatcherSuite) SetUpTest(t *testing.T) {
 	fs := afero.NewMemMapFs()
 
 	// gitignore from .git
-	err := fs.MkdirAll(".git/info", os.ModePerm)
-	if err != nil {
-		t.Fatal(err)
-	}
-	f, err := fs.Create(".git/info/exclude")
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, err = f.Write([]byte("exclude.crlf\n"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	err = f.Close()
-	if err != nil {
-		t.Fatal(err)
-	}
+	mkdirAll(t, fs, ".git/info", os.ModePerm)
+	createFile(t, fs, ".git/info/exclude", "exclude.crlf\n")
 
 	// gitignore from root file
-	f, err = fs.Create(".gitignore")
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, err = f.Write([]byte("vendor/g*/\n"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, err = f.Write([]byte("ignore.crlf\n"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, err = f.Write([]byte("ignore_dir\n"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	err = f.Close()
-	if err != nil {
-		t.Fatal(err)
-	}
+	createFile(t, fs, ".gitignore", "vendor/g*/\nignore.crlf\nignore_dir\n")
 
 	// gitignore from vendor folder
-	err = fs.MkdirAll("vendor", os.ModePerm)
-	if err != nil {
-		t.Fatal(err)
-	}
-	f, err = fs.Create("vendor/.gitignore")
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, err = f.Write([]byte("!github.com/\n"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	err = f.Close()
-	if err != nil {
-		t.Fatal(err)
-	}
+	mkdirAll(t, fs, "vendor", os.ModePerm)
+	createFile(t, fs, "vendor/.gitignore", "!github.com/\n")
 
 	// gitignore from ignore_dir
-	err = fs.MkdirAll("ignore_dir", os.ModePerm)
-	if err != nil {
-		t.Fatal(err)
-	}
-	f, err = fs.Create("ignore_dir/.gitignore")
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, err = f.Write([]byte("!file\n"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, err = fs.Create("ignore_dir/file")
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, err = fs.Create("ignore_dir/otherfile")
-	if err != nil {
-		t.Fatal(err)
-	}
-	err = f.Close()
-	if err != nil {
-		t.Fatal(err)
-	}
+	mkdirAll(t, fs, "ignore_dir", os.ModePerm)
+	createFile(t, fs, "ignore_dir/.gitignore", "!file\n")
+	createFile(t, fs, "ignore_dir/file", "")
+	createFile(t, fs, "ignore_dir/otherfile", "")
 
 	// other files
-	err = fs.MkdirAll("another", os.ModePerm)
-	if err != nil {
-		t.Fatal(err)
-	}
-	err = fs.MkdirAll("exclude.crlf", os.ModePerm)
-	if err != nil {
-		t.Fatal(err)
-	}
-	err = fs.MkdirAll("ignore.crlf", os.ModePerm)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	err = fs.MkdirAll("vendor/github.com", os.ModePerm)
-	if err != nil {
-		t.Fatal(err)
-	}
-	err = fs.MkdirAll("vendor/gopkg.in", os.ModePerm)
-	if err != nil {
-		t.Fatal(err)
-	}
+	mkdirAll(t, fs, "another", os.ModePerm)
+	mkdirAll(t, fs, "exclude.crlf", os.ModePerm)
+	mkdirAll(t, fs, "ignore.crlf", os.ModePerm)
+	mkdirAll(t, fs, "vendor/github.com", os.ModePerm)
+	mkdirAll(t, fs, "vendor/gopkg.in", os.ModePerm)
 
 	// gitignore in sub-dirs with other files
-	err = fs.MkdirAll("multiple/sub/ignores/first", os.ModePerm)
-	if err != nil {
-		t.Fatal(err)
-	}
-	err = fs.MkdirAll("multiple/sub/ignores/second", os.ModePerm)
-	if err != nil {
-		t.Fatal(err)
-	}
-	f, err = fs.Create("multiple/sub/ignores/first/.gitignore")
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, err = f.Write([]byte("ignore_dir\n"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	err = f.Close()
-	if err != nil {
-		t.Fatal(err)
-	}
-	f, err = fs.Create("multiple/sub/ignores/second/.gitignore")
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, err = f.Write([]byte("ignore_dir\n"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	err = f.Close()
-	if err != nil {
-		t.Fatal(err)
-	}
-	err = fs.MkdirAll("multiple/sub/ignores/first/ignore_dir", os.ModePerm)
-	if err != nil {
-		t.Fatal(err)
-	}
-	err = fs.MkdirAll("multiple/sub/ignores/second/ignore_dir", os.ModePerm)
-	if err != nil {
-		t.Fatal(err)
-	}
+	mkdirAll(t, fs, "multiple/sub/ignores/first", os.ModePerm)
+	createFile(t, fs, "multiple/sub/ignores/first/.gitignore", "ignore_dir\n")
+	mkdirAll(t, fs, "multiple/sub/ignores/first/ignore_dir", os.ModePerm)
 
-	s.GFS = fs
+	mkdirAll(t, fs, "multiple/sub/ignores/second", os.ModePerm)
+	createFile(t, fs, "multiple/sub/ignores/second/.gitignore", "ignore_dir\n")
+	mkdirAll(t, fs, "multiple/sub/ignores/second/ignore_dir", os.ModePerm)
+
+	s.Fs = fs
 }
 
 func TestReadPatterns(t *testing.T) {
@@ -174,8 +59,9 @@ func TestReadPatterns(t *testing.T) {
 	suite.SetUpTest(t)
 
 	checkPatterns := func(ps []gitignore.Pattern) {
-		if n := len(ps); n != 8 {
-			t.Fatalf("wrong pattern length: got %d, want %d", n, 7)
+		wantN := 8
+		if n := len(ps); n != wantN {
+			t.Fatalf("wrong pattern length: got %d, want %d", n, wantN)
 		}
 
 		m := gitignore.NewMatcher(ps)
@@ -237,16 +123,35 @@ func TestReadPatterns(t *testing.T) {
 		}
 	}
 
-	ps, err := ReadPatterns(suite.GFS, nil)
+	ps, err := ReadPatterns(suite.Fs, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 	checkPatterns(ps)
 
 	// passing an empty slice with capacity to check we don't hit a bug where the extra capacity is reused incorrectly
-	ps, err = ReadPatterns(suite.GFS, make([]string, 0, 6))
+	ps, err = ReadPatterns(suite.Fs, make([]string, 0, 6))
 	if err != nil {
 		t.Fatal(err)
 	}
 	checkPatterns(ps)
+}
+
+func mkdirAll(t *testing.T, fs afero.Fs, path string, parm fs.FileMode) {
+	err := fs.MkdirAll(path, parm)
+	if err != nil {
+		t.Fatalf("failed to mkdir: %s", err)
+	}
+}
+
+func createFile(t *testing.T, fs afero.Fs, path, content string) {
+	f, err := fs.Create(path)
+	if err != nil {
+		t.Fatalf("failed to create path %s: %s", path, err)
+	}
+	defer f.Close()
+
+	if _, err := f.Write([]byte(content)); err != nil {
+		t.Fatalf("failed to write content in path %s: err %s", path, err)
+	}
 }
