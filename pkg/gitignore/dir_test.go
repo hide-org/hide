@@ -46,10 +46,12 @@ func (s *MatcherSuite) SetUpTest(t *testing.T) {
 	mkdirAll(t, fs, "multiple/sub/ignores/first", os.ModePerm)
 	createFile(t, fs, "multiple/sub/ignores/first/.gitignore", "ignore_dir\n")
 	mkdirAll(t, fs, "multiple/sub/ignores/first/ignore_dir", os.ModePerm)
+	createFile(t, fs, "multiple/sub/ignores/first/ignore_dir/file", "")
 
 	mkdirAll(t, fs, "multiple/sub/ignores/second", os.ModePerm)
 	createFile(t, fs, "multiple/sub/ignores/second/.gitignore", "ignore_dir\n")
 	mkdirAll(t, fs, "multiple/sub/ignores/second/ignore_dir", os.ModePerm)
+	createFile(t, fs, "multiple/sub/ignores/second/ignore_dir/file", "")
 
 	s.Fs = fs
 }
@@ -112,8 +114,18 @@ func TestReadPatterns(t *testing.T) {
 				wantMatch: true,
 			},
 			{
+				path:      []string{"multiple", "sub", "ignores", "first", "ignore_dir", "file"},
+				isDir:     false,
+				wantMatch: true,
+			},
+			{
 				path:      []string{"multiple", "sub", "ignores", "second", "ignore_dir"},
 				isDir:     true,
+				wantMatch: true,
+			},
+			{
+				path:      []string{"multiple", "sub", "ignores", "second", "ignore_dir", "file"},
+				isDir:     false,
 				wantMatch: true,
 			},
 		} {
