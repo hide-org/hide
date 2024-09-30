@@ -50,6 +50,10 @@ func (f *File) GetContent() string {
 	return strings.Join(lines, "\n")
 }
 
+func (f *File) GetContentBytes() []byte {
+	return []byte(f.GetContent())
+}
+
 // GetLine returns the line with the given line number. Line numbers are 1-based.
 func (f *File) GetLine(lineNumber int) Line {
 	if lineNumber < 1 || lineNumber > len(f.Lines) {

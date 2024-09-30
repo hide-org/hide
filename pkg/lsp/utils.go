@@ -4,6 +4,17 @@ import (
 	"path/filepath"
 
 	"github.com/artmoskvin/hide/pkg/model"
+	"github.com/go-enry/go-enry/v2"
+	"github.com/rs/zerolog/log"
+)
+
+// Language IDs based on https://github.com/go-enry/go-enry 
+// For reference see https://github.com/go-enry/go-enry/blob/master/data/languageInfo.go
+const (
+	Go = LanguageId("Go")
+	JavaScript = LanguageId("JavaScript")
+	Python = LanguageId("Python")
+	TypeScript = LanguageId("TypeScript")
 )
 
 type LanguageDetector interface {
@@ -70,6 +81,7 @@ func (ld FileExtensionBasedLanguageDetector) DetectLanguage(file *model.File) La
 	case ".yaml":
 		return "yaml"
 	default:
+		log.Warn().Str("file", file.Path).Msg("Unknown file extension")
 		return "unknown"
 	}
 }
@@ -77,7 +89,7 @@ func (ld FileExtensionBasedLanguageDetector) DetectLanguage(file *model.File) La
 func (ld FileExtensionBasedLanguageDetector) DetectLanguages(files []*model.File) map[string]int {
 	languages := make(map[string]int)
 	for _, file := range files {
-		language := ld.DetectLanguage(file)
+		language := ld.detectLanguage(filepath.Base(file.Path), file.GetContentBytes())
 		languages[language]++
 	}
 	return languages
@@ -85,6 +97,7 @@ func (ld FileExtensionBasedLanguageDetector) DetectLanguages(files []*model.File
 
 func (ld FileExtensionBasedLanguageDetector) DetectMainLanguage(files []*model.File) string {
 	languages := ld.DetectLanguages(files)
+	log.Debug().Any("languages", languages).Msg("Detected languages")
 	var maxLanguage string
 	maxCount := 0
 	for language, count := range languages {
@@ -94,4 +107,8 @@ func (ld FileExtensionBasedLanguageDetector) DetectMainLanguage(files []*model.F
 		}
 	}
 	return maxLanguage
+}
+
+func (ld FileExtensionBasedLanguageDetector) detectLanguage(filename string, content []byte) LanguageId {
+	return enry.GetLanguage(filename, content)
 }
