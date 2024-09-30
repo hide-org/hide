@@ -95,10 +95,10 @@ var runCmd = &cobra.Command{
 		projectsDir := filepath.Join(home, HidePath, ProjectsDir)
 
 		lspServerExecutables := make(map[lsp.LanguageId]lsp.Command)
-		lspServerExecutables[lsp.LanguageId("go")] = lsp.NewCommand("gopls", []string{})
-		lspServerExecutables[lsp.LanguageId("python")] = lsp.NewCommand("pyright-langserver", []string{"--stdio"})
-		lspServerExecutables[lsp.LanguageId("javascript")] = lsp.NewCommand("typescript-language-server", []string{"--stdio"})
-		lspServerExecutables[lsp.LanguageId("typescript")] = lsp.NewCommand("typescript-language-server", []string{"--stdio"})
+		lspServerExecutables[lsp.Go] = lsp.NewCommand("gopls", []string{})
+		lspServerExecutables[lsp.Python] = lsp.NewCommand("pyright-langserver", []string{"--stdio"})
+		lspServerExecutables[lsp.JavaScript] = lsp.NewCommand("typescript-language-server", []string{"--stdio"})
+		lspServerExecutables[lsp.TypeScript] = lsp.NewCommand("typescript-language-server", []string{"--stdio"})
 
 		fileManager := files.NewFileManager()
 		languageDetector := lsp.NewFileExtensionBasedLanguageDetector()
