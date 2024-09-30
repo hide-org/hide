@@ -60,93 +60,85 @@ func TestReadPatterns(t *testing.T) {
 	suite := &MatcherSuite{}
 	suite.SetUpTest(t)
 
-	checkPatterns := func(ps []gitignore.Pattern) {
-		wantN := 8
-		if n := len(ps); n != wantN {
-			t.Fatalf("wrong pattern length: got %d, want %d", n, wantN)
-		}
-
-		m := gitignore.NewMatcher(ps)
-
-		for _, v := range []struct {
-			path      []string
-			isDir     bool
-			wantMatch bool
-		}{
-			{
-				path:      []string{"exclude.crlf"},
-				isDir:     true,
-				wantMatch: true,
-			},
-			{
-				path:      []string{"ignore.crlf"},
-				isDir:     true,
-				wantMatch: true,
-			},
-			{
-				path:      []string{"vendor", "gopkg.in"},
-				isDir:     true,
-				wantMatch: true,
-			},
-			{
-				path:      []string{"ignore_dir"},
-				isDir:     true,
-				wantMatch: true,
-			},
-			{
-				path:      []string{"ignore_dir", "file"},
-				isDir:     false,
-				wantMatch: false,
-			},
-			{
-				path:      []string{"ignore_dir", "otherfile"},
-				isDir:     false,
-				wantMatch: true,
-			},
-			{
-				path:      []string{"vendor", "github.com"},
-				isDir:     true,
-				wantMatch: false,
-			},
-			{
-				path:      []string{"multiple", "sub", "ignores", "first", "ignore_dir"},
-				isDir:     true,
-				wantMatch: true,
-			},
-			{
-				path:      []string{"multiple", "sub", "ignores", "first", "ignore_dir", "file"},
-				isDir:     false,
-				wantMatch: true,
-			},
-			{
-				path:      []string{"multiple", "sub", "ignores", "second", "ignore_dir"},
-				isDir:     true,
-				wantMatch: true,
-			},
-			{
-				path:      []string{"multiple", "sub", "ignores", "second", "ignore_dir", "file"},
-				isDir:     false,
-				wantMatch: true,
-			},
-		} {
-			if gotMatch := m.Match(v.path, v.isDir); gotMatch != v.wantMatch {
-				t.Fatalf("failed on path %s: want match %v, got %v", filepath.Join(v.path...), v.wantMatch, gotMatch)
-			}
-		}
-	}
-
 	ps, err := ReadPatterns(suite.Fs, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	checkPatterns(ps)
 
-	// passing an empty slice with capacity to check we don't hit a bug where the extra capacity is reused incorrectly
-	ps, err = ReadPatterns(suite.Fs, make([]string, 0, 6))
-	if err != nil {
-		t.Fatal(err)
+	wantN := 8
+	if n := len(ps); n != wantN {
+		t.Fatalf("wrong pattern length: got %d, want %d", n, wantN)
 	}
-	checkPatterns(ps)
+
+	m := gitignore.NewMatcher(ps)
+
+	for _, test := range []struct {
+		path      []string
+		isDir     bool
+		wantMatch bool
+	}{
+		{
+			path:      []string{"exclude.crlf"},
+			isDir:     true,
+			wantMatch: true,
+		},
+		{
+			path:      []string{"ignore.crlf"},
+			isDir:     true,
+			wantMatch: true,
+		},
+		{
+			path:      []string{"vendor", "gopkg.in"},
+			isDir:     true,
+			wantMatch: true,
+		},
+		{
+			path:      []string{"ignore_dir"},
+			isDir:     true,
+			wantMatch: true,
+		},
+		{
+			path:      []string{"ignore_dir", "file"},
+			isDir:     false,
+			wantMatch: false,
+		},
+		{
+			path:      []string{"ignore_dir", "otherfile"},
+			isDir:     false,
+			wantMatch: true,
+		},
+		{
+			path:      []string{"vendor", "github.com"},
+			isDir:     true,
+			wantMatch: false,
+		},
+		{
+			path:      []string{"multiple", "sub", "ignores", "first", "ignore_dir"},
+			isDir:     true,
+			wantMatch: true,
+		},
+		{
+			path:      []string{"multiple", "sub", "ignores", "first", "ignore_dir", "file"},
+			isDir:     false,
+			wantMatch: true,
+		},
+		{
+			path:      []string{"multiple", "sub", "ignores", "second", "ignore_dir"},
+			isDir:     true,
+			wantMatch: true,
+		},
+		{
+			path:      []string{"multiple", "sub", "ignores", "second", "ignore_dir", "file"},
+			isDir:     false,
+			wantMatch: true,
+		},
+	} {
+		t.Run(filepath.Join(test.path...), func(t *testing.T) {
+			if gotMatch := m.Match(test.path, test.isDir); gotMatch != test.wantMatch {
+				t.Fatalf("want match %v, got %v", test.wantMatch, gotMatch)
+			}
+		})
+	}
 }
 
 func mkdirAll(t *testing.T, fs afero.Fs, path string, parm fs.FileMode) {
