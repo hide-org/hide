@@ -8,12 +8,12 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-// Language IDs based on https://github.com/go-enry/go-enry 
+// Language IDs based on https://github.com/go-enry/go-enry
 // For reference see https://github.com/go-enry/go-enry/blob/master/data/languageInfo.go
 const (
-	Go = LanguageId("Go")
+	Go         = LanguageId("Go")
 	JavaScript = LanguageId("JavaScript")
-	Python = LanguageId("Python")
+	Python     = LanguageId("Python")
 	TypeScript = LanguageId("TypeScript")
 )
 
@@ -23,79 +23,26 @@ type LanguageDetector interface {
 	DetectMainLanguage(files []*model.File) string
 }
 
-// Naive implementation that detects the language based on the file extension
-type FileExtensionBasedLanguageDetector struct{}
+// LanguageDetectorImpl implements LanguageDetector using https://github.com/go-enry/go-enry
+type LanguageDetectorImpl struct{}
 
 func NewFileExtensionBasedLanguageDetector() LanguageDetector {
-	return &FileExtensionBasedLanguageDetector{}
+	return &LanguageDetectorImpl{}
+}
+func (ld LanguageDetectorImpl) DetectLanguage(file *model.File) LanguageId {
+	return enry.GetLanguage(filepath.Base(file.Path), file.GetContentBytes())
 }
 
-// Return the language id as per https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocumentItem
-func (ld FileExtensionBasedLanguageDetector) DetectLanguage(file *model.File) LanguageId {
-	extension := filepath.Ext(file.Path)
-	switch extension {
-	case ".c":
-		return "c"
-	case ".cpp":
-		return "cpp"
-	case ".cs":
-		return "csharp"
-	case ".css":
-		return "css"
-	case ".go":
-		return "go"
-	case ".html":
-		return "html"
-	case ".java":
-		return "java"
-	case ".js":
-		return "javascript"
-	case ".jsx":
-		return "javascriptreact"
-	case ".json":
-		return "json"
-	case ".lua":
-		return "lua"
-	case ".php":
-		return "php"
-	case ".py":
-		return "python"
-	case ".rb":
-		return "ruby"
-	case ".rs":
-		return "rust"
-	case ".scala":
-		return "scala"
-	case ".sh":
-		return "shellscript"
-	case ".sql":
-		return "sql"
-	case ".swift":
-		return "swift"
-	case ".ts":
-		return "typescript"
-	case ".tsx":
-		return "typescriptreact"
-	case ".xml":
-		return "xml"
-	case ".yaml":
-		return "yaml"
-	default:
-		log.Warn().Str("file", file.Path).Msg("Unknown file extension")
-		return "unknown"
-	}
-}
-
-func (ld FileExtensionBasedLanguageDetector) DetectLanguages(files []*model.File) map[string]int {
+func (ld LanguageDetectorImpl) DetectLanguages(files []*model.File) map[string]int {
 	languages := make(map[string]int)
 	for _, file := range files {
-		language := ld.detectLanguage(filepath.Base(file.Path), file.GetContentBytes())
-		languages[language]++
+		language := ld.DetectLanguage(file)
+		languages[language] += len(file.GetContentBytes())
 	}
 	return languages
 }
 
-func (ld FileExtensionBasedLanguageDetector) DetectMainLanguage(files []*model.File) string {
+func (ld LanguageDetectorImpl) DetectMainLanguage(files []*model.File) string {
 	languages := ld.DetectLanguages(files)
 	log.Debug().Any("languages", languages).Msg("Detected languages")
 	var maxLanguage string
@@ -107,8 +54,4 @@ func (ld FileExtensionBasedLanguageDetector) DetectMainLanguage(files []*model.F
 		}
 	}
 	return maxLanguage
-}
-
-func (ld FileExtensionBasedLanguageDetector) detectLanguage(filename string, content []byte) LanguageId {
-	return enry.GetLanguage(filename, content)
 }
