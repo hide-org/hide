@@ -46,7 +46,7 @@ func ReadPatterns(fs afero.Fs, path []string) ([]gitignore.Pattern, error) {
 
 	for _, fi := range fis {
 		if fi.IsDir() && fi.Name() != gitDir {
-			// check if the directory is ignored
+			// check if the directory is ignored by previous patterns
 			if gitignore.NewMatcher(ps).Match(append(path, fi.Name()), true) {
 				continue
 			}

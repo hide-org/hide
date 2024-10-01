@@ -23,7 +23,7 @@ func (s *MatcherSuite) SetUpTest(t *testing.T) {
 	createFile(t, fs, ".git/info/exclude", "exclude.crlf\n")
 
 	// gitignore from root file
-	createFile(t, fs, ".gitignore", "vendor/g*/\nignore.crlf\nignore_dir\n")
+	createFile(t, fs, ".gitignore", "vendor/g*/\nignore.crlf\nignore_dir\n**/*.txt")
 
 	// gitignore from vendor folder
 	mkdirAll(t, fs, "vendor", os.ModePerm)
@@ -53,6 +53,9 @@ func (s *MatcherSuite) SetUpTest(t *testing.T) {
 	mkdirAll(t, fs, "multiple/sub/ignores/second/ignore_dir", os.ModePerm)
 	createFile(t, fs, "multiple/sub/ignores/second/ignore_dir/file", "")
 
+	mkdirAll(t, fs, "globs", os.ModePerm)
+	createFile(t, fs, "globs/something.txt", "")
+
 	s.Fs = fs
 }
 
@@ -65,7 +68,7 @@ func TestReadPatterns(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	wantN := 7
+	wantN := 8
 	if n := len(ps); n != wantN {
 		t.Fatalf("wrong pattern length: got %d, want %d", n, wantN)
 	}
@@ -129,6 +132,11 @@ func TestReadPatterns(t *testing.T) {
 		},
 		{
 			path:      []string{"multiple", "sub", "ignores", "second", "ignore_dir", "file"},
+			isDir:     false,
+			wantMatch: true,
+		},
+		{
+			path:      []string{"globs", "something.txt"},
 			isDir:     false,
 			wantMatch: true,
 		},
