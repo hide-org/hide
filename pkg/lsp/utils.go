@@ -26,7 +26,7 @@ type LanguageDetector interface {
 // LanguageDetectorImpl implements LanguageDetector using https://github.com/go-enry/go-enry
 type LanguageDetectorImpl struct{}
 
-func NewFileExtensionBasedLanguageDetector() LanguageDetector {
+func NewLanguageDetector() LanguageDetector {
 	return &LanguageDetectorImpl{}
 }
 func (ld LanguageDetectorImpl) DetectLanguage(file *model.File) LanguageId {

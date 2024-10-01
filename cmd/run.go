@@ -101,7 +101,7 @@ var runCmd = &cobra.Command{
 		lspServerExecutables[lsp.TypeScript] = lsp.NewCommand("typescript-language-server", []string{"--stdio"})
 
 		fileManager := files.NewFileManager()
-		languageDetector := lsp.NewFileExtensionBasedLanguageDetector()
+		languageDetector := lsp.NewLanguageDetector()
 		diagnosticsStore := lsp.NewDiagnosticsStore()
 		clientPool := lsp.NewClientPool()
 		lspService := lsp.NewService(languageDetector, lspServerExecutables, diagnosticsStore, clientPool)
