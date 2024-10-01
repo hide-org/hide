@@ -9,8 +9,10 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/artmoskvin/hide/pkg/gitignore"
 	"github.com/artmoskvin/hide/pkg/model"
 	"github.com/bluekeyes/go-gitdiff/gitdiff"
+	git "github.com/go-git/go-git/plumbing/format/gitignore"
 	"github.com/spf13/afero"
 )
 
@@ -131,11 +133,23 @@ func (fm *FileManagerImpl) ListFiles(ctx context.Context, fs afero.Fs, opts ...L
 		o(opt)
 	}
 
-	err := afero.Walk(fs, "/", func(path string, info os.FileInfo, err error) error {
+	// gitignore matchers
+	ps, err := gitignore.ReadPatterns(fs, nil)
+	if err != nil {
+		return nil, err
+	}
+	m := git.NewMatcher(ps)
+
+	err = afero.Walk(fs, "/", func(path string, info os.FileInfo, err error) error {
 		select {
 		case <-ctx.Done():
 			return errors.New("context cancelled")
 		default:
+		}
+
+		// match gitignore
+		if m.Match(filepath.SplitList(path), info.IsDir()) {
+			return nil
 		}
 
 		if err != nil {
