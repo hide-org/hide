@@ -60,12 +60,12 @@ func TestReadPatterns(t *testing.T) {
 	suite := &MatcherSuite{}
 	suite.SetUpTest(t)
 
-	ps, err := ReadPatterns(suite.Fs, nil)
+	ps, err := ReadPatterns(suite.Fs, make([]string, 0, 5))
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	wantN := 8
+	wantN := 7
 	if n := len(ps); n != wantN {
 		t.Fatalf("wrong pattern length: got %d, want %d", n, wantN)
 	}
@@ -100,7 +100,7 @@ func TestReadPatterns(t *testing.T) {
 		{
 			path:      []string{"ignore_dir", "file"},
 			isDir:     false,
-			wantMatch: false,
+			wantMatch: true,
 		},
 		{
 			path:      []string{"ignore_dir", "otherfile"},

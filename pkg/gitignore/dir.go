@@ -25,7 +25,7 @@ const (
 // ReadPatterns reads gitignore patterns recursively traversing through the directory
 // structure. The result is in the ascending order of priority (last higher).
 func ReadPatterns(fs afero.Fs, path []string) ([]gitignore.Pattern, error) {
-	path = path[:len(path):len(path)]
+	path = path[:len(path):len(path)] // ensures that append does not use excess capacity
 
 	ps, err := readIgnoreFile(fs, path, infoExcludeFile)
 	if err != nil {
@@ -46,6 +46,11 @@ func ReadPatterns(fs afero.Fs, path []string) ([]gitignore.Pattern, error) {
 
 	for _, fi := range fis {
 		if fi.IsDir() && fi.Name() != gitDir {
+			// check if the directory is ignored
+			if gitignore.NewMatcher(ps).Match(append(path, fi.Name()), true) {
+				continue
+			}
+
 			var subps []gitignore.Pattern
 			subps, err := ReadPatterns(fs, append(path, fi.Name()))
 			if err != nil {
@@ -63,7 +68,9 @@ func ReadPatterns(fs afero.Fs, path []string) ([]gitignore.Pattern, error) {
 
 // readIgnoreFile reads a specific .gitignore file
 func readIgnoreFile(fs afero.Fs, path []string, ignoreFile string) (ps []gitignore.Pattern, err error) {
-	f, err := fs.Open(filepath.Join(append(path, ignoreFile)...))
+	path = path[:len(path):len(path)]
+
+	f, err := fs.Open(filepath.Join(append(path, ignoreFile)...)) // this might cause an issue
 	if err != nil {
 		// .gitignore does not exist along this path
 		if os.IsNotExist(err) {
