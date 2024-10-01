@@ -94,17 +94,11 @@ var runCmd = &cobra.Command{
 
 		projectsDir := filepath.Join(home, HidePath, ProjectsDir)
 
-		lspServerExecutables := make(map[lsp.LanguageId]lsp.Command)
-		lspServerExecutables[lsp.Go] = lsp.NewCommand("gopls", []string{})
-		lspServerExecutables[lsp.Python] = lsp.NewCommand("pyright-langserver", []string{"--stdio"})
-		lspServerExecutables[lsp.JavaScript] = lsp.NewCommand("typescript-language-server", []string{"--stdio"})
-		lspServerExecutables[lsp.TypeScript] = lsp.NewCommand("typescript-language-server", []string{"--stdio"})
-
 		fileManager := files.NewFileManager()
 		languageDetector := lsp.NewLanguageDetector()
 		diagnosticsStore := lsp.NewDiagnosticsStore()
 		clientPool := lsp.NewClientPool()
-		lspService := lsp.NewService(languageDetector, lspServerExecutables, diagnosticsStore, clientPool)
+		lspService := lsp.NewService(languageDetector, lsp.LspServerExecutables, diagnosticsStore, clientPool)
 		projectManager := project.NewProjectManager(containerRunner, projectStore, projectsDir, fileManager, lspService, languageDetector, random.String)
 
 		router := handlers.
