@@ -13,6 +13,7 @@ import (
 
 	"github.com/artmoskvin/hide/pkg/devcontainer"
 	"github.com/artmoskvin/hide/pkg/files"
+	"github.com/artmoskvin/hide/pkg/gitignore"
 	"github.com/artmoskvin/hide/pkg/handlers"
 	"github.com/artmoskvin/hide/pkg/lsp"
 	"github.com/artmoskvin/hide/pkg/middleware"
@@ -100,7 +101,7 @@ var runCmd = &cobra.Command{
 		lspServerExecutables[lsp.LanguageId("javascript")] = lsp.NewCommand("typescript-language-server", []string{"--stdio"})
 		lspServerExecutables[lsp.LanguageId("typescript")] = lsp.NewCommand("typescript-language-server", []string{"--stdio"})
 
-		fileManager := files.NewFileManager()
+		fileManager := files.NewFileManager(gitignore.NewMatcherFactory())
 		languageDetector := lsp.NewFileExtensionBasedLanguageDetector()
 		diagnosticsStore := lsp.NewDiagnosticsStore()
 		clientPool := lsp.NewClientPool()

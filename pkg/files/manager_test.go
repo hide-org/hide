@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/artmoskvin/hide/pkg/files"
+	"github.com/artmoskvin/hide/pkg/gitignore/mocks"
 	"github.com/artmoskvin/hide/pkg/model"
 	"github.com/google/go-cmp/cmp"
 	"github.com/spf13/afero"
@@ -17,7 +18,7 @@ func TestReadFile(t *testing.T) {
 	content := "line1\nline2\nline3\n"
 	afero.WriteFile(fs, path, []byte(content), 0o644)
 
-	fm := files.NewFileManager()
+	fm := files.NewFileManager(nil)
 	actual, err := fm.ReadFile(context.Background(), fs, path)
 	expected := model.NewFile(path, content)
 
@@ -34,7 +35,7 @@ func TestReadNonExistentFile(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	afero.WriteFile(fs, "test.txt", []byte("line1\nline2\nline3\n"), 0o644)
 
-	fm := files.NewFileManager()
+	fm := files.NewFileManager(nil)
 	_, err := fm.ReadFile(context.Background(), fs, "non-existent.txt")
 	if err == nil {
 		t.Fatalf("Expected error, got nil")
@@ -90,7 +91,7 @@ func TestFileManagerImpl_ApplyPatch_Success(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			filesystem := afero.NewMemMapFs()
 			afero.WriteFile(filesystem, "test.txt", []byte("line1\nline2\nline3\nline4\nline5\nline6\nline7\nline8\nline9\nline10\n"), 0o644)
-			fm := files.NewFileManager()
+			fm := files.NewFileManager(nil)
 			actual, err := fm.ApplyPatch(context.Background(), filesystem, "test.txt", tt.patch)
 			if err != nil {
 				t.Fatalf("Unexpected error: %v", err)
@@ -156,7 +157,7 @@ func TestFileManagerImpl_ApplyPatch_Failure(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			fileSystem := afero.NewMemMapFs()
 			afero.WriteFile(fileSystem, "test.txt", []byte("line1\nline2\nline3\n"), 0o644)
-			fm := files.NewFileManager()
+			fm := files.NewFileManager(nil)
 			_, err := fm.ApplyPatch(context.Background(), fileSystem, tt.file, tt.patch)
 			if err == nil {
 				t.Fatalf("Expected error, got nil")
@@ -206,7 +207,7 @@ func TestFileManagerImpl_UpdateLines_Success(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			fm := files.NewFileManager()
+			fm := files.NewFileManager(nil)
 			filesystem := afero.NewMemMapFs()
 			afero.WriteFile(filesystem, "test.txt", []byte("line1\nline2\nline3\n"), 0o644)
 			actual, err := fm.UpdateLines(context.Background(), filesystem, "test.txt", tt.lineDiff)
@@ -251,7 +252,7 @@ func TestFileManagerImpl_UpdateLines_Failure(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			filesystem := afero.NewMemMapFs()
 			afero.WriteFile(filesystem, "test.txt", []byte("line1\nline2\nline3\n"), 0o644)
-			fm := files.NewFileManager()
+			fm := files.NewFileManager(nil)
 			_, err := fm.UpdateLines(context.Background(), filesystem, "test.txt", tt.lineDiff)
 			if err == nil {
 				t.Fatalf("Expected error, got nil")
@@ -281,7 +282,7 @@ func TestUpdateFile_Success(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			filesystem := afero.NewMemMapFs()
 			afero.WriteFile(filesystem, "test.txt", []byte("line11\nline12\n"), 0o644)
-			fm := files.NewFileManager()
+			fm := files.NewFileManager(nil)
 			actual, err := fm.UpdateFile(context.Background(), filesystem, "test.txt", tt.content)
 			if err != nil {
 				t.Fatalf("Unexpected error: %v", err)
@@ -310,7 +311,7 @@ func TestUpdateFile_Failure(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			filesystem := afero.NewMemMapFs()
-			fm := files.NewFileManager()
+			fm := files.NewFileManager(nil)
 			_, err := fm.UpdateFile(context.Background(), filesystem, "test.txt", tt.content)
 			if err == nil {
 				t.Fatalf("Expected error, got nil")
@@ -328,8 +329,9 @@ func TestListFile(t *testing.T) {
 	for _, tt := range []struct {
 		name     string
 		fs       afero.Fs
-		opts     []files.ListFileOption
-		wantFile []*model.File
+		mockSetup func(*mocks.MockMatcherFactory)
+		opts      []files.ListFileOption
+		wantFile  []*model.File
 	}{
 		{
 			name: "all files",
@@ -1110,7 +1112,9 @@ func TestListFile(t *testing.T) {
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			fm := files.NewFileManager()
+			mockGitignoreFactory := mocks.NewMockMatcherFactory()
+			tt.mockSetup(mockGitignoreFactory)
+			fm := files.NewFileManager(mockGitignoreFactory)
 
 			files, err := fm.ListFiles(context.Background(), tt.fs, tt.opts...)
 			if err != nil {
