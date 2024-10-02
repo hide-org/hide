@@ -139,7 +139,11 @@ func (pm ManagerImpl) CreateProject(ctx context.Context, request CreateProjectRe
 
 		project := model.Project{Id: projectId, Path: projectPath, Config: model.Config{DevContainerConfig: devContainerConfig}, ContainerId: containerId}
 
-		files, err := pm.fileManager.ListFiles(model.NewContextWithProject(context.Background(), &project), afero.NewBasePathFs(afero.NewOsFs(), projectPath))
+		opts := []files.ListFileOption{
+			files.ListFilesWithContent(),
+		}
+
+		files, err := pm.fileManager.ListFiles(model.NewContextWithProject(context.Background(), &project), afero.NewBasePathFs(afero.NewOsFs(), projectPath), opts...)
 		if err != nil {
 			log.Error().Err(err).Msg("Failed to list files")
 			removeProjectDir(projectPath)
@@ -569,6 +573,7 @@ func removeProjectDir(projectPath string) {
 }
 
 func cloneGitRepo(repository Repository, projectPath string) <-chan result.Empty {
+	log.Debug().Str("url", repository.Url).Msg("Cloning git repo")
 	c := make(chan result.Empty)
 
 	go func() {
@@ -579,7 +584,7 @@ func cloneGitRepo(repository Repository, projectPath string) <-chan result.Empty
 			return
 		}
 
-		log.Debug().Msgf("Cloned git repo %s to %s", repository.Url, projectPath)
+		log.Debug().Str("url", repository.Url).Msgf("Cloned git repo to %s", projectPath)
 		log.Debug().Msg(string(cmdOut))
 
 		if repository.Commit != nil {

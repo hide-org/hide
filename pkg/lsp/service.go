@@ -17,6 +17,13 @@ type ProjectRoot = string
 type LspClientStore = map[ProjectId]map[LanguageId]Client
 type LspDiagnostics = map[ProjectId]map[protocol.DocumentUri][]protocol.Diagnostic
 
+var LspServerExecutables = map[LanguageId]Command{
+	Go:         NewCommand("gopls", []string{}),
+	Python:     NewCommand("pyright-langserver", []string{"--stdio"}),
+	JavaScript: NewCommand("typescript-language-server", []string{"--stdio"}),
+	TypeScript: NewCommand("typescript-language-server", []string{"--stdio"}),
+}
+
 type Service interface {
 	StartServer(ctx context.Context, languageId LanguageId) error
 	StopServer(ctx context.Context, languageId LanguageId) error
@@ -255,10 +262,9 @@ func (s *ServiceImpl) NotifyDidOpen(ctx context.Context, file model.File) error 
 
 	err := client.NotifyDidOpen(ctx, protocol.DidOpenTextDocumentParams{
 		TextDocument: protocol.TextDocumentItem{
-			URI:        PathToURI(fullPath),
-			LanguageID: languageId,
-			Version:    1,
-			Text:       file.GetContent(),
+			URI:     PathToURI(fullPath),
+			Version: 1,
+			Text:    file.GetContent(),
 		},
 	})
 

@@ -6,6 +6,7 @@ require (
 	github.com/bluekeyes/go-gitdiff v0.7.4
 	github.com/docker/docker v26.1.3+incompatible
 	github.com/docker/go-connections v0.5.0
+	github.com/go-enry/go-enry/v2 v2.9.0
 	github.com/go-git/go-git v4.7.0+incompatible
 	github.com/gobwas/glob v0.2.3
 	github.com/google/go-cmp v0.6.0
@@ -29,6 +30,7 @@ require (
 	github.com/distribution/reference v0.6.0 // indirect
 	github.com/docker/go-units v0.5.0 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
+	github.com/go-enry/go-oniguruma v1.2.1 // indirect
 	github.com/go-logr/logr v1.4.1 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
