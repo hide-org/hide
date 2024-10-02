@@ -6,12 +6,12 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/artmoskvin/hide/pkg/devcontainer"
-	dc_mocks "github.com/artmoskvin/hide/pkg/devcontainer/mocks"
-	"github.com/artmoskvin/hide/pkg/lsp"
-	lsp_mocks "github.com/artmoskvin/hide/pkg/lsp/mocks"
-	"github.com/artmoskvin/hide/pkg/model"
-	"github.com/artmoskvin/hide/pkg/project"
+	"github.com/hide-org/hide/pkg/devcontainer"
+	dc_mocks "github.com/hide-org/hide/pkg/devcontainer/mocks"
+	"github.com/hide-org/hide/pkg/lsp"
+	lsp_mocks "github.com/hide-org/hide/pkg/lsp/mocks"
+	"github.com/hide-org/hide/pkg/model"
+	"github.com/hide-org/hide/pkg/project"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )

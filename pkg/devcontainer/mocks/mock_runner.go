@@ -3,7 +3,7 @@ package mocks
 import (
 	"context"
 
-	"github.com/artmoskvin/hide/pkg/devcontainer"
+	"github.com/hide-org/hide/pkg/devcontainer"
 )
 
 // MockDevContainerRunner is a mock of the devcontainer.Runner interface for testing

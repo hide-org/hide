@@ -8,10 +8,10 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/artmoskvin/hide/pkg/handlers"
-	"github.com/artmoskvin/hide/pkg/model"
-	"github.com/artmoskvin/hide/pkg/project"
-	project_mocks "github.com/artmoskvin/hide/pkg/project/mocks"
+	"github.com/hide-org/hide/pkg/handlers"
+	"github.com/hide-org/hide/pkg/model"
+	"github.com/hide-org/hide/pkg/project"
+	project_mocks "github.com/hide-org/hide/pkg/project/mocks"
 )
 
 func TestReadFileHandler_Success(t *testing.T) {

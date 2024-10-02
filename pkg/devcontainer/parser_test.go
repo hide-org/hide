@@ -6,8 +6,8 @@ import (
 	"testing"
 	"testing/fstest"
 
-	"github.com/artmoskvin/hide/pkg/devcontainer"
-	"github.com/artmoskvin/hide/pkg/jsonc"
+	"github.com/hide-org/hide/pkg/devcontainer"
+	"github.com/hide-org/hide/pkg/jsonc"
 )
 
 func TestParseConfig(t *testing.T) {

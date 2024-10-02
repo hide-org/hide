@@ -9,12 +9,12 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/artmoskvin/hide/pkg/files"
-	mockfiles "github.com/artmoskvin/hide/pkg/files/mocks"
-	"github.com/artmoskvin/hide/pkg/handlers"
-	"github.com/artmoskvin/hide/pkg/model"
-	"github.com/artmoskvin/hide/pkg/project/mocks"
 	"github.com/google/go-cmp/cmp"
+	"github.com/hide-org/hide/pkg/files"
+	mockfiles "github.com/hide-org/hide/pkg/files/mocks"
+	"github.com/hide-org/hide/pkg/handlers"
+	"github.com/hide-org/hide/pkg/model"
+	"github.com/hide-org/hide/pkg/project/mocks"
 )
 
 func TestSearchFileHandler(t *testing.T) {

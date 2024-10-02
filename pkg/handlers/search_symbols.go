@@ -7,8 +7,8 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/artmoskvin/hide/pkg/lsp"
-	"github.com/artmoskvin/hide/pkg/project"
+	"github.com/hide-org/hide/pkg/lsp"
+	"github.com/hide-org/hide/pkg/project"
 	protocol "github.com/tliron/glsp/protocol_3_16"
 )
 

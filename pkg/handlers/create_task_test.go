@@ -9,10 +9,10 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/artmoskvin/hide/pkg/devcontainer"
-	"github.com/artmoskvin/hide/pkg/handlers"
-	"github.com/artmoskvin/hide/pkg/project"
-	"github.com/artmoskvin/hide/pkg/project/mocks"
+	"github.com/hide-org/hide/pkg/devcontainer"
+	"github.com/hide-org/hide/pkg/handlers"
+	"github.com/hide-org/hide/pkg/project"
+	"github.com/hide-org/hide/pkg/project/mocks"
 )
 
 func TestCreateTaskHandler(t *testing.T) {

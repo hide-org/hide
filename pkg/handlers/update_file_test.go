@@ -10,12 +10,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/artmoskvin/hide/pkg/files"
-	"github.com/artmoskvin/hide/pkg/handlers"
-	"github.com/artmoskvin/hide/pkg/middleware"
-	"github.com/artmoskvin/hide/pkg/model"
-	"github.com/artmoskvin/hide/pkg/project"
-	project_mocks "github.com/artmoskvin/hide/pkg/project/mocks"
+	"github.com/hide-org/hide/pkg/files"
+	"github.com/hide-org/hide/pkg/handlers"
+	"github.com/hide-org/hide/pkg/middleware"
+	"github.com/hide-org/hide/pkg/model"
+	"github.com/hide-org/hide/pkg/project"
+	project_mocks "github.com/hide-org/hide/pkg/project/mocks"
 )
 
 func TestUpdateFileHandler_Success(t *testing.T) {

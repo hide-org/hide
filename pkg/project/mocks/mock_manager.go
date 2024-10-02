@@ -3,12 +3,12 @@ package mocks
 import (
 	"context"
 
-	"github.com/artmoskvin/hide/pkg/devcontainer"
-	"github.com/artmoskvin/hide/pkg/files"
-	"github.com/artmoskvin/hide/pkg/lsp"
-	"github.com/artmoskvin/hide/pkg/model"
-	"github.com/artmoskvin/hide/pkg/project"
-	"github.com/artmoskvin/hide/pkg/result"
+	"github.com/hide-org/hide/pkg/devcontainer"
+	"github.com/hide-org/hide/pkg/files"
+	"github.com/hide-org/hide/pkg/lsp"
+	"github.com/hide-org/hide/pkg/model"
+	"github.com/hide-org/hide/pkg/project"
+	"github.com/hide-org/hide/pkg/result"
 )
 
 // MockProjectManager is a mock of the project.Manager interface for testing

@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/artmoskvin/hide/pkg/handlers"
+	"github.com/hide-org/hide/pkg/handlers"
 	"github.com/rs/zerolog/log"
 )
 

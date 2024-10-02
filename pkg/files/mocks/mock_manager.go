@@ -3,9 +3,9 @@ package mocks
 import (
 	"context"
 
-	"github.com/artmoskvin/hide/pkg/files"
-	"github.com/artmoskvin/hide/pkg/model"
 	"github.com/google/go-cmp/cmp"
+	"github.com/hide-org/hide/pkg/files"
+	"github.com/hide-org/hide/pkg/model"
 	"github.com/spf13/afero"
 )
 

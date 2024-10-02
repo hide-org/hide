@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/artmoskvin/hide/cmd"
+	"github.com/hide-org/hide/cmd"
 )
 
 func main() {
