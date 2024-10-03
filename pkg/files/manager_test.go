@@ -7,7 +7,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/hide-org/hide/pkg/files"
-  "github.com/hide-org/hide/pkg/gitignore/mocks"
+	"github.com/hide-org/hide/pkg/gitignore/mocks"
 	"github.com/hide-org/hide/pkg/model"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/mock"

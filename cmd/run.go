@@ -14,7 +14,7 @@ import (
 	"github.com/docker/docker/client"
 	"github.com/hide-org/hide/pkg/devcontainer"
 	"github.com/hide-org/hide/pkg/files"
-  "github.com/hide-org/hide/pkg/gitignore"
+	"github.com/hide-org/hide/pkg/gitignore"
 	"github.com/hide-org/hide/pkg/handlers"
 	"github.com/hide-org/hide/pkg/lsp"
 	"github.com/hide-org/hide/pkg/middleware"

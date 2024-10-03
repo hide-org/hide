@@ -10,7 +10,7 @@ import (
 	"strings"
 
 	"github.com/bluekeyes/go-gitdiff/gitdiff"
-  "github.com/hide-org/hide/pkg/gitignore"
+	"github.com/hide-org/hide/pkg/gitignore"
 	"github.com/hide-org/hide/pkg/model"
 	"github.com/spf13/afero"
 )
