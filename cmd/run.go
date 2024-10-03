@@ -14,6 +14,7 @@ import (
 	"github.com/docker/docker/client"
 	"github.com/hide-org/hide/pkg/devcontainer"
 	"github.com/hide-org/hide/pkg/files"
+  "github.com/hide-org/hide/pkg/gitignore"
 	"github.com/hide-org/hide/pkg/handlers"
 	"github.com/hide-org/hide/pkg/lsp"
 	"github.com/hide-org/hide/pkg/middleware"
@@ -94,7 +95,7 @@ var runCmd = &cobra.Command{
 
 		projectsDir := filepath.Join(home, HidePath, ProjectsDir)
 
-		fileManager := files.NewFileManager()
+		fileManager := files.NewFileManager(gitignore.NewMatcherFactory())
 		languageDetector := lsp.NewLanguageDetector()
 		diagnosticsStore := lsp.NewDiagnosticsStore()
 		clientPool := lsp.NewClientPool()

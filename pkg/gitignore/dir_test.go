@@ -63,7 +63,7 @@ func TestReadPatterns(t *testing.T) {
 	suite := &MatcherSuite{}
 	suite.SetUpTest(t)
 
-	ps, err := ReadPatterns(suite.Fs, make([]string, 0, 5))
+	ps, err := ReadPatterns(suite.Fs, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
