@@ -1,4 +1,4 @@
-module github.com/artmoskvin/hide
+module github.com/hide-org/hide
 
 go 1.22.1
 

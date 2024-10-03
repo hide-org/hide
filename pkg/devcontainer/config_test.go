@@ -2,7 +2,7 @@ package devcontainer_test
 
 import (
 	"encoding/json"
-	"github.com/artmoskvin/hide/pkg/devcontainer"
+	"github.com/hide-org/hide/pkg/devcontainer"
 	"testing"
 )
 

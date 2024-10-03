@@ -3,8 +3,8 @@ package gitignore_test
 import (
 	"testing"
 
-	"github.com/artmoskvin/hide/pkg/gitignore"
-	"github.com/artmoskvin/hide/pkg/gitignore/mocks"
+	"github.com/hide-org/hide/pkg/gitignore"
+	"github.com/hide-org/hide/pkg/gitignore/mocks"
 	"github.com/stretchr/testify/assert"
 )
 

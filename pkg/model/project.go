@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/artmoskvin/hide/pkg/devcontainer"
+	"github.com/hide-org/hide/pkg/devcontainer"
 )
 
 type Config struct {

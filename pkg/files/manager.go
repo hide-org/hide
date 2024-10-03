@@ -9,9 +9,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/artmoskvin/hide/pkg/gitignore"
-	"github.com/artmoskvin/hide/pkg/model"
 	"github.com/bluekeyes/go-gitdiff/gitdiff"
+	"github.com/hide-org/hide/pkg/gitignore"
+	"github.com/hide-org/hide/pkg/model"
 	"github.com/spf13/afero"
 )
 

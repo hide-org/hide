@@ -5,9 +5,9 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/artmoskvin/hide/pkg/lsp"
-	"github.com/artmoskvin/hide/pkg/lsp/mocks"
-	"github.com/artmoskvin/hide/pkg/model"
+	"github.com/hide-org/hide/pkg/model"
+	"github.com/hide-org/hide/pkg/lsp"
+	"github.com/hide-org/hide/pkg/lsp/mocks"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	protocol "github.com/tliron/glsp/protocol_3_16"

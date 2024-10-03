@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/artmoskvin/hide/pkg/project"
+	"github.com/hide-org/hide/pkg/project"
 )
 
 type ListTasksHandler struct {

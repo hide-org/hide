@@ -3,7 +3,7 @@ package lsp
 import (
 	"path/filepath"
 
-	"github.com/artmoskvin/hide/pkg/model"
+	"github.com/hide-org/hide/pkg/model"
 	"github.com/go-enry/go-enry/v2"
 	"github.com/rs/zerolog/log"
 )

@@ -5,7 +5,7 @@ import (
 	"testing"
 	"testing/fstest"
 
-	"github.com/artmoskvin/hide/pkg/util"
+	"github.com/hide-org/hide/pkg/util"
 )
 
 func TestLoadEnv(t *testing.T) {

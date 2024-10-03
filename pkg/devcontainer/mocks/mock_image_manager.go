@@ -5,7 +5,7 @@ import (
 
 	"github.com/stretchr/testify/mock"
 
-	"github.com/artmoskvin/hide/pkg/devcontainer"
+	"github.com/hide-org/hide/pkg/devcontainer"
 )
 
 var _ devcontainer.ImageManager = (*MockImageManager)(nil)

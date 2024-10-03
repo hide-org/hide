@@ -7,11 +7,11 @@ import (
 	"io"
 	"testing"
 
-	"github.com/artmoskvin/hide/pkg/devcontainer"
-	"github.com/artmoskvin/hide/pkg/devcontainer/mocks"
-	"github.com/artmoskvin/hide/pkg/random"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/image"
+	"github.com/hide-org/hide/pkg/devcontainer"
+	"github.com/hide-org/hide/pkg/devcontainer/mocks"
+	"github.com/hide-org/hide/pkg/random"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )

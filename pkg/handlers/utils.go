@@ -7,7 +7,7 @@ import (
 	"net/url"
 	"strconv"
 
-	"github.com/artmoskvin/hide/pkg/files"
+	"github.com/hide-org/hide/pkg/files"
 	"github.com/gorilla/mux"
 )
 

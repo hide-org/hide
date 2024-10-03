@@ -7,11 +7,11 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/artmoskvin/hide/pkg/files"
-	"github.com/artmoskvin/hide/pkg/handlers"
-	"github.com/artmoskvin/hide/pkg/middleware"
-	"github.com/artmoskvin/hide/pkg/project"
-	"github.com/artmoskvin/hide/pkg/project/mocks"
+	"github.com/hide-org/hide/pkg/middleware"
+	"github.com/hide-org/hide/pkg/project/mocks"
+	"github.com/hide-org/hide/pkg/files"
+	"github.com/hide-org/hide/pkg/handlers"
+	"github.com/hide-org/hide/pkg/project"
 	"github.com/stretchr/testify/assert"
 )
 

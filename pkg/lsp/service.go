@@ -6,7 +6,7 @@ import (
 	"net/url"
 	"path/filepath"
 
-	"github.com/artmoskvin/hide/pkg/model"
+	"github.com/hide-org/hide/pkg/model"
 	"github.com/rs/zerolog/log"
 	protocol "github.com/tliron/glsp/protocol_3_16"
 )

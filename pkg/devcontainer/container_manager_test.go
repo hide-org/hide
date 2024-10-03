@@ -5,12 +5,12 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/artmoskvin/hide/pkg/devcontainer"
-	"github.com/artmoskvin/hide/pkg/devcontainer/mocks"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/mount"
 	"github.com/docker/go-connections/nat"
+	"github.com/hide-org/hide/pkg/devcontainer"
+	"github.com/hide-org/hide/pkg/devcontainer/mocks"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )

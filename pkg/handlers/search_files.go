@@ -9,9 +9,9 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/artmoskvin/hide/pkg/files"
-	"github.com/artmoskvin/hide/pkg/model"
-	"github.com/artmoskvin/hide/pkg/project"
+	"github.com/hide-org/hide/pkg/files"
+	"github.com/hide-org/hide/pkg/model"
+	"github.com/hide-org/hide/pkg/project"
 )
 
 const (

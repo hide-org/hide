@@ -1,7 +1,7 @@
 package project
 
 import (
-	"github.com/artmoskvin/hide/pkg/model"
+	"github.com/hide-org/hide/pkg/model"
 )
 
 type Store interface {

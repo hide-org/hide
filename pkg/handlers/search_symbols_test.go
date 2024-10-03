@@ -9,11 +9,11 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/artmoskvin/hide/pkg/handlers"
-	"github.com/artmoskvin/hide/pkg/lsp"
-	"github.com/artmoskvin/hide/pkg/model"
-	"github.com/artmoskvin/hide/pkg/project"
-	"github.com/artmoskvin/hide/pkg/project/mocks"
+	"github.com/hide-org/hide/pkg/handlers"
+	"github.com/hide-org/hide/pkg/lsp"
+	"github.com/hide-org/hide/pkg/model"
+	"github.com/hide-org/hide/pkg/project"
+	"github.com/hide-org/hide/pkg/project/mocks"
 	"github.com/stretchr/testify/assert"
 )
 

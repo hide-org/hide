@@ -8,7 +8,7 @@ import (
 	"io/fs"
 	"path/filepath"
 
-	"github.com/artmoskvin/hide/pkg/jsonc"
+	"github.com/hide-org/hide/pkg/jsonc"
 )
 
 type File struct {
