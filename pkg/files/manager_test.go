@@ -10,6 +10,7 @@ import (
 	"github.com/artmoskvin/hide/pkg/model"
 	"github.com/google/go-cmp/cmp"
 	"github.com/spf13/afero"
+	"github.com/stretchr/testify/mock"
 )
 
 func TestReadFile(t *testing.T) {
@@ -327,8 +328,8 @@ func TestUpdateFile_Failure(t *testing.T) {
 func TestListFile(t *testing.T) {
 	// RUN test
 	for _, tt := range []struct {
-		name     string
-		fs       afero.Fs
+		name      string
+		fs        afero.Fs
 		mockSetup func(*mocks.MockMatcherFactory)
 		opts      []files.ListFileOption
 		wantFile  []*model.File
@@ -368,6 +369,11 @@ func TestListFile(t *testing.T) {
 				}
 				return fs
 			}(),
+			mockSetup: func(m *mocks.MockMatcherFactory) {
+				mockMatcher := mocks.NewMockMatcher()
+				mockMatcher.On("Match", mock.Anything, mock.Anything).Return(false, nil)
+				m.On("NewMatcher", mock.Anything).Return(mockMatcher, nil)
+			},
 			wantFile: []*model.File{
 				model.EmptyFile("hello.txt"),
 				model.EmptyFile("node_modules/module1/file.js"),
@@ -411,6 +417,11 @@ func TestListFile(t *testing.T) {
 				}
 				return fs
 			}(),
+			mockSetup: func(m *mocks.MockMatcherFactory) {
+				mockMatcher := mocks.NewMockMatcher()
+				mockMatcher.On("Match", mock.Anything, mock.Anything).Return(false, nil)
+				m.On("NewMatcher", mock.Anything).Return(mockMatcher, nil)
+			},
 			opts: []files.ListFileOption{
 				files.ListFilesWithFilter(files.PatternFilter{
 					Include: []string{"*something*"},
@@ -456,6 +467,11 @@ func TestListFile(t *testing.T) {
 				}
 				return fs
 			}(),
+			mockSetup: func(m *mocks.MockMatcherFactory) {
+				mockMatcher := mocks.NewMockMatcher()
+				mockMatcher.On("Match", mock.Anything, mock.Anything).Return(false, nil)
+				m.On("NewMatcher", mock.Anything).Return(mockMatcher, nil)
+			},
 			opts: []files.ListFileOption{
 				files.ListFilesWithFilter(files.PatternFilter{
 					Include: []string{"**/logs/**"},
@@ -494,6 +510,11 @@ func TestListFile(t *testing.T) {
 				}
 				return fs
 			}(),
+			mockSetup: func(m *mocks.MockMatcherFactory) {
+				mockMatcher := mocks.NewMockMatcher()
+				mockMatcher.On("Match", mock.Anything, mock.Anything).Return(false, nil)
+				m.On("NewMatcher", mock.Anything).Return(mockMatcher, nil)
+			},
 			opts: []files.ListFileOption{
 				files.ListFilesWithFilter(files.PatternFilter{
 					Include: []string{"**/logs/debug.log"},
@@ -539,6 +560,11 @@ func TestListFile(t *testing.T) {
 				}
 				return fs
 			}(),
+			mockSetup: func(m *mocks.MockMatcherFactory) {
+				mockMatcher := mocks.NewMockMatcher()
+				mockMatcher.On("Match", mock.Anything, mock.Anything).Return(false, nil)
+				m.On("NewMatcher", mock.Anything).Return(mockMatcher, nil)
+			},
 			opts: []files.ListFileOption{
 				files.ListFilesWithFilter(files.PatternFilter{
 					Include: []string{"*.log"},
@@ -577,6 +603,11 @@ func TestListFile(t *testing.T) {
 				}
 				return fs
 			}(),
+			mockSetup: func(m *mocks.MockMatcherFactory) {
+				mockMatcher := mocks.NewMockMatcher()
+				mockMatcher.On("Match", mock.Anything, mock.Anything).Return(false, nil)
+				m.On("NewMatcher", mock.Anything).Return(mockMatcher, nil)
+			},
 			opts: []files.ListFileOption{
 				files.ListFilesWithFilter(files.PatternFilter{
 					Include: []string{"*.log"},
@@ -610,6 +641,11 @@ func TestListFile(t *testing.T) {
 				}
 				return fs
 			}(),
+			mockSetup: func(m *mocks.MockMatcherFactory) {
+				mockMatcher := mocks.NewMockMatcher()
+				mockMatcher.On("Match", mock.Anything, mock.Anything).Return(false, nil)
+				m.On("NewMatcher", mock.Anything).Return(mockMatcher, nil)
+			},
 			opts: []files.ListFileOption{
 				files.ListFilesWithFilter(files.PatternFilter{
 					Include: []string{"/debug.log"},
@@ -642,6 +678,11 @@ func TestListFile(t *testing.T) {
 				}
 				return fs
 			}(),
+			mockSetup: func(m *mocks.MockMatcherFactory) {
+				mockMatcher := mocks.NewMockMatcher()
+				mockMatcher.On("Match", mock.Anything, mock.Anything).Return(false, nil)
+				m.On("NewMatcher", mock.Anything).Return(mockMatcher, nil)
+			},
 			opts: []files.ListFileOption{
 				files.ListFilesWithFilter(files.PatternFilter{
 					Include: []string{"**/debug.log"},
@@ -679,6 +720,11 @@ func TestListFile(t *testing.T) {
 				}
 				return fs
 			}(),
+			mockSetup: func(m *mocks.MockMatcherFactory) {
+				mockMatcher := mocks.NewMockMatcher()
+				mockMatcher.On("Match", mock.Anything, mock.Anything).Return(false, nil)
+				m.On("NewMatcher", mock.Anything).Return(mockMatcher, nil)
+			},
 			opts: []files.ListFileOption{
 				files.ListFilesWithFilter(files.PatternFilter{
 					Include: []string{"**/debug?.log"},
@@ -716,6 +762,11 @@ func TestListFile(t *testing.T) {
 				}
 				return fs
 			}(),
+			mockSetup: func(m *mocks.MockMatcherFactory) {
+				mockMatcher := mocks.NewMockMatcher()
+				mockMatcher.On("Match", mock.Anything, mock.Anything).Return(false, nil)
+				m.On("NewMatcher", mock.Anything).Return(mockMatcher, nil)
+			},
 			opts: []files.ListFileOption{
 				files.ListFilesWithFilter(files.PatternFilter{
 					Include: []string{"**/debug[0-9].log"},
@@ -757,6 +808,11 @@ func TestListFile(t *testing.T) {
 				}
 				return fs
 			}(),
+			mockSetup: func(m *mocks.MockMatcherFactory) {
+				mockMatcher := mocks.NewMockMatcher()
+				mockMatcher.On("Match", mock.Anything, mock.Anything).Return(false, nil)
+				m.On("NewMatcher", mock.Anything).Return(mockMatcher, nil)
+			},
 			opts: []files.ListFileOption{
 				files.ListFilesWithFilter(files.PatternFilter{
 					Include: []string{"**/debug[01].log"},
@@ -798,6 +854,11 @@ func TestListFile(t *testing.T) {
 				}
 				return fs
 			}(),
+			mockSetup: func(m *mocks.MockMatcherFactory) {
+				mockMatcher := mocks.NewMockMatcher()
+				mockMatcher.On("Match", mock.Anything, mock.Anything).Return(false, nil)
+				m.On("NewMatcher", mock.Anything).Return(mockMatcher, nil)
+			},
 			opts: []files.ListFileOption{
 				files.ListFilesWithFilter(files.PatternFilter{
 					Include: []string{"/debug[!01].log"},
@@ -835,6 +896,11 @@ func TestListFile(t *testing.T) {
 				}
 				return fs
 			}(),
+			mockSetup: func(m *mocks.MockMatcherFactory) {
+				mockMatcher := mocks.NewMockMatcher()
+				mockMatcher.On("Match", mock.Anything, mock.Anything).Return(false, nil)
+				m.On("NewMatcher", mock.Anything).Return(mockMatcher, nil)
+			},
 			opts: []files.ListFileOption{
 				files.ListFilesWithFilter(files.PatternFilter{
 					Include: []string{"/debug[a-z].log"},
@@ -879,6 +945,11 @@ func TestListFile(t *testing.T) {
 				}
 				return fs
 			}(),
+			mockSetup: func(m *mocks.MockMatcherFactory) {
+				mockMatcher := mocks.NewMockMatcher()
+				mockMatcher.On("Match", mock.Anything, mock.Anything).Return(false, nil)
+				m.On("NewMatcher", mock.Anything).Return(mockMatcher, nil)
+			},
 			opts: []files.ListFileOption{
 				files.ListFilesWithFilter(files.PatternFilter{
 					Include: []string{"**/logs*", "**/logs/**"},
@@ -927,6 +998,11 @@ func TestListFile(t *testing.T) {
 				}
 				return fs
 			}(),
+			mockSetup: func(m *mocks.MockMatcherFactory) {
+				mockMatcher := mocks.NewMockMatcher()
+				mockMatcher.On("Match", mock.Anything, mock.Anything).Return(false, nil)
+				m.On("NewMatcher", mock.Anything).Return(mockMatcher, nil)
+			},
 			opts: []files.ListFileOption{
 				files.ListFilesWithFilter(files.PatternFilter{
 					Include: []string{"**/logs/**"},
@@ -965,6 +1041,11 @@ func TestListFile(t *testing.T) {
 				}
 				return fs
 			}(),
+			mockSetup: func(m *mocks.MockMatcherFactory) {
+				mockMatcher := mocks.NewMockMatcher()
+				mockMatcher.On("Match", mock.Anything, mock.Anything).Return(false, nil)
+				m.On("NewMatcher", mock.Anything).Return(mockMatcher, nil)
+			},
 			opts: []files.ListFileOption{
 				files.ListFilesWithFilter(files.PatternFilter{
 					Include: []string{"/logs/**/debug.log"},
@@ -1003,6 +1084,11 @@ func TestListFile(t *testing.T) {
 				}
 				return fs
 			}(),
+			mockSetup: func(m *mocks.MockMatcherFactory) {
+				mockMatcher := mocks.NewMockMatcher()
+				mockMatcher.On("Match", mock.Anything, mock.Anything).Return(false, nil)
+				m.On("NewMatcher", mock.Anything).Return(mockMatcher, nil)
+			},
 			opts: []files.ListFileOption{
 				files.ListFilesWithFilter(files.PatternFilter{
 					Include: []string{"/logs/*day/debug.log"},
@@ -1039,6 +1125,11 @@ func TestListFile(t *testing.T) {
 				}
 				return fs
 			}(),
+			mockSetup: func(m *mocks.MockMatcherFactory) {
+				mockMatcher := mocks.NewMockMatcher()
+				mockMatcher.On("Match", mock.Anything, mock.Anything).Return(false, nil)
+				m.On("NewMatcher", mock.Anything).Return(mockMatcher, nil)
+			},
 			opts: []files.ListFileOption{
 				files.ListFilesWithFilter(files.PatternFilter{
 					Include: []string{"/logs/debug.log"},
@@ -1071,6 +1162,11 @@ func TestListFile(t *testing.T) {
 				}
 				return fs
 			}(),
+			mockSetup: func(m *mocks.MockMatcherFactory) {
+				mockMatcher := mocks.NewMockMatcher()
+				mockMatcher.On("Match", mock.Anything, mock.Anything).Return(false, nil)
+				m.On("NewMatcher", mock.Anything).Return(mockMatcher, nil)
+			},
 			opts: []files.ListFileOption{
 				files.ListFilesWithContent(),
 			},
@@ -1102,12 +1198,51 @@ func TestListFile(t *testing.T) {
 				}
 				return fs
 			}(),
+			mockSetup: func(m *mocks.MockMatcherFactory) {
+				mockMatcher := mocks.NewMockMatcher()
+				mockMatcher.On("Match", mock.Anything, mock.Anything).Return(false, nil)
+				m.On("NewMatcher", mock.Anything).Return(mockMatcher, nil)
+			},
 			opts: []files.ListFileOption{
 				files.ListFilesWithShowHidden(),
 			},
 			wantFile: []*model.File{
 				model.EmptyFile(".hidden.txt"),
 				model.EmptyFile("file.txt"),
+			},
+		},
+		{
+			name: "with gitignore match",
+			fs: func() afero.Fs {
+				fs := afero.NewMemMapFs()
+				for _, file := range []struct {
+					path    string
+					content string
+				}{
+					{
+						path:    "/ignore.txt",
+						content: "content",
+					},
+					{
+						path:    "/do-not-ignore.txt",
+						content: "content",
+					},
+				} {
+					if err := afero.WriteFile(fs, file.path, []byte(file.content), 0o644); err != nil {
+						t.Fatal(err)
+					}
+				}
+				return fs
+			}(),
+			mockSetup: func(m *mocks.MockMatcherFactory) {
+				mockMatcher := mocks.NewMockMatcher()
+				mockMatcher.On("Match", "/do-not-ignore.txt", mock.Anything).Return(false, nil)
+				mockMatcher.On("Match", "/ignore.txt", mock.Anything).Return(true, nil)
+				mockMatcher.On("Match", mock.Anything, mock.Anything).Return(false, nil)
+				m.On("NewMatcher", mock.Anything).Return(mockMatcher, nil)
+			},
+			wantFile: []*model.File{
+				model.EmptyFile("do-not-ignore.txt"),
 			},
 		},
 	} {
