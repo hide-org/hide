@@ -4,7 +4,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/spf13/afero"
 
-	"github.com/artmoskvin/hide/pkg/gitignore"
+	"github.com/hide-org/hide/pkg/gitignore"
 )
 
 // MockMatcher is a mock implementation of the Matcher interface
