@@ -26,7 +26,7 @@ func TestNewLines(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name:    "with new lines",
+			name:    "with a long line",
 			content: string(make([]byte, bufio.MaxScanTokenSize+1)),
 			want:    []Line{{Number: 1, Content: string(make([]byte, bufio.MaxScanTokenSize+1))}},
 			wantErr: false,

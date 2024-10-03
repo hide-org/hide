@@ -13,6 +13,7 @@ import (
 
 	"github.com/artmoskvin/hide/pkg/devcontainer"
 	"github.com/artmoskvin/hide/pkg/files"
+	"github.com/artmoskvin/hide/pkg/gitignore"
 	"github.com/artmoskvin/hide/pkg/handlers"
 	"github.com/artmoskvin/hide/pkg/lsp"
 	"github.com/artmoskvin/hide/pkg/middleware"
@@ -94,7 +95,7 @@ var runCmd = &cobra.Command{
 
 		projectsDir := filepath.Join(home, HidePath, ProjectsDir)
 
-		fileManager := files.NewFileManager()
+		fileManager := files.NewFileManager(gitignore.NewMatcherFactory())
 		languageDetector := lsp.NewLanguageDetector()
 		diagnosticsStore := lsp.NewDiagnosticsStore()
 		clientPool := lsp.NewClientPool()

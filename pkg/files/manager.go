@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/artmoskvin/hide/pkg/gitignore"
 	"github.com/artmoskvin/hide/pkg/model"
 	"github.com/bluekeyes/go-gitdiff/gitdiff"
 	"github.com/spf13/afero"
@@ -24,10 +25,12 @@ type FileManager interface {
 	UpdateLines(ctx context.Context, fs afero.Fs, path string, lineDiff LineDiffChunk) (*model.File, error)
 }
 
-type FileManagerImpl struct{}
+type FileManagerImpl struct {
+	gitignoreFactory gitignore.MatcherFactory
+}
 
-func NewFileManager() FileManager {
-	return &FileManagerImpl{}
+func NewFileManager(factory gitignore.MatcherFactory) FileManager {
+	return &FileManagerImpl{gitignoreFactory: factory}
 }
 
 func (fm *FileManagerImpl) CreateFile(ctx context.Context, fs afero.Fs, path, content string) (*model.File, error) {
@@ -96,33 +99,6 @@ func (fm *FileManagerImpl) DeleteFile(ctx context.Context, fs afero.Fs, path str
 	return fs.Remove(path)
 }
 
-type ListFilesOptions struct {
-	WithContent bool
-	ShowHidden  bool
-	Filter      PatternFilter
-}
-
-type ListFileOption func(opts *ListFilesOptions)
-
-func ListFilesWithContent() ListFileOption {
-	return func(opts *ListFilesOptions) {
-		opts.WithContent = true
-	}
-}
-
-func ListFilesWithShowHidden() ListFileOption {
-	return func(opts *ListFilesOptions) {
-		opts.ShowHidden = true
-	}
-}
-
-func ListFilesWithFilter(filter PatternFilter) ListFileOption {
-	return func(opts *ListFilesOptions) {
-		opts.Filter.Include = append(opts.Filter.Include, filter.Include...)
-		opts.Filter.Exclude = append(opts.Filter.Exclude, filter.Exclude...)
-	}
-}
-
 func (fm *FileManagerImpl) ListFiles(ctx context.Context, fs afero.Fs, opts ...ListFileOption) ([]*model.File, error) {
 	var files []*model.File
 
@@ -131,7 +107,12 @@ func (fm *FileManagerImpl) ListFiles(ctx context.Context, fs afero.Fs, opts ...L
 		o(opt)
 	}
 
-	err := afero.Walk(fs, "/", func(path string, info os.FileInfo, err error) error {
+	m, err := fm.gitignoreFactory.NewMatcher(fs)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create gitignore matcher: %w", err)
+	}
+
+	err = afero.Walk(fs, "/", func(path string, info os.FileInfo, err error) error {
 		select {
 		case <-ctx.Done():
 			return errors.New("context cancelled")
@@ -140,6 +121,18 @@ func (fm *FileManagerImpl) ListFiles(ctx context.Context, fs afero.Fs, opts ...L
 
 		if err != nil {
 			return fmt.Errorf("Error walking file tree on path %s: %w", path, err)
+		}
+
+		// check gitignore
+		match, err := m.Match(path, info.IsDir())
+		if err != nil {
+			return fmt.Errorf("failed to match path %s: %w", path, err)
+		}
+		if match {
+			if info.IsDir() {
+				return filepath.SkipDir
+			}
+			return nil
 		}
 
 		if !opt.ShowHidden && isHidden(path) {

@@ -8,7 +8,6 @@ import (
 	"os"
 	"os/exec"
 	"path"
-	"strings"
 	"sync"
 	"time"
 
@@ -140,19 +139,7 @@ func (pm ManagerImpl) CreateProject(ctx context.Context, request CreateProjectRe
 
 		project := model.Project{Id: projectId, Path: projectPath, Config: model.Config{DevContainerConfig: devContainerConfig}, ContainerId: containerId}
 
-		// Start LSP server if language is supported
-		gitignore, err := pm.fileManager.ReadFile(ctx, afero.NewBasePathFs(afero.NewOsFs(), projectPath), ".gitignore")
-		if err != nil {
-			log.Error().Err(err).Msg("Failed to read .gitignore")
-			removeProjectDir(projectPath)
-			c <- result.Failure[model.Project](fmt.Errorf("Failed to read .gitignore: %w", err))
-			return
-		}
-
 		opts := []files.ListFileOption{
-			files.ListFilesWithFilter(files.PatternFilter{
-				Exclude: parseGitignore(gitignore.GetContent()),
-			}),
 			files.ListFilesWithContent(),
 		}
 
@@ -430,15 +417,6 @@ func (pm ManagerImpl) ListFiles(ctx context.Context, projectId string, opts ...f
 	}
 
 	ctx = model.NewContextWithProject(ctx, &project)
-	gitignore, err := pm.fileManager.ReadFile(ctx, afero.NewBasePathFs(afero.NewOsFs(), project.Path), ".gitignore")
-	if err != nil {
-		log.Error().Err(err).Str("projectId", projectId).Msg("Failed to read .gitignore")
-		return nil, fmt.Errorf("Failed to read .gitignore in project %s: %w", projectId, err)
-	}
-
-	opts = append(opts, files.ListFilesWithFilter(
-		files.PatternFilter{Exclude: parseGitignore(gitignore.GetContent())},
-	))
 
 	files, err := pm.fileManager.ListFiles(ctx, afero.NewBasePathFs(afero.NewOsFs(), project.Path), opts...)
 	if err != nil {
@@ -626,16 +604,4 @@ func cloneGitRepo(repository Repository, projectPath string) <-chan result.Empty
 	}()
 
 	return c
-}
-
-func parseGitignore(content string) []string {
-	var patterns []string
-	for _, line := range strings.Split(string(content), "\n") {
-		line = strings.TrimSpace(line)
-		if line != "" && !strings.HasPrefix(line, "#") {
-			patterns = append(patterns, line)
-		}
-	}
-
-	return patterns
 }
