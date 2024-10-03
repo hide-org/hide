@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/docker/docker/client"
+	"github.com/go-playground/validator/v10"
 	"github.com/hide-org/hide/pkg/devcontainer"
 	"github.com/hide-org/hide/pkg/files"
 	"github.com/hide-org/hide/pkg/gitignore"
@@ -101,10 +102,11 @@ var runCmd = &cobra.Command{
 		clientPool := lsp.NewClientPool()
 		lspService := lsp.NewService(languageDetector, lsp.LspServerExecutables, diagnosticsStore, clientPool)
 		projectManager := project.NewProjectManager(containerRunner, projectStore, projectsDir, fileManager, lspService, languageDetector, random.String)
+		validator := validator.New(validator.WithRequiredStructEnabled())
 
 		router := handlers.
 			NewRouter().
-			WithCreateProjectHandler(handlers.CreateProjectHandler{Manager: projectManager}).
+			WithCreateProjectHandler(handlers.CreateProjectHandler{Manager: projectManager, Validator: validator}).
 			WithDeleteProjectHandler(handlers.DeleteProjectHandler{Manager: projectManager}).
 			WithCreateTaskHandler(handlers.CreateTaskHandler{Manager: projectManager}).
 			WithListTasksHandler(handlers.ListTasksHandler{Manager: projectManager}).
