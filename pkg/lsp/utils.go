@@ -3,8 +3,8 @@ package lsp
 import (
 	"path/filepath"
 
-	"github.com/hide-org/hide/pkg/model"
 	"github.com/go-enry/go-enry/v2"
+	"github.com/hide-org/hide/pkg/model"
 	"github.com/rs/zerolog/log"
 )
 
@@ -36,6 +36,9 @@ func (ld LanguageDetectorImpl) DetectLanguage(file *model.File) LanguageId {
 func (ld LanguageDetectorImpl) DetectLanguages(files []*model.File) map[string]int {
 	languages := make(map[string]int)
 	for _, file := range files {
+		if skipFile(file.Path, file.GetContentBytes()) {
+			continue
+		}
 		language := ld.DetectLanguage(file)
 		languages[language] += len(file.GetContentBytes())
 	}
@@ -54,4 +57,15 @@ func (ld LanguageDetectorImpl) DetectMainLanguage(files []*model.File) string {
 		}
 	}
 	return maxLanguage
+}
+
+func skipFile(filename string, content []byte) bool {
+	return enry.IsBinary(content) ||
+		enry.IsVendor(filename) ||
+		enry.IsConfiguration(filename) ||
+		enry.IsDocumentation(filename) ||
+		enry.IsDotFile(filename) ||
+		enry.IsImage(filename) ||
+		enry.IsTest(filename) ||
+		enry.IsGenerated(filename, content)
 }
