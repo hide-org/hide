@@ -140,10 +140,8 @@ func (pm ManagerImpl) CreateProject(ctx context.Context, request CreateProjectRe
 
 		project := model.Project{Id: projectId, Path: projectPath, Config: model.Config{DevContainerConfig: devContainerConfig}, ContainerId: containerId}
 
-		var languages []lsp.LanguageId
-		if request.Languages != nil {
-			languages = request.Languages
-		} else {
+		languages := request.Languages
+		if len(languages) == 0 {
 			languages, err = pm.detectLanguages(project)
 			if err != nil {
 				log.Error().Err(err).Msg("Failed to detect project languages")
