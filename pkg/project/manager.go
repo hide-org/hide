@@ -26,13 +26,14 @@ import (
 const MaxDiagnosticsDelay = time.Second * 1
 
 type Repository struct {
-	Url    string  `json:"url"`
+	Url    string  `json:"url" validate:"required,url"`
 	Commit *string `json:"commit,omitempty"`
 }
 
 type CreateProjectRequest struct {
-	Repository   Repository           `json:"repository"`
+	Repository   Repository           `json:"repository" validate:"required"`
 	DevContainer *devcontainer.Config `json:"devcontainer,omitempty"`
+	Languages    []lsp.LanguageId     `json:"languages,omitempty" validate:"dive,oneof=Go JavaScript Python TypeScript"`
 }
 
 type TaskResult struct {
@@ -139,23 +140,21 @@ func (pm ManagerImpl) CreateProject(ctx context.Context, request CreateProjectRe
 
 		project := model.Project{Id: projectId, Path: projectPath, Config: model.Config{DevContainerConfig: devContainerConfig}, ContainerId: containerId}
 
-		opts := []files.ListFileOption{
-			files.ListFilesWithContent(),
+		languages := request.Languages
+		if len(languages) == 0 {
+			languages, err = pm.detectLanguages(project)
+			if err != nil {
+				log.Error().Err(err).Msg("Failed to detect project languages")
+				removeProjectDir(projectPath)
+				c <- result.Failure[model.Project](fmt.Errorf("Failed to detect project languages: %w", err))
+				return
+			}
 		}
 
-		files, err := pm.fileManager.ListFiles(model.NewContextWithProject(context.Background(), &project), afero.NewBasePathFs(afero.NewOsFs(), projectPath), opts...)
-		if err != nil {
-			log.Error().Err(err).Msg("Failed to list files")
-			removeProjectDir(projectPath)
-			c <- result.Failure[model.Project](fmt.Errorf("Failed to list files: %w", err))
-			return
-		}
-
-		language := pm.languageDetector.DetectMainLanguage(files)
-		log.Debug().Msgf("Detected main language %s for project %s", language, projectId)
-
-		if err := pm.lspService.StartServer(model.NewContextWithProject(context.Background(), &project), language); err != nil {
-			log.Warn().Err(err).Msg("Failed to start LSP server. Diagnostics will not be available.")
+		for _, language := range languages {
+			if err := pm.lspService.StartServer(model.NewContextWithProject(context.Background(), &project), language); err != nil {
+				log.Warn().Err(err).Msg("Failed to start LSP server. Diagnostics will not be available.")
+			}
 		}
 
 		// Save project in store
@@ -559,6 +558,18 @@ func (pm ManagerImpl) getDiagnostics(ctx context.Context, file model.File, waitF
 	}
 
 	return diagnostics, nil
+}
+
+func (pm ManagerImpl) detectLanguages(project model.Project) ([]lsp.LanguageId, error) {
+	files, err := pm.fileManager.ListFiles(model.NewContextWithProject(context.Background(), &project), afero.NewBasePathFs(afero.NewOsFs(), project.Path), files.ListFilesWithContent())
+	if err != nil {
+		return nil, fmt.Errorf("failed to list files: %w", err)
+	}
+
+	// TODO: handle multiple main language
+	language := pm.languageDetector.DetectMainLanguage(files)
+	log.Debug().Msgf("Detected main language %s for project %s", language, project.Id)
+	return []lsp.LanguageId{language}, nil
 }
 
 func removeProjectDir(projectPath string) {

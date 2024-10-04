@@ -10,6 +10,7 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/go-playground/validator/v10"
 	"github.com/hide-org/hide/pkg/handlers"
 	"github.com/hide-org/hide/pkg/model"
 	"github.com/hide-org/hide/pkg/project"
@@ -18,12 +19,11 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-const repoUrl = "https://github.com/example/repo.git"
-
 func TestCreateProjectHandler(t *testing.T) {
 	tests := []struct {
 		name              string
 		createProjectFunc func(ctx context.Context, req project.CreateProjectRequest) <-chan result.Result[model.Project]
+		request           project.CreateProjectRequest
 		wantStatusCode    int
 		wantProject       *model.Project
 		wantError         string
@@ -35,6 +35,11 @@ func TestCreateProjectHandler(t *testing.T) {
 				ch <- result.Success(model.Project{Id: "123", Path: "/test/path"})
 				return ch
 			},
+			request: project.CreateProjectRequest{
+				Repository: project.Repository{
+					Url: "https://github.com/example/repo.git",
+				},
+			},
 			wantStatusCode: http.StatusCreated,
 			wantProject:    &model.Project{Id: "123", Path: "/test/path"},
 		},
@@ -45,8 +50,21 @@ func TestCreateProjectHandler(t *testing.T) {
 				ch <- result.Failure[model.Project](errors.New("Test error"))
 				return ch
 			},
+			request: project.CreateProjectRequest{
+				Repository: project.Repository{
+					Url: "https://github.com/example/repo.git",
+				},
+			},
 			wantStatusCode: http.StatusInternalServerError,
 			wantError:      "Failed to create project: Test error",
+		},
+		{
+			name: "validation error",
+			request: project.CreateProjectRequest{
+				Repository: project.Repository{},
+			},
+			wantStatusCode: http.StatusBadRequest,
+			wantError:      "Validation error: Key: 'CreateProjectRequest.Repository' Error:Field validation for 'Repository' failed on the 'required' tag",
 		},
 	}
 
@@ -56,11 +74,10 @@ func TestCreateProjectHandler(t *testing.T) {
 				CreateProjectFunc: tt.createProjectFunc,
 			}
 
-			handler := handlers.CreateProjectHandler{Manager: mockManager}
+			handler := handlers.CreateProjectHandler{Manager: mockManager, Validator: validator.New(validator.WithRequiredStructEnabled())}
 			router := handlers.NewRouter().WithCreateProjectHandler(handler).Build()
 
-			requestBody := project.CreateProjectRequest{Repository: project.Repository{Url: repoUrl}}
-			body, _ := json.Marshal(requestBody)
+			body, _ := json.Marshal(tt.request)
 			request, _ := http.NewRequest(http.MethodPost, "/projects", bytes.NewBuffer(body))
 			response := httptest.NewRecorder()
 

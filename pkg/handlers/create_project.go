@@ -5,11 +5,13 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/go-playground/validator/v10"
 	"github.com/hide-org/hide/pkg/project"
 )
 
 type CreateProjectHandler struct {
 	Manager project.Manager
+	Validator *validator.Validate
 }
 
 func (h CreateProjectHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -17,6 +19,23 @@ func (h CreateProjectHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 
 	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
 		http.Error(w, "Failed parsing request body", http.StatusBadRequest)
+		return
+	}
+
+	err := h.Validator.StructCtx(r.Context(), request)
+	if err != nil {
+
+		if _, ok := err.(*validator.InvalidValidationError); ok {
+			http.Error(w, fmt.Sprintf("Validation error: %s", err), http.StatusInternalServerError)
+			return
+		}
+
+		if errs, ok := err.(validator.ValidationErrors); ok {
+			http.Error(w, fmt.Sprintf("Validation error: %s", errs), http.StatusBadRequest)
+			return
+		}
+
+		http.Error(w, fmt.Sprintf("Unknown validation error: %s", err), http.StatusInternalServerError)
 		return
 	}
 
