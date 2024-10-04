@@ -22,7 +22,7 @@ func (h CreateProjectHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	err := h.Validator.Struct(request)
+	err := h.Validator.StructCtx(r.Context(), request)
 	if err != nil {
 
 		if _, ok := err.(*validator.InvalidValidationError); ok {
