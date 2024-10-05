@@ -212,6 +212,12 @@ func (pm ManagerImpl) DeleteProject(ctx context.Context, projectId string) <-cha
 			return
 		}
 
+		if err := pm.lspService.CleanupProject(ctx, projectId); err != nil {
+			log.Error().Err(err).Str("projectId", projectId).Msg("Failed to stop LSP server(s)")
+			c <- result.EmptyFailure(fmt.Errorf("Failed to stop LSP server(s): %w", err))
+			return
+		}
+
 		if err := pm.store.DeleteProject(projectId); err != nil {
 			log.Error().Err(err).Msgf("Failed to delete project %s", projectId)
 			c <- result.EmptyFailure(fmt.Errorf("Failed to delete project: %w", err))
@@ -283,6 +289,8 @@ func (pm ManagerImpl) Cleanup(ctx context.Context) error {
 		go func(p *model.Project) {
 			defer wg.Done()
 			log.Debug().Msgf("Cleaning up project %s", p.Id)
+
+			// TODO: use DeleteProject
 
 			if err := pm.devContainerRunner.Stop(ctx, p.ContainerId); err != nil {
 				errChan <- fmt.Errorf("Failed to stop container for project %s: %w", p.Id, err)
