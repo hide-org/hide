@@ -10,7 +10,6 @@ import (
 	"github.com/hide-org/hide/pkg/handlers"
 	"github.com/hide-org/hide/pkg/project"
 	"github.com/hide-org/hide/pkg/project/mocks"
-	"github.com/hide-org/hide/pkg/result"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -18,17 +17,15 @@ func TestDeleteProjectHandler_ServeHTTP(t *testing.T) {
 	tests := []struct {
 		name                  string
 		target                string
-		mockDeleteProjectFunc func(ctx context.Context, projectId string) <-chan result.Empty
+		mockDeleteProjectFunc func(ctx context.Context, projectId string) error
 		wantStatusCode        int
 		wantBody              string
 	}{
 		{
 			name:   "successful deletion",
 			target: "/projects/123",
-			mockDeleteProjectFunc: func(ctx context.Context, projectId string) <-chan result.Empty {
-				ch := make(chan result.Empty, 1)
-				ch <- result.EmptySuccess()
-				return ch
+			mockDeleteProjectFunc: func(ctx context.Context, projectId string) error {
+				return nil
 			},
 			wantStatusCode: http.StatusNoContent,
 			wantBody:       "",
@@ -36,10 +33,8 @@ func TestDeleteProjectHandler_ServeHTTP(t *testing.T) {
 		{
 			name:   "project not found",
 			target: "/projects/123",
-			mockDeleteProjectFunc: func(ctx context.Context, projectId string) <-chan result.Empty {
-				ch := make(chan result.Empty, 1)
-				ch <- result.EmptyFailure(project.NewProjectNotFoundError(projectId))
-				return ch
+			mockDeleteProjectFunc: func(ctx context.Context, projectId string) error {
+				return project.NewProjectNotFoundError(projectId)
 			},
 			wantStatusCode: http.StatusNotFound,
 			wantBody:       "project 123 not found\n",
@@ -47,10 +42,8 @@ func TestDeleteProjectHandler_ServeHTTP(t *testing.T) {
 		{
 			name:   "internal server error",
 			target: "/projects/123",
-			mockDeleteProjectFunc: func(ctx context.Context, projectId string) <-chan result.Empty {
-				ch := make(chan result.Empty, 1)
-				ch <- result.EmptyFailure(errors.New("internal error"))
-				return ch
+			mockDeleteProjectFunc: func(ctx context.Context, projectId string) error {
+				return errors.New("internal error")
 			},
 			wantStatusCode: http.StatusInternalServerError,
 			wantBody:       "Failed to delete project: internal error\n",

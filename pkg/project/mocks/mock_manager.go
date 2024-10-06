@@ -19,7 +19,7 @@ type MockProjectManager struct {
 	CreateProjectFunc    func(ctx context.Context, request project.CreateProjectRequest) <-chan result.Result[model.Project]
 	CreateTaskFunc       func(ctx context.Context, projectId string, command string) (project.TaskResult, error)
 	DeleteFileFunc       func(ctx context.Context, projectId, path string) error
-	DeleteProjectFunc    func(ctx context.Context, projectId string) <-chan result.Empty
+	DeleteProjectFunc    func(ctx context.Context, projectId string) error
 	GetProjectFunc       func(ctx context.Context, projectId string) (model.Project, error)
 	GetProjectsFunc      func(ctx context.Context) ([]*model.Project, error)
 	ListFilesFunc        func(ctx context.Context, projectId string, opts ...files.ListFileOption) ([]*model.File, error)
@@ -42,7 +42,7 @@ func (m *MockProjectManager) GetProjects(ctx context.Context) ([]*model.Project,
 	return m.GetProjectsFunc(ctx)
 }
 
-func (m *MockProjectManager) DeleteProject(ctx context.Context, projectId string) <-chan result.Empty {
+func (m *MockProjectManager) DeleteProject(ctx context.Context, projectId string) error {
 	return m.DeleteProjectFunc(ctx, projectId)
 }
 

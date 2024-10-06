@@ -49,7 +49,7 @@ type Manager interface {
 	CreateProject(ctx context.Context, request CreateProjectRequest) <-chan result.Result[model.Project]
 	CreateTask(ctx context.Context, projectId model.ProjectId, command string) (TaskResult, error)
 	DeleteFile(ctx context.Context, projectId, path string) error
-	DeleteProject(ctx context.Context, projectId model.ProjectId) <-chan result.Empty
+	DeleteProject(ctx context.Context, projectId model.ProjectId) error
 	GetProject(ctx context.Context, projectId model.ProjectId) (model.Project, error)
 	GetProjects(ctx context.Context) ([]*model.Project, error)
 	ListFiles(ctx context.Context, projectId string, opts ...files.ListFileOption) ([]*model.File, error)
@@ -193,43 +193,33 @@ func (pm ManagerImpl) GetProjects(ctx context.Context) ([]*model.Project, error)
 	return projects, nil
 }
 
-func (pm ManagerImpl) DeleteProject(ctx context.Context, projectId string) <-chan result.Empty {
-	c := make(chan result.Empty)
+func (pm ManagerImpl) DeleteProject(ctx context.Context, projectId string) error {
+	log.Debug().Msgf("Deleting project %s", projectId)
 
-	go func() {
-		log.Debug().Msgf("Deleting project %s", projectId)
+	project, err := pm.GetProject(ctx, projectId)
+	if err != nil {
+		log.Error().Err(err).Msgf("Failed to get project with id %s", projectId)
+		return fmt.Errorf("Failed to get project with id %s: %w", projectId, err)
+	}
 
-		project, err := pm.GetProject(ctx, projectId)
-		if err != nil {
-			log.Error().Err(err).Msgf("Failed to get project with id %s", projectId)
-			c <- result.EmptyFailure(fmt.Errorf("Failed to get project with id %s: %w", projectId, err))
-			return
-		}
+	if err := pm.devContainerRunner.Stop(ctx, project.ContainerId); err != nil {
+		log.Error().Err(err).Msgf("Failed to stop container %s", project.ContainerId)
+		return fmt.Errorf("Failed to stop container: %w", err)
+	}
 
-		if err := pm.devContainerRunner.Stop(ctx, project.ContainerId); err != nil {
-			log.Error().Err(err).Msgf("Failed to stop container %s", project.ContainerId)
-			c <- result.EmptyFailure(fmt.Errorf("Failed to stop container: %w", err))
-			return
-		}
+	if err := pm.lspService.CleanupProject(ctx, projectId); err != nil {
+		log.Error().Err(err).Str("projectId", projectId).Msg("Failed to stop LSP server(s)")
+		return fmt.Errorf("Failed to stop LSP server(s): %w", err)
+	}
 
-		if err := pm.lspService.CleanupProject(ctx, projectId); err != nil {
-			log.Error().Err(err).Str("projectId", projectId).Msg("Failed to stop LSP server(s)")
-			c <- result.EmptyFailure(fmt.Errorf("Failed to stop LSP server(s): %w", err))
-			return
-		}
+	if err := pm.store.DeleteProject(projectId); err != nil {
+		log.Error().Err(err).Msgf("Failed to delete project %s", projectId)
+		return fmt.Errorf("Failed to delete project: %w", err)
+	}
 
-		if err := pm.store.DeleteProject(projectId); err != nil {
-			log.Error().Err(err).Msgf("Failed to delete project %s", projectId)
-			c <- result.EmptyFailure(fmt.Errorf("Failed to delete project: %w", err))
-			return
-		}
+	log.Debug().Msgf("Deleted project %s", projectId)
 
-		log.Debug().Msgf("Deleted project %s", projectId)
-
-		c <- result.EmptySuccess()
-	}()
-
-	return c
+	return nil
 }
 
 func (pm ManagerImpl) ResolveTaskAlias(ctx context.Context, projectId string, alias string) (devcontainer.Task, error) {
@@ -288,24 +278,10 @@ func (pm ManagerImpl) Cleanup(ctx context.Context) error {
 		wg.Add(1)
 		go func(p *model.Project) {
 			defer wg.Done()
-			log.Debug().Msgf("Cleaning up project %s", p.Id)
-
-			// TODO: use DeleteProject
-
-			if err := pm.devContainerRunner.Stop(ctx, p.ContainerId); err != nil {
-				errChan <- fmt.Errorf("Failed to stop container for project %s: %w", p.Id, err)
-				return
+			if err := pm.DeleteProject(ctx, p.Id); err != nil {
+				errChan <- err
 			}
-
-			if err := pm.lspService.CleanupProject(ctx, p.Id); err != nil {
-				errChan <- fmt.Errorf("Failed to cleanup LSP for project %s: %w", p.Id, err)
-				return
-			}
-
-			if err := pm.store.DeleteProject(p.Id); err != nil {
-				errChan <- fmt.Errorf("Failed to delete project %s: %w", p.Id, err)
-				return
-			}
+			return
 		}(project)
 	}
 
