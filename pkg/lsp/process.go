@@ -19,6 +19,7 @@ type Process interface {
 	Start() error
 	Stop() error
 	ReadWriteCloser() io.ReadWriteCloser
+	Wait() error
 }
 
 type readWriteCloser struct {
@@ -72,4 +73,8 @@ func (p *ProcessImpl) Stop() error {
 
 func (p *ProcessImpl) ReadWriteCloser() io.ReadWriteCloser {
 	return p.rwc
+}
+
+func (p *ProcessImpl) Wait() error {
+	return p.cmd.Wait()
 }
