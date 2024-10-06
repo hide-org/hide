@@ -1,20 +1,20 @@
-package frmtr
+package model
 
 import (
 	"sort"
 	"strings"
 )
 
-type Files []string
+type Files []*File
 
-func (f Files) String() string {
+func (fs Files) String() string {
 	root := &node{
 		name:     ".",
 		children: make(map[string]*node),
 	}
 
-	for _, path := range f {
-		parts := strings.Split(path, "/") // TODO:
+	for _, f := range fs {
+		parts := strings.Split(f.Path, "/")
 		root.addPath(parts)
 	}
 

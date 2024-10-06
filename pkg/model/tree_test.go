@@ -1,19 +1,17 @@
-package frmtr_test
+package model
 
 import (
 	"testing"
-
-	"github.com/hide-org/hide/pkg/frmtr"
 )
 
 func TestFilesString(t *testing.T) {
-	var paths frmtr.Files = []string{
-		"home/user/documents/reports/2024/report1.txt",
-		"home/user/documents/reports/2024/report2.txt",
-		"home/user/documents/reports/2023/report1.txt",
-		"home/user/pictures/vacation/2023/photo1.jpg",
-		"home/user/pictures/vacation/2023/photo2.jpg",
-		"home/user/pictures/vacation/2022/photo1.jpg",
+	var paths Files = []*File{
+		{Path: "home/user/documents/reports/2024/report1.txt"},
+		{Path: "home/user/documents/reports/2024/report2.txt"},
+		{Path: "home/user/documents/reports/2023/report1.txt"},
+		{Path: "home/user/pictures/vacation/2023/photo1.jpg"},
+		{Path: "home/user/pictures/vacation/2023/photo2.jpg"},
+		{Path: "home/user/pictures/vacation/2022/photo1.jpg"},
 	}
 
 	want := `.
