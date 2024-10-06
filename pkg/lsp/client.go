@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 
+	"github.com/rs/zerolog/log"
 	"github.com/sourcegraph/jsonrpc2"
 
 	protocol "github.com/tliron/glsp/protocol_3_16"
@@ -82,7 +83,18 @@ func (c *ClientImpl) NotifyDidClose(ctx context.Context, params protocol.DidClos
 // }
 
 func (c *ClientImpl) Shutdown(ctx context.Context) error {
-	err := c.server.Stop()
+	err := c.conn.Call(ctx, "shutdown", nil, nil)
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to shutdown LSP server")
+		return err
+	}
+
+	err = c.conn.Notify(ctx, "exit", nil)
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to notify exit")
+		return err
+	}
+
 	close(c.diagnosticsChannel)
-	return err
+	return c.server.Wait()
 }
