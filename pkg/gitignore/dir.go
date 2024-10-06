@@ -99,6 +99,7 @@ func readDir(fs afero.Fs, dir string) ([]os.FileInfo, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer d.Close()
 
 	return d.Readdir(0)
 }
