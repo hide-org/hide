@@ -39,7 +39,7 @@ type Service interface {
 type ServiceImpl struct {
 	languageDetector     LanguageDetector
 	clientPool           ClientPool
-	diagnosticsStore     *DiagnosticsStore
+	diagnosticsService   *DiagnosticsService
 	lspServerExecutables map[LanguageId]Command
 }
 
@@ -115,9 +115,7 @@ func (s *ServiceImpl) StartServer(ctx context.Context, languageId LanguageId) er
 	}
 
 	s.clientPool.Set(projectId, languageId, client)
-
-	// TODO: kill this goroutine when the project is deleted
-	go s.listenForDiagnostics(projectId, diagnosticsChannel)
+	s.diagnosticsService.StartListener(projectId, languageId, diagnosticsChannel)
 	return nil
 }
 
@@ -141,6 +139,9 @@ func (s *ServiceImpl) StopServer(ctx context.Context, languageId LanguageId) err
 	}
 
 	s.clientPool.Delete(project.Id, languageId)
+	s.diagnosticsService.StopListener(project.Id, languageId)
+	// TODO: do we need this?
+	// s.diagnosticsManager.DeleteAllForLanguage(project.Id, languageId)
 
 	return nil
 }
@@ -280,7 +281,7 @@ func (s *ServiceImpl) GetDiagnostics(ctx context.Context, file model.File) ([]pr
 	}
 
 	uri := PathToURI(filepath.Join(project.Path, file.Path))
-	if diagnostics, ok := s.diagnosticsStore.Get(project.Id, uri); ok {
+	if diagnostics, ok := s.diagnosticsService.Get(project.Id, uri); ok {
 		return diagnostics, nil
 	}
 
@@ -300,7 +301,7 @@ func (s *ServiceImpl) CleanupProject(ctx context.Context, projectId ProjectId) e
 	}
 
 	s.clientPool.DeleteAllForProject(projectId)
-	s.diagnosticsStore.DeleteAllForProject(projectId)
+	s.diagnosticsService.DeleteAllForProject(projectId)
 	return nil
 }
 
@@ -336,31 +337,15 @@ func (s *ServiceImpl) getClients(ctx context.Context) []Client {
 	return clients
 }
 
-func (s *ServiceImpl) listenForDiagnostics(projectId ProjectId, channel chan protocol.PublishDiagnosticsParams) {
-	for {
-		select {
-		case diagnostics := <-channel:
-			log.Debug().Str("projectId", projectId).Str("uri", diagnostics.URI).Msg("Received diagnostics")
-			log.Debug().Str("projectId", projectId).Str("uri", diagnostics.URI).Msgf("Diagnostics: %+v", diagnostics.Diagnostics)
-
-			s.updateDiagnostics(projectId, diagnostics)
-		}
-	}
-}
-
-func (s *ServiceImpl) updateDiagnostics(projectId ProjectId, diagnostics protocol.PublishDiagnosticsParams) {
-	s.diagnosticsStore.Set(projectId, diagnostics.URI, diagnostics.Diagnostics)
-}
-
 func PathToURI(path string) protocol.DocumentUri {
 	return protocol.DocumentUri("file://" + path)
 }
 
-func NewService(languageDetector LanguageDetector, lspServerExecutables map[LanguageId]Command, diagnosticsStore *DiagnosticsStore, clientPool ClientPool) Service {
+func NewService(languageDetector LanguageDetector, lspServerExecutables map[LanguageId]Command, diagnosticsService *DiagnosticsService, clientPool ClientPool) Service {
 	return &ServiceImpl{
 		languageDetector:     languageDetector,
 		clientPool:           clientPool,
-		diagnosticsStore:     diagnosticsStore,
+		diagnosticsService:   diagnosticsService,
 		lspServerExecutables: lspServerExecutables,
 	}
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 
+	"github.com/rs/zerolog/log"
 	"github.com/sourcegraph/jsonrpc2"
 
 	protocol "github.com/tliron/glsp/protocol_3_16"
@@ -44,6 +45,7 @@ type ClientImpl struct {
 func NewClient(server Process, diagnosticsChannel chan protocol.PublishDiagnosticsParams) Client {
 	handler := &lspHandler{
 		diagnosticsHandler: func(params protocol.PublishDiagnosticsParams) {
+			log.Debug().Msgf("Handling diagnostics: %+v", params)
 			diagnosticsChannel <- params
 		},
 	}
@@ -83,6 +85,5 @@ func (c *ClientImpl) NotifyDidClose(ctx context.Context, params protocol.DidClos
 
 func (c *ClientImpl) Shutdown(ctx context.Context) error {
 	err := c.server.Stop()
-	close(c.diagnosticsChannel)
 	return err
 }
