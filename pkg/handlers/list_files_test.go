@@ -21,15 +21,15 @@ func TestListFilesHandler_ServeHTTP(t *testing.T) {
 	tests := []struct {
 		name              string
 		target            string
-		mockListFilesFunc func(ctx context.Context, projectId string, opts ...files.ListFileOption) ([]*model.File, error)
+		mockListFilesFunc func(ctx context.Context, projectId string, opts ...files.ListFileOption) (model.Files, error)
 		wantStatusCode    int
 		wantBody          string
 	}{
 		{
 			name:   "successful listing",
 			target: "/projects/123/files",
-			mockListFilesFunc: func(ctx context.Context, projectId string, opts ...files.ListFileOption) ([]*model.File, error) {
-				return []*model.File{
+			mockListFilesFunc: func(ctx context.Context, projectId string, opts ...files.ListFileOption) (model.Files, error) {
+				return model.Files{
 					model.EmptyFile("file1.txt"),
 					model.EmptyFile("file2.txt"),
 				}, nil
@@ -40,8 +40,8 @@ func TestListFilesHandler_ServeHTTP(t *testing.T) {
 		{
 			name:   "successful listing with hidden",
 			target: "/projects/123/files?showHidden",
-			mockListFilesFunc: func(ctx context.Context, projectId string, opts ...files.ListFileOption) ([]*model.File, error) {
-				return []*model.File{
+			mockListFilesFunc: func(ctx context.Context, projectId string, opts ...files.ListFileOption) (model.Files, error) {
+				return model.Files{
 					model.EmptyFile("file1.txt"),
 					model.EmptyFile("file2.txt"),
 				}, nil
@@ -52,7 +52,7 @@ func TestListFilesHandler_ServeHTTP(t *testing.T) {
 		{
 			name:   "successful listing with filtering",
 			target: "/projects/123/files?&include=*.txt&include=*.json&exclude=file1",
-			mockListFilesFunc: func(ctx context.Context, projectId string, opts ...files.ListFileOption) ([]*model.File, error) {
+			mockListFilesFunc: func(ctx context.Context, projectId string, opts ...files.ListFileOption) (model.Files, error) {
 				// check expectations of filter
 				if diff := mockfiles.DiffListFilesOpts(
 					files.ListFilesOptions{
@@ -65,7 +65,7 @@ func TestListFilesHandler_ServeHTTP(t *testing.T) {
 					return nil, fmt.Errorf("filter does not match, diff %s", diff)
 				}
 
-				return []*model.File{
+				return model.Files{
 					model.EmptyFile("file2.txt"),
 					model.EmptyFile("file2.json"),
 				}, nil
@@ -76,7 +76,7 @@ func TestListFilesHandler_ServeHTTP(t *testing.T) {
 		{
 			name:   "project not found",
 			target: "/projects/123/files",
-			mockListFilesFunc: func(ctx context.Context, projectId string, opts ...files.ListFileOption) ([]*model.File, error) {
+			mockListFilesFunc: func(ctx context.Context, projectId string, opts ...files.ListFileOption) (model.Files, error) {
 				return nil, project.NewProjectNotFoundError(projectId)
 			},
 			wantStatusCode: http.StatusNotFound,
@@ -85,7 +85,7 @@ func TestListFilesHandler_ServeHTTP(t *testing.T) {
 		{
 			name:   "internal server error",
 			target: "/projects/123/files",
-			mockListFilesFunc: func(ctx context.Context, projectId string, opts ...files.ListFileOption) ([]*model.File, error) {
+			mockListFilesFunc: func(ctx context.Context, projectId string, opts ...files.ListFileOption) (model.Files, error) {
 				return nil, errors.New("internal error")
 			},
 			wantStatusCode: http.StatusInternalServerError,

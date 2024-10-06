@@ -149,7 +149,7 @@ func TestSearchFileHandler(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			h := handlers.SearchFilesHandler{
 				ProjectManager: &mocks.MockProjectManager{
-					ListFilesFunc: func(ctx context.Context, projectId string, opts ...files.ListFileOption) ([]*model.File, error) {
+					ListFilesFunc: func(ctx context.Context, projectId string, opts ...files.ListFileOption) (model.Files, error) {
 						diff := mockfiles.DiffListFilesOpts(files.ListFilesOptions{
 							WithContent: true,
 							Filter:      tt.wantFilter,

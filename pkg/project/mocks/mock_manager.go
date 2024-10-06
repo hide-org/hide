@@ -22,7 +22,7 @@ type MockProjectManager struct {
 	DeleteProjectFunc    func(ctx context.Context, projectId string) error
 	GetProjectFunc       func(ctx context.Context, projectId string) (model.Project, error)
 	GetProjectsFunc      func(ctx context.Context) ([]*model.Project, error)
-	ListFilesFunc        func(ctx context.Context, projectId string, opts ...files.ListFileOption) ([]*model.File, error)
+	ListFilesFunc        func(ctx context.Context, projectId string, opts ...files.ListFileOption) (model.Files, error)
 	ReadFileFunc         func(ctx context.Context, projectId, path string) (*model.File, error)
 	ResolveTaskAliasFunc func(ctx context.Context, projectId string, alias string) (devcontainer.Task, error)
 	SearchSymbolsFunc    func(ctx context.Context, projectId model.ProjectId, query string, symbolFilter lsp.SymbolFilter) ([]lsp.SymbolInfo, error)
@@ -74,7 +74,7 @@ func (m *MockProjectManager) DeleteFile(ctx context.Context, projectId, path str
 	return m.DeleteFileFunc(ctx, projectId, path)
 }
 
-func (m *MockProjectManager) ListFiles(ctx context.Context, projectId string, opts ...files.ListFileOption) ([]*model.File, error) {
+func (m *MockProjectManager) ListFiles(ctx context.Context, projectId string, opts ...files.ListFileOption) (model.Files, error) {
 	return m.ListFilesFunc(ctx, projectId, opts...)
 }
 

@@ -52,7 +52,7 @@ type Manager interface {
 	DeleteProject(ctx context.Context, projectId model.ProjectId) error
 	GetProject(ctx context.Context, projectId model.ProjectId) (model.Project, error)
 	GetProjects(ctx context.Context) ([]*model.Project, error)
-	ListFiles(ctx context.Context, projectId string, opts ...files.ListFileOption) ([]*model.File, error)
+	ListFiles(ctx context.Context, projectId string, opts ...files.ListFileOption) (model.Files, error)
 	ReadFile(ctx context.Context, projectId, path string) (*model.File, error)
 	ResolveTaskAlias(ctx context.Context, projectId model.ProjectId, alias string) (devcontainer.Task, error)
 	SearchSymbols(ctx context.Context, projectId model.ProjectId, query string, symbolFilter lsp.SymbolFilter) ([]lsp.SymbolInfo, error)
@@ -390,7 +390,7 @@ func (pm ManagerImpl) DeleteFile(ctx context.Context, projectId, path string) er
 	return pm.fileManager.DeleteFile(model.NewContextWithProject(ctx, &project), afero.NewBasePathFs(afero.NewOsFs(), project.Path), path)
 }
 
-func (pm ManagerImpl) ListFiles(ctx context.Context, projectId string, opts ...files.ListFileOption) ([]*model.File, error) {
+func (pm ManagerImpl) ListFiles(ctx context.Context, projectId string, opts ...files.ListFileOption) (model.Files, error) {
 	log.Debug().Str("projectId", projectId).Msg("Listing files")
 
 	project, err := pm.GetProject(ctx, projectId)
