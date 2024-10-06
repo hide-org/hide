@@ -1,6 +1,7 @@
 package model
 
 import (
+	"fmt"
 	"testing"
 )
 
@@ -33,7 +34,8 @@ func TestFilesString(t *testing.T) {
                     └── photo2.jpg
 `
 
-	if got := paths.String(); got != want {
+	// checks that type works as string for formaters
+	if got := fmt.Sprintf("%s", paths); got != want {
 		t.Errorf("got:\n%s\nwant:\n%s", got, want)
 	}
 }
