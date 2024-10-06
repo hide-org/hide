@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"os/exec"
+	"syscall"
 )
 
 type Command struct {
@@ -36,12 +37,17 @@ func (rwc *readWriteCloser) Close() error {
 }
 
 type ProcessImpl struct {
-	cmd *exec.Cmd
-	rwc io.ReadWriteCloser
+	cmd  *exec.Cmd
+	rwc  io.ReadWriteCloser
+	pgid int
 }
 
 func NewProcess(command Command) (Process, error) {
 	cmd := exec.Command(command.name, command.args...)
+
+	// Set up process group
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+
 	stdin, err := cmd.StdinPipe()
 
 	if err != nil {
@@ -60,14 +66,32 @@ func NewProcess(command Command) (Process, error) {
 }
 
 func (p *ProcessImpl) Start() error {
-	return p.cmd.Start()
+	err := p.cmd.Start()
+	if err != nil {
+		return err
+	}
+
+	// Get the process group ID
+	p.pgid, err = syscall.Getpgid(p.cmd.Process.Pid)
+	if err != nil {
+		return fmt.Errorf("Failed to get process group ID: %w", err)
+	}
+
+	return nil
 }
 
 func (p *ProcessImpl) Stop() error {
 	if p.cmd.Process == nil {
 		return nil
 	}
-	return p.cmd.Process.Kill()
+	// Kill the entire process group
+	err := syscall.Kill(-p.pgid, syscall.SIGKILL)
+	if err != nil {
+		return fmt.Errorf("Failed to kill process group: %w", err)
+	}
+
+	// return p.cmd.Wait()
+	return nil
 }
 
 func (p *ProcessImpl) ReadWriteCloser() io.ReadWriteCloser {
