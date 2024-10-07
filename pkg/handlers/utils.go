@@ -7,8 +7,8 @@ import (
 	"net/url"
 	"strconv"
 
-	"github.com/hide-org/hide/pkg/files"
 	"github.com/gorilla/mux"
+	"github.com/hide-org/hide/pkg/files"
 )
 
 func getProjectID(r *http.Request) (string, error) {
@@ -63,4 +63,8 @@ func parseIntQueryParam(params url.Values, paramName string) (int, bool, error) 
 	}
 
 	return value, true, nil
+}
+
+func getFormatAsString(r *http.Request) bool {
+	return r.URL.Query().Has("asString")
 }
