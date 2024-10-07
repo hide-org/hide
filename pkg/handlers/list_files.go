@@ -38,6 +38,13 @@ func (h ListFilesHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if getAcceptFormat(r) == "text/plain" {
+		w.Header().Set("Content-Type", "text/plain")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(files.String()))
+		return
+	}
+
 	var response []FileInfo
 
 	for _, file := range files {
