@@ -24,6 +24,7 @@ func TestListFilesHandler_ServeHTTP(t *testing.T) {
 		mockListFilesFunc func(ctx context.Context, projectId string, opts ...files.ListFileOption) (model.Files, error)
 		wantStatusCode    int
 		wantBody          string
+		asText            bool
 	}{
 		{
 			name:   "successful listing",
@@ -36,6 +37,19 @@ func TestListFilesHandler_ServeHTTP(t *testing.T) {
 			},
 			wantStatusCode: http.StatusOK,
 			wantBody:       `[{"path":"file1.txt"},{"path":"file2.txt"}]`,
+		},
+		{
+			name:   "successful listing as text",
+			target: "/projects/123/files",
+			mockListFilesFunc: func(ctx context.Context, projectId string, opts ...files.ListFileOption) (model.Files, error) {
+				return model.Files{
+					model.EmptyFile("file1.txt"),
+					model.EmptyFile("file2.txt"),
+				}, nil
+			},
+			wantStatusCode: http.StatusOK,
+			asText:         true,
+			wantBody:       ".\n├── file1.txt\n└── file2.txt\n",
 		},
 		{
 			name:   "successful listing with hidden",
@@ -106,6 +120,9 @@ func TestListFilesHandler_ServeHTTP(t *testing.T) {
 			router := handlers.NewRouter().WithListFilesHandler(handler).Build()
 
 			req := httptest.NewRequest(http.MethodGet, tt.target, nil)
+			if tt.asText {
+				req.Header.Add("Accept", "text/plain")
+			}
 			rr := httptest.NewRecorder()
 
 			router.ServeHTTP(rr, req)
