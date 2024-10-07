@@ -65,6 +65,6 @@ func parseIntQueryParam(params url.Values, paramName string) (int, bool, error) 
 	return value, true, nil
 }
 
-func getFormatAsString(r *http.Request) bool {
-	return r.URL.Query().Has("asString")
+func getAcceptFormat(r *http.Request) string {
+	return r.Header.Get("Accept")
 }
