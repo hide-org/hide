@@ -146,6 +146,7 @@ func (s *ServiceImpl) StopServer(ctx context.Context, languageId LanguageId) err
 
 	s.clientPool.Delete(project.Id, languageId)
 	s.done <- struct{}{} // shut down listenForDiagnostics
+	close(s.done)        // sender must close the channel
 
 	return nil
 }
@@ -350,8 +351,6 @@ func (s *ServiceImpl) listenForDiagnostics(projectId ProjectId, channel chan pro
 
 			s.updateDiagnostics(projectId, diagnostics)
 		case <-done:
-			// sender must close the channel
-			close(done)
 			return
 		}
 	}
