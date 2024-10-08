@@ -47,6 +47,7 @@ func NewClient(server Process, diagnosticsChannel chan protocol.PublishDiagnosti
 	handler := &lspHandler{
 		diagnosticsHandler: func(params protocol.PublishDiagnosticsParams) {
 			diagnosticsChannel <- params
+			// TODO: let's see if that can cause issues, typically sender closes the chanel
 		},
 	}
 
