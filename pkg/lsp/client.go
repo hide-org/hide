@@ -103,6 +103,5 @@ func (c *ClientImpl) Shutdown(ctx context.Context) error {
 		return err
 	}
 
-	close(c.diagnosticsChannel)
 	return c.server.Wait()
 }

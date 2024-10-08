@@ -351,6 +351,8 @@ func (s *ServiceImpl) listenForDiagnostics(projectId ProjectId, channel chan pro
 
 			s.updateDiagnostics(projectId, diagnostics)
 		case <-done:
+			// TODO: probably no the best place
+			close(channel)
 			return
 		}
 	}
