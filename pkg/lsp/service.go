@@ -307,6 +307,10 @@ func (s *ServiceImpl) CleanupProject(ctx context.Context, projectId ProjectId) e
 
 	s.clientPool.DeleteAllForProject(projectId)
 	s.diagnosticsStore.DeleteAllForProject(projectId)
+
+	s.done <- struct{}{} // shut down listenForDiagnostics
+	close(s.done)        // sender must close the channel
+
 	return nil
 }
 
