@@ -1,0 +1,22 @@
+meta {
+  name: create_file
+  type: http
+  seq: 5
+}
+
+post {
+  url: http://localhost:8080/projects/{{project}}/files
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+      "path": "hello/world.py",
+      "content": "def hello():\n    print('hello world!')"
+  }
+}
+
+vars:pre-request {
+  project: FILL_ME
+}

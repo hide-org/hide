@@ -1,0 +1,15 @@
+meta {
+  name: delete_project
+  type: http
+  seq: 10
+}
+
+delete {
+  url: http://localhost:8080/projects/{{project}}
+  body: none
+  auth: none
+}
+
+vars:pre-request {
+  project: FILL_ME
+}

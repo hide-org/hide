@@ -1,0 +1,20 @@
+meta {
+  name: search
+  type: http
+  seq: 11
+}
+
+get {
+  url: http://localhost:8080/projects/{{project}}/search?type=file&query=hello
+  body: none
+  auth: none
+}
+
+params:query {
+  type: file
+  query: hello
+}
+
+vars:pre-request {
+  project: FILL_ME
+}

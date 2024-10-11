@@ -1,0 +1,15 @@
+meta {
+  name: list_files
+  type: http
+  seq: 6
+}
+
+get {
+  url: http://localhost:8080/projects/{{project}}/files
+  body: none
+  auth: none
+}
+
+vars:pre-request {
+  project: FILL_ME
+}
