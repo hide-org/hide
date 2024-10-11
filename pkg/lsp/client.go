@@ -17,13 +17,19 @@ type lspHandler struct {
 func (h *lspHandler) Handle(ctx context.Context, conn *jsonrpc2.Conn, req *jsonrpc2.Request) (result interface{}, err error) {
 	switch req.Method {
 	case "textDocument/publishDiagnostics":
-		var params protocol.PublishDiagnosticsParams
-		if err := json.Unmarshal(*req.Params, &params); err != nil {
-			return nil, err
+		select {
+		case <-ctx.Done():
+			return nil, nil
+		default:
+			var params protocol.PublishDiagnosticsParams
+			if err := json.Unmarshal(*req.Params, &params); err != nil {
+				return nil, err
+			}
+      // Handler will block until completion, enables faster unblocking
+      go h.diagnosticsHandler(params)
 		}
-		// Handler will block until completion, enables faster unblocking
-		go h.diagnosticsHandler(params)
 	}
+
 	return nil, nil
 }
 
@@ -43,14 +49,18 @@ type ClientImpl struct {
 	diagnosticsChannel chan protocol.PublishDiagnosticsParams
 }
 
-func NewClient(server Process, diagnosticsChannel chan protocol.PublishDiagnosticsParams) Client {
+type Diagnostics <-chan protocol.PublishDiagnosticsParams
+
+func NewClient(server Process) (Client, Diagnostics) {
+	d := make(chan protocol.PublishDiagnosticsParams)
+
 	handler := &lspHandler{
 		diagnosticsHandler: func(params protocol.PublishDiagnosticsParams) {
-			diagnosticsChannel <- params
+			d <- params
 		},
 	}
 	conn := NewConnection(context.Background(), server.ReadWriteCloser(), jsonrpc2.HandlerWithError(handler.Handle))
-	return &ClientImpl{conn: conn, server: server, diagnosticsChannel: diagnosticsChannel}
+	return &ClientImpl{conn: conn, server: server, diagnosticsChannel: d}, d
 }
 
 func (c *ClientImpl) GetWorkspaceSymbols(ctx context.Context, params protocol.WorkspaceSymbolParams) ([]protocol.SymbolInformation, error) {
@@ -97,5 +107,6 @@ func (c *ClientImpl) Shutdown(ctx context.Context) error {
 	}
 
 	close(c.diagnosticsChannel)
+
 	return c.server.Wait()
 }

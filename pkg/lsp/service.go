@@ -11,11 +11,13 @@ import (
 	protocol "github.com/tliron/glsp/protocol_3_16"
 )
 
-type ProjectId = string
-type LanguageId = string
-type ProjectRoot = string
-type LspClientStore = map[ProjectId]map[LanguageId]Client
-type LspDiagnostics = map[ProjectId]map[protocol.DocumentUri][]protocol.Diagnostic
+type (
+	ProjectId      = string
+	LanguageId     = string
+	ProjectRoot    = string
+	LspClientStore = map[ProjectId]map[LanguageId]Client
+	LspDiagnostics = map[ProjectId]map[protocol.DocumentUri][]protocol.Diagnostic
+)
 
 var LspServerExecutables = map[LanguageId]Command{
 	Go:         NewCommand("gopls", []string{}),
@@ -70,11 +72,8 @@ func (s *ServiceImpl) StartServer(ctx context.Context, languageId LanguageId) er
 		return fmt.Errorf("Failed to start language server: %w", err)
 	}
 
-	// Create a channel for diagnostics
-	diagnosticsChannel := make(chan protocol.PublishDiagnosticsParams)
-
 	// Create a client for the language server
-	client := NewClient(process, diagnosticsChannel)
+	client, diagnostics := NewClient(process)
 
 	// Initialize the language server
 	root := PathToURI(project.Path)
@@ -94,7 +93,6 @@ func (s *ServiceImpl) StartServer(ctx context.Context, languageId LanguageId) er
 			},
 		},
 	})
-
 	if err != nil {
 		log.Error().Str("languageId", languageId).Str("projectId", projectId).Err(err).Msg("Failed to initialize language server")
 		return fmt.Errorf("Failed to initialize language server: %w", err)
@@ -117,7 +115,7 @@ func (s *ServiceImpl) StartServer(ctx context.Context, languageId LanguageId) er
 	s.clientPool.Set(projectId, languageId, client)
 
 	// TODO: kill this goroutine when the project is deleted
-	go s.listenForDiagnostics(projectId, diagnosticsChannel)
+	go s.listenForDiagnostics(projectId, diagnostics)
 	return nil
 }
 
@@ -336,16 +334,18 @@ func (s *ServiceImpl) getClients(ctx context.Context) []Client {
 	return clients
 }
 
-func (s *ServiceImpl) listenForDiagnostics(projectId ProjectId, channel chan protocol.PublishDiagnosticsParams) {
-	for {
-		select {
-		case diagnostics := <-channel:
-			log.Debug().Str("projectId", projectId).Str("uri", diagnostics.URI).Msg("Received diagnostics")
-			log.Debug().Str("projectId", projectId).Str("uri", diagnostics.URI).Msgf("Diagnostics: %+v", diagnostics.Diagnostics)
+func (s *ServiceImpl) listenForDiagnostics(projectId ProjectId, channel <-chan protocol.PublishDiagnosticsParams) {
+	log.Debug().Str("projectId", projectId).Msg("Start listening")
 
-			s.updateDiagnostics(projectId, diagnostics)
-		}
+	// reads fro chanel util it is closed
+	for diagnostics := range channel {
+		log.Debug().Str("projectId", projectId).Str("uri", diagnostics.URI).Msg("Received diagnostics")
+		log.Debug().Str("projectId", projectId).Str("uri", diagnostics.URI).Msgf("Diagnostics: %+v", diagnostics.Diagnostics)
+
+		s.updateDiagnostics(projectId, diagnostics)
 	}
+
+	log.Debug().Str("projectId", projectId).Msg("Done listening")
 }
 
 func (s *ServiceImpl) updateDiagnostics(projectId ProjectId, diagnostics protocol.PublishDiagnosticsParams) {
