@@ -1,0 +1,21 @@
+meta {
+  name: run_task
+  type: http
+  seq: 4
+}
+
+post {
+  url: http://localhost:8080/projects/{{project}}/tasks
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+      "alias": "test"
+  }
+}
+
+vars:pre-request {
+  project: FILL_ME
+}

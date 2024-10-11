@@ -1,0 +1,16 @@
+meta {
+  name: get_file
+  type: http
+  seq: 7
+}
+
+get {
+  url: http://localhost:8080/projects/{{project}}/files/{{path}}
+  body: none
+  auth: none
+}
+
+vars:pre-request {
+  project: FILL_ME
+  path: some/rel/path
+}

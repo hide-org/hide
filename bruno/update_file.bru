@@ -1,0 +1,22 @@
+meta {
+  name: update_file
+  type: http
+  seq: 8
+}
+
+put {
+  url: http://localhost:8080/projects/{{project}}/files/{{path}}
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+      "content": "def hello():\n    print('Hello, world!')"
+  }
+}
+
+vars:pre-request {
+  project: FILL_ME
+  path: some/rel/path
+}

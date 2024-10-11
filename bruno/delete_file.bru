@@ -1,0 +1,16 @@
+meta {
+  name: delete_file
+  type: http
+  seq: 9
+}
+
+delete {
+  url: http://localhost:8080/projects/{{project}}/files/{{path}}
+  body: none
+  auth: none
+}
+
+vars:pre-request {
+  project: FILL_ME
+  path: some/rel/path
+}

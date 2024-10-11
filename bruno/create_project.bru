@@ -1,0 +1,25 @@
+meta {
+  name: create_project
+  type: http
+  seq: 2
+}
+
+post {
+  url: http://localhost:8080/projects
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+      "repository": {
+          "url": "https://github.com/django/django"
+      },
+      "devcontainer": {
+          "image": "mcr.microsoft.com/devcontainers/python:3.12"
+      },
+      "languages": [
+          "Python"
+      ]
+  }
+}
