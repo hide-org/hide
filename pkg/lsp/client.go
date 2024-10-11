@@ -25,7 +25,8 @@ func (h *lspHandler) Handle(ctx context.Context, conn *jsonrpc2.Conn, req *jsonr
 			if err := json.Unmarshal(*req.Params, &params); err != nil {
 				return nil, err
 			}
-			h.diagnosticsHandler(params)
+			// Handler will block until completion, enables faster unblocking
+			go h.diagnosticsHandler(params)
 		}
 	}
 
