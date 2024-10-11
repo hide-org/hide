@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 
 	"github.com/hide-org/hide/pkg/files"
@@ -37,7 +36,7 @@ func TestListFilesHandler_ServeHTTP(t *testing.T) {
 				}, nil
 			},
 			wantStatusCode: http.StatusOK,
-			wantBody:       `[{"path":"file1.txt"},{"path":"file2.txt"}]`,
+			wantBody:       "[{\"path\":\"file1.txt\"},{\"path\":\"file2.txt\"}]\n",
 		},
 		{
 			name:   "successful listing as text",
@@ -50,7 +49,7 @@ func TestListFilesHandler_ServeHTTP(t *testing.T) {
 			},
 			wantStatusCode: http.StatusOK,
 			asText:         true,
-			wantBody:       ".\n├── file1.txt\n└── file2.txt",
+			wantBody:       ".\n├── file1.txt\n└── file2.txt\n",
 		},
 		{
 			name:   "successful listing with hidden",
@@ -62,7 +61,7 @@ func TestListFilesHandler_ServeHTTP(t *testing.T) {
 				}, nil
 			},
 			wantStatusCode: http.StatusOK,
-			wantBody:       `[{"path":"file1.txt"},{"path":"file2.txt"}]`,
+			wantBody:       "[{\"path\":\"file1.txt\"},{\"path\":\"file2.txt\"}]\n",
 		},
 		{
 			name:   "successful listing with filtering",
@@ -86,7 +85,7 @@ func TestListFilesHandler_ServeHTTP(t *testing.T) {
 				}, nil
 			},
 			wantStatusCode: http.StatusOK,
-			wantBody:       `[{"path":"file2.txt"},{"path":"file2.json"}]`,
+			wantBody:       "[{\"path\":\"file2.txt\"},{\"path\":\"file2.json\"}]\n",
 		},
 		{
 			name:   "project not found",
@@ -95,7 +94,7 @@ func TestListFilesHandler_ServeHTTP(t *testing.T) {
 				return nil, project.NewProjectNotFoundError(projectId)
 			},
 			wantStatusCode: http.StatusNotFound,
-			wantBody:       "project 123 not found",
+			wantBody:       "project 123 not found\n",
 		},
 		{
 			name:   "internal server error",
@@ -104,7 +103,7 @@ func TestListFilesHandler_ServeHTTP(t *testing.T) {
 				return nil, errors.New("internal error")
 			},
 			wantStatusCode: http.StatusInternalServerError,
-			wantBody:       "Failed to list files: internal error",
+			wantBody:       "Failed to list files: internal error\n",
 		},
 	}
 
@@ -129,7 +128,7 @@ func TestListFilesHandler_ServeHTTP(t *testing.T) {
 			router.ServeHTTP(rr, req)
 
 			assert.Equal(t, tt.wantStatusCode, rr.Code)
-			assert.Equal(t, strings.TrimSuffix(rr.Body.String(), "\n"), tt.wantBody)
+			assert.Equal(t, tt.wantBody, rr.Body.String())
 		})
 	}
 }
