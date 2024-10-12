@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"os/exec"
+	"syscall"
 )
 
 type Command struct {
@@ -43,14 +44,18 @@ type ProcessImpl struct {
 
 func NewProcess(command Command) (Process, error) {
 	cmd := exec.Command(command.name, command.args...)
-	stdin, err := cmd.StdinPipe()
 
+	// Set SysProcAttr to create a new process group
+	cmd.SysProcAttr = &syscall.SysProcAttr{
+		Setpgid: true,
+	}
+
+	stdin, err := cmd.StdinPipe()
 	if err != nil {
 		return nil, fmt.Errorf("Failed to create stdin pipe: %w", err)
 	}
 
 	stdout, err := cmd.StdoutPipe()
-
 	if err != nil {
 		return nil, fmt.Errorf("Failed to create stdout pipe: %w", err)
 	}
