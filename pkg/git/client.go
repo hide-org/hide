@@ -2,7 +2,6 @@ package git
 
 import (
 	"fmt"
-	"os"
 
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
@@ -13,9 +12,7 @@ type Client interface {
 	Clone(url, dst string) (*Repository, error)
 }
 
-type ClientImpl struct {
-	// TODO: use billy?
-}
+type ClientImpl struct{}
 
 func NewClientImpl() Client {
 	return &ClientImpl{}
@@ -43,7 +40,6 @@ func (c *ClientImpl) Checkout(repo Repository, commit string) error {
 func (c *ClientImpl) Clone(url, dst string) (*Repository, error) {
 	_, err := git.PlainClone(dst, false, &git.CloneOptions{
 		URL:      url,
-		Progress: os.Stdout, // TODO: remove or use a logger
 	})
 	if err != nil {
 		return nil, err
