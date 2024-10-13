@@ -15,14 +15,13 @@ import (
 	"github.com/hide-org/hide/pkg/model"
 	"github.com/hide-org/hide/pkg/project"
 	"github.com/hide-org/hide/pkg/project/mocks"
-	"github.com/hide-org/hide/pkg/result"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestCreateProjectHandler(t *testing.T) {
 	tests := []struct {
 		name              string
-		createProjectFunc func(ctx context.Context, req project.CreateProjectRequest) <-chan result.Result[model.Project]
+		createProjectFunc func(ctx context.Context, req project.CreateProjectRequest) (*model.Project, error)
 		request           project.CreateProjectRequest
 		wantStatusCode    int
 		wantProject       *model.Project
@@ -30,10 +29,8 @@ func TestCreateProjectHandler(t *testing.T) {
 	}{
 		{
 			name: "successful creation",
-			createProjectFunc: func(ctx context.Context, req project.CreateProjectRequest) <-chan result.Result[model.Project] {
-				ch := make(chan result.Result[model.Project], 1)
-				ch <- result.Success(model.Project{Id: "123", Path: "/test/path"})
-				return ch
+			createProjectFunc: func(ctx context.Context, req project.CreateProjectRequest) (*model.Project, error) {
+				return &model.Project{Id: "123", Path: "/test/path"}, nil
 			},
 			request: project.CreateProjectRequest{
 				Repository: project.Repository{
@@ -45,10 +42,8 @@ func TestCreateProjectHandler(t *testing.T) {
 		},
 		{
 			name: "failed creation",
-			createProjectFunc: func(ctx context.Context, req project.CreateProjectRequest) <-chan result.Result[model.Project] {
-				ch := make(chan result.Result[model.Project], 1)
-				ch <- result.Failure[model.Project](errors.New("Test error"))
-				return ch
+			createProjectFunc: func(ctx context.Context, req project.CreateProjectRequest) (*model.Project, error) {
+				return nil, errors.New("Test error")
 			},
 			request: project.CreateProjectRequest{
 				Repository: project.Repository{
@@ -78,10 +73,8 @@ func TestCreateProjectHandler(t *testing.T) {
 		},
 		{
 			name: "url with `file` protocol",
-			createProjectFunc: func(ctx context.Context, req project.CreateProjectRequest) <-chan result.Result[model.Project] {
-				ch := make(chan result.Result[model.Project], 1)
-				ch <- result.Success(model.Project{Id: "123", Path: "/test/path"})
-				return ch
+			createProjectFunc: func(ctx context.Context, req project.CreateProjectRequest) (*model.Project, error) {
+				return &model.Project{Id: "123", Path: "/test/path"}, nil
 			},
 			request: project.CreateProjectRequest{
 				Repository: project.Repository{

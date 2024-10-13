@@ -8,7 +8,6 @@ import (
 	"github.com/hide-org/hide/pkg/lsp"
 	"github.com/hide-org/hide/pkg/model"
 	"github.com/hide-org/hide/pkg/project"
-	"github.com/hide-org/hide/pkg/result"
 )
 
 // MockProjectManager is a mock of the project.Manager interface for testing
@@ -16,7 +15,7 @@ type MockProjectManager struct {
 	ApplyPatchFunc       func(ctx context.Context, projectId, path, patch string) (*model.File, error)
 	CleanupFunc          func(ctx context.Context) error
 	CreateFileFunc       func(ctx context.Context, projectId, path, content string) (*model.File, error)
-	CreateProjectFunc    func(ctx context.Context, request project.CreateProjectRequest) <-chan result.Result[model.Project]
+	CreateProjectFunc    func(ctx context.Context, request project.CreateProjectRequest) (*model.Project, error)
 	CreateTaskFunc       func(ctx context.Context, projectId string, command string) (project.TaskResult, error)
 	DeleteFileFunc       func(ctx context.Context, projectId, path string) error
 	DeleteProjectFunc    func(ctx context.Context, projectId string) error
@@ -30,7 +29,7 @@ type MockProjectManager struct {
 	UpdateLinesFunc      func(ctx context.Context, projectId, path string, lineDiff files.LineDiffChunk) (*model.File, error)
 }
 
-func (m *MockProjectManager) CreateProject(ctx context.Context, request project.CreateProjectRequest) <-chan result.Result[model.Project] {
+func (m *MockProjectManager) CreateProject(ctx context.Context, request project.CreateProjectRequest) (*model.Project, error) {
 	return m.CreateProjectFunc(ctx, request)
 }
 
