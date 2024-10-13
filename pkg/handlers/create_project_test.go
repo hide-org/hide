@@ -66,6 +66,31 @@ func TestCreateProjectHandler(t *testing.T) {
 			wantStatusCode: http.StatusBadRequest,
 			wantError:      "Validation error: Key: 'CreateProjectRequest.Repository' Error:Field validation for 'Repository' failed on the 'required' tag",
 		},
+		{
+			name: "url without protocol",
+			request: project.CreateProjectRequest{
+				Repository: project.Repository{
+					Url: "github.com/django/django",
+				},
+			},
+			wantStatusCode: http.StatusBadRequest,
+			wantError:      "Validation error",
+		},
+		{
+			name: "url with `file` protocol",
+			createProjectFunc: func(ctx context.Context, req project.CreateProjectRequest) <-chan result.Result[model.Project] {
+				ch := make(chan result.Result[model.Project], 1)
+				ch <- result.Success(model.Project{Id: "123", Path: "/test/path"})
+				return ch
+			},
+			request: project.CreateProjectRequest{
+				Repository: project.Repository{
+					Url: "file:///code/django/django",
+				},
+			},
+			wantStatusCode: http.StatusCreated,
+			wantProject:    &model.Project{Id: "123", Path: "/test/path"},
+		},
 	}
 
 	for _, tt := range tests {
