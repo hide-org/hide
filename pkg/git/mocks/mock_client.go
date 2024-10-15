@@ -6,7 +6,7 @@ import (
 	"github.com/hide-org/hide/pkg/git"
 )
 
-var _ git.Client = &MockClient{}
+var _ git.Client = (*MockClient)(nil)
 
 // MockClient is a mock implementation of the Client interface
 type MockClient struct {

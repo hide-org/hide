@@ -14,7 +14,7 @@ type Client interface {
 
 type ClientImpl struct{}
 
-func NewClientImpl() Client {
+func NewClient() Client {
 	return &ClientImpl{}
 }
 
@@ -39,7 +39,7 @@ func (c *ClientImpl) Checkout(repo Repository, commit string) error {
 
 func (c *ClientImpl) Clone(url, dst string) (*Repository, error) {
 	_, err := git.PlainClone(dst, false, &git.CloneOptions{
-		URL:      url,
+		URL: url,
 	})
 	if err != nil {
 		return nil, err

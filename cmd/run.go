@@ -102,7 +102,7 @@ var runCmd = &cobra.Command{
 		diagnosticsStore := lsp.NewDiagnosticsStore()
 		clientPool := lsp.NewClientPool()
 		lspService := lsp.NewService(languageDetector, lsp.LspServerExecutables, diagnosticsStore, clientPool)
-		projectManager := project.NewProjectManager(containerRunner, projectStore, projectsDir, fileManager, lspService, languageDetector, random.String, git.NewClientImpl())
+		projectManager := project.NewProjectManager(containerRunner, projectStore, projectsDir, fileManager, lspService, languageDetector, random.String, git.NewClient())
 		validator := validator.New(validator.WithRequiredStructEnabled())
 
 		router := handlers.
@@ -123,8 +123,8 @@ var runCmd = &cobra.Command{
 		addr := fmt.Sprintf("127.0.0.1:%d", port)
 
 		server := &http.Server{
-			Handler:      router,
-			Addr:         addr,
+			Handler: router,
+			Addr:    addr,
 		}
 
 		log.Info().Msgf("Server started on %s\n", addr)
