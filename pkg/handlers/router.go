@@ -73,6 +73,11 @@ func (r *Router) WithSearchSymbolsHandler(handler http.Handler) *Router {
 	return r
 }
 
+func (r *Router) WithDocumentOutlineHandler(handler http.Handler) *Router {
+	r.Handle("/projects/{id}/outline/{path:.*}", handler).Methods(http.MethodGet)
+	return r
+}
+
 func (r *Router) Build() *mux.Router {
 	return r.Router
 }
