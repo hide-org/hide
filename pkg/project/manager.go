@@ -6,16 +6,15 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
-	"os/exec"
 	"path"
 	"sync"
 	"time"
 
 	"github.com/hide-org/hide/pkg/devcontainer"
 	"github.com/hide-org/hide/pkg/files"
+	"github.com/hide-org/hide/pkg/git"
 	"github.com/hide-org/hide/pkg/lsp"
 	"github.com/hide-org/hide/pkg/model"
-	"github.com/hide-org/hide/pkg/result"
 	protocol "github.com/tliron/glsp/protocol_3_16"
 
 	"github.com/rs/zerolog/log"
@@ -46,7 +45,7 @@ type Manager interface {
 	ApplyPatch(ctx context.Context, projectId, path, patch string) (*model.File, error)
 	Cleanup(ctx context.Context) error
 	CreateFile(ctx context.Context, projectId, path, content string) (*model.File, error)
-	CreateProject(ctx context.Context, request CreateProjectRequest) <-chan result.Result[model.Project]
+	CreateProject(ctx context.Context, request CreateProjectRequest) (*model.Project, error)
 	CreateTask(ctx context.Context, projectId model.ProjectId, command string) (TaskResult, error)
 	DeleteFile(ctx context.Context, projectId, path string) error
 	DeleteProject(ctx context.Context, projectId model.ProjectId) error
@@ -68,6 +67,7 @@ type ManagerImpl struct {
 	lspService         lsp.Service
 	languageDetector   lsp.LanguageDetector
 	randomString       func(int) string
+	git                git.Client
 }
 
 func NewProjectManager(
@@ -78,6 +78,7 @@ func NewProjectManager(
 	lspService lsp.Service,
 	languageDetector lsp.LanguageDetector,
 	randomString func(int) string,
+	git git.Client,
 ) Manager {
 	return ManagerImpl{
 		devContainerRunner: devContainerRunner,
@@ -87,90 +88,88 @@ func NewProjectManager(
 		lspService:         lspService,
 		languageDetector:   languageDetector,
 		randomString:       randomString,
+		git:                git,
 	}
 }
 
-func (pm ManagerImpl) CreateProject(ctx context.Context, request CreateProjectRequest) <-chan result.Result[model.Project] {
-	c := make(chan result.Result[model.Project])
+func (pm ManagerImpl) CreateProject(ctx context.Context, request CreateProjectRequest) (*model.Project, error) {
+	log.Debug().Msgf("Creating project for repo %s", request.Repository.Url)
 
-	go func() {
-		log.Debug().Msgf("Creating project for repo %s", request.Repository.Url)
+	projectId := pm.randomString(10)
+	projectPath := path.Join(pm.projectsRoot, projectId)
 
-		projectId := pm.randomString(10)
-		projectPath := path.Join(pm.projectsRoot, projectId)
+	// Clone git repo
+	if err := pm.createProjectDir(projectPath); err != nil {
+		log.Error().Err(err).Msg("Failed to create project directory")
+		return nil, fmt.Errorf("Failed to create project directory: %w", err)
+	}
 
-		// Clone git repo
-		if err := pm.createProjectDir(projectPath); err != nil {
-			log.Error().Err(err).Msg("Failed to create project directory")
-			c <- result.Failure[model.Project](fmt.Errorf("Failed to create project directory: %w", err))
-			return
-		}
+	r, err := pm.git.Clone(request.Repository.Url, projectPath)
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to clone git repo")
+		removeProjectDir(projectPath)
+		return nil, fmt.Errorf("Failed to clone git repo: %w", err)
+	}
 
-		if r := <-cloneGitRepo(request.Repository, projectPath); r.IsFailure() {
-			log.Error().Err(r.Error).Msg("Failed to clone git repo")
+	if request.Repository.Commit != nil {
+		if err := pm.git.Checkout(*r, *request.Repository.Commit); err != nil {
+			log.Error().Err(err).Msg("Failed to checkout commit")
 			removeProjectDir(projectPath)
-			c <- result.Failure[model.Project](fmt.Errorf("Failed to clone git repo: %w", r.Error))
-			return
+			return nil, fmt.Errorf("Failed to checkout commit %s: %w", *request.Repository.Commit, err)
 		}
+	}
 
-		// Start devcontainer
-		var devContainerConfig devcontainer.Config
+	// Start devcontainer
+	var devContainerConfig devcontainer.Config
 
-		if request.DevContainer != nil {
-			devContainerConfig = *request.DevContainer
-		} else {
-			config, err := pm.configFromProject(os.DirFS(projectPath))
-			if err != nil {
-				log.Error().Err(err).Msgf("Failed to get devcontainer config from repository %s", request.Repository.Url)
-				removeProjectDir(projectPath)
-				c <- result.Failure[model.Project](fmt.Errorf("Failed to read devcontainer.json: %w", err))
-				return
-			}
-
-			devContainerConfig = config
-		}
-
-		containerId, err := pm.devContainerRunner.Run(ctx, projectPath, devContainerConfig)
+	if request.DevContainer != nil {
+		devContainerConfig = *request.DevContainer
+	} else {
+		config, err := pm.configFromProject(os.DirFS(projectPath))
 		if err != nil {
-			log.Error().Err(err).Msg("Failed to launch devcontainer")
+			log.Error().Err(err).Msgf("Failed to get devcontainer config from repository %s", request.Repository.Url)
 			removeProjectDir(projectPath)
-			c <- result.Failure[model.Project](fmt.Errorf("Failed to launch devcontainer: %w", err))
-			return
+			return nil, fmt.Errorf("Failed to read devcontainer.json: %w", err)
 		}
 
-		project := model.Project{Id: projectId, Path: projectPath, Config: model.Config{DevContainerConfig: devContainerConfig}, ContainerId: containerId}
+		devContainerConfig = config
+	}
 
-		languages := request.Languages
-		if len(languages) == 0 {
-			languages, err = pm.detectLanguages(project)
-			if err != nil {
-				log.Error().Err(err).Msg("Failed to detect project languages")
-				removeProjectDir(projectPath)
-				c <- result.Failure[model.Project](fmt.Errorf("Failed to detect project languages: %w", err))
-				return
-			}
-		}
+	containerId, err := pm.devContainerRunner.Run(ctx, projectPath, devContainerConfig)
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to launch devcontainer")
+		removeProjectDir(projectPath)
+		return nil, fmt.Errorf("Failed to launch devcontainer: %w", err)
+	}
 
-		for _, language := range languages {
-			if err := pm.lspService.StartServer(model.NewContextWithProject(context.Background(), &project), language); err != nil {
-				log.Warn().Err(err).Msg("Failed to start LSP server. Diagnostics will not be available.")
-			}
-		}
+	project := model.Project{Id: projectId, Path: projectPath, Config: model.Config{DevContainerConfig: devContainerConfig}, ContainerId: containerId}
 
-		// Save project in store
-		if err := pm.store.CreateProject(&project); err != nil {
-			log.Error().Err(err).Msg("Failed to save project")
+	languages := request.Languages
+	if len(languages) == 0 {
+		languages, err = pm.detectLanguages(project)
+		if err != nil {
+			log.Error().Err(err).Msg("Failed to detect project languages")
 			removeProjectDir(projectPath)
-			c <- result.Failure[model.Project](fmt.Errorf("Failed to save project: %w", err))
-			return
+			return nil, fmt.Errorf("Failed to detect project languages: %w", err)
 		}
+	}
 
-		log.Debug().Msgf("Created project %s for repo %s", projectId, request.Repository.Url)
+	for _, language := range languages {
+		if err := pm.lspService.StartServer(model.NewContextWithProject(context.Background(), &project), language); err != nil {
+			log.Warn().Err(err).Msg("Failed to start LSP server. Diagnostics will not be available.")
+		}
+	}
 
-		c <- result.Success(project)
-	}()
+	// Save project in store
+	if err := pm.store.CreateProject(&project); err != nil {
+		log.Error().Err(err).Msg("Failed to save project")
+		removeProjectDir(projectPath)
+		return nil, fmt.Errorf("Failed to save project: %w", err)
+	}
 
-	return c
+	log.Debug().Msgf("Created project %s for repo %s", projectId, request.Repository.Url)
+
+	return &project, nil
 }
 
 func (pm ManagerImpl) GetProject(ctx context.Context, projectId string) (model.Project, error) {
@@ -565,38 +564,4 @@ func removeProjectDir(projectPath string) {
 	log.Debug().Msgf("Removed project directory: %s", projectPath)
 
 	return
-}
-
-func cloneGitRepo(repository Repository, projectPath string) <-chan result.Empty {
-	log.Debug().Str("url", repository.Url).Msg("Cloning git repo")
-	c := make(chan result.Empty)
-
-	go func() {
-		cmd := exec.Command("git", "clone", repository.Url, projectPath)
-		cmdOut, err := cmd.Output()
-		if err != nil {
-			c <- result.EmptyFailure(fmt.Errorf("Failed to clone git repo: %w", err))
-			return
-		}
-
-		log.Debug().Str("url", repository.Url).Msgf("Cloned git repo to %s", projectPath)
-		log.Debug().Msg(string(cmdOut))
-
-		if repository.Commit != nil {
-			cmd = exec.Command("git", "checkout", *repository.Commit)
-			cmd.Dir = projectPath
-			cmdOut, err = cmd.Output()
-			if err != nil {
-				c <- result.EmptyFailure(fmt.Errorf("Failed to checkout commit %s: %w", *repository.Commit, err))
-				return
-			}
-
-			log.Debug().Msgf("Checked out commit %s", *repository.Commit)
-			log.Debug().Msg(string(cmdOut))
-		}
-
-		c <- result.EmptySuccess()
-	}()
-
-	return c
 }
