@@ -85,6 +85,9 @@ func (s *ServiceImpl) StartServer(ctx context.Context, languageId LanguageId) er
 				Synchronization: &protocol.TextDocumentSyncClientCapabilities{
 					DynamicRegistration: boolPointer(true),
 				},
+				DocumentSymbol: &protocol.DocumentSymbolClientCapabilities{
+					HierarchicalDocumentSymbolSupport: boolPointer(true),
+				},
 			},
 		},
 		WorkspaceFolders: []protocol.WorkspaceFolder{
