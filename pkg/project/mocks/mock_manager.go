@@ -8,7 +8,6 @@ import (
 	"github.com/hide-org/hide/pkg/lsp"
 	"github.com/hide-org/hide/pkg/model"
 	"github.com/hide-org/hide/pkg/project"
-	"github.com/hide-org/hide/pkg/result"
 	protocol "github.com/tliron/glsp/protocol_3_16"
 )
 
