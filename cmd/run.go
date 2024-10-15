@@ -117,13 +117,14 @@ var runCmd = &cobra.Command{
 			WithDeleteFileHandler(middleware.PathValidator(handlers.DeleteFileHandler{ProjectManager: projectManager})).
 			WithSearchFileHandler(handlers.SearchFilesHandler{ProjectManager: projectManager}).
 			WithSearchSymbolsHandler(handlers.NewSearchSymbolsHandler(projectManager)).
+			WithDocumentOutlineHandler(handlers.DocumentOutline{ProjectManager: projectManager}).
 			Build()
 
 		addr := fmt.Sprintf("127.0.0.1:%d", port)
 
 		server := &http.Server{
-			Handler:      router,
-			Addr:         addr,
+			Handler: router,
+			Addr:    addr,
 		}
 
 		log.Info().Msgf("Server started on %s\n", addr)

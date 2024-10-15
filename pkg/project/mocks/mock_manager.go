@@ -9,6 +9,7 @@ import (
 	"github.com/hide-org/hide/pkg/model"
 	"github.com/hide-org/hide/pkg/project"
 	"github.com/hide-org/hide/pkg/result"
+	protocol "github.com/tliron/glsp/protocol_3_16"
 )
 
 // MockProjectManager is a mock of the project.Manager interface for testing
@@ -28,6 +29,7 @@ type MockProjectManager struct {
 	SearchSymbolsFunc    func(ctx context.Context, projectId model.ProjectId, query string, symbolFilter lsp.SymbolFilter) ([]lsp.SymbolInfo, error)
 	UpdateFileFunc       func(ctx context.Context, projectId, path, content string) (*model.File, error)
 	UpdateLinesFunc      func(ctx context.Context, projectId, path string, lineDiff files.LineDiffChunk) (*model.File, error)
+	DocumentOutlineFunc  func(ctx context.Context, projectId string) ([]protocol.DocumentSymbol, error)
 }
 
 func (m *MockProjectManager) CreateProject(ctx context.Context, request project.CreateProjectRequest) <-chan result.Result[model.Project] {
@@ -88,4 +90,8 @@ func (m *MockProjectManager) UpdateLines(ctx context.Context, projectId, path st
 
 func (m *MockProjectManager) SearchSymbols(ctx context.Context, projectId model.ProjectId, query string, symbolFilter lsp.SymbolFilter) ([]lsp.SymbolInfo, error) {
 	return m.SearchSymbolsFunc(ctx, projectId, query, symbolFilter)
+}
+
+func (m *MockProjectManager) DocumentOutline(ctx context.Context, projectId string, path string) ([]protocol.DocumentSymbol, error) {
+	return m.DocumentOutlineFunc(ctx, projectId)
 }

@@ -58,6 +58,7 @@ type Manager interface {
 	SearchSymbols(ctx context.Context, projectId model.ProjectId, query string, symbolFilter lsp.SymbolFilter) ([]lsp.SymbolInfo, error)
 	UpdateFile(ctx context.Context, projectId, path, content string) (*model.File, error)
 	UpdateLines(ctx context.Context, projectId, path string, lineDiff files.LineDiffChunk) (*model.File, error)
+	DocumentOutline(ctx context.Context, projectId, path string) ([]protocol.DocumentSymbol, error)
 }
 
 type ManagerImpl struct {
@@ -483,6 +484,18 @@ func (pm ManagerImpl) SearchSymbols(ctx context.Context, projectId model.Project
 
 	log.Debug().Str("projectId", projectId).Str("query", query).Msgf("Found %d symbols", len(symbols))
 	return symbols, nil
+}
+
+func (pm ManagerImpl) DocumentOutline(ctx context.Context, projectId, path string) ([]protocol.DocumentSymbol, error) {
+	log.Debug().Str("projectId", projectId).Str("path", path).Msg("Creating outline")
+
+	project, err := pm.GetProject(ctx, projectId)
+	if err != nil {
+		log.Error().Err(err).Str("projectId", projectId).Msg("Failed to get project")
+		return nil, fmt.Errorf("failed to get project with id %s: %w", projectId, err)
+	}
+
+	return pm.lspService.GetDocumentOutline(model.NewContextWithProject(ctx, &project), model.File{Path: path})
 }
 
 func (pm ManagerImpl) createProjectDir(path string) error {
