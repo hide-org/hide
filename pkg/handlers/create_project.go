@@ -10,7 +10,7 @@ import (
 )
 
 type CreateProjectHandler struct {
-	Manager project.Manager
+	Manager   project.Manager
 	Validator *validator.Validate
 }
 
@@ -39,14 +39,14 @@ func (h CreateProjectHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	result := <-h.Manager.CreateProject(r.Context(), request)
+	p, err := h.Manager.CreateProject(r.Context(), request)
 
-	if result.IsFailure() {
-		http.Error(w, fmt.Sprintf("Failed to create project: %s", result.Error), http.StatusInternalServerError)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Failed to create project: %s", err), http.StatusInternalServerError)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(result.Get())
+	json.NewEncoder(w).Encode(p)
 }
