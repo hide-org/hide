@@ -34,7 +34,7 @@ type DocumentSymbol struct {
 	Name     string           `json:"name"`
 	Detail   string           `json:"detail"`
 	Kind     string           `json:"kind"`
-	Range    Range            `json:"location"`
+	Range    Range            `json:"range"`
 	Children []DocumentSymbol `json:"children,omitempty"`
 }
 
@@ -53,11 +53,17 @@ func documentOutlineFrom(symbols []protocol.DocumentSymbol, path string) Documen
 
 func parseDocumentSymbol(src protocol.DocumentSymbol) DocumentSymbol {
 	out := DocumentSymbol{
-		Name:  src.Name,
-		Kind:  symbolKindToString(src.Kind),
+		Name: src.Name,
+		Kind: symbolKindToString(src.Kind),
 		Range: Range{
-			// TODO: check how the range works
-			// Start: src.Range.Start,
+			Start: Position{
+				Line:      int(src.Range.Start.Line) + 1, // src is zero indexed
+				Character: int(src.Range.Start.Character),
+			},
+			End: Position{
+				Line:      int(src.Range.End.Line) + 1, // src is zero indexed
+				Character: int(src.Range.End.Character),
+			},
 		},
 		Children: make([]DocumentSymbol, 0, len(src.Children)),
 	}
