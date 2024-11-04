@@ -26,7 +26,6 @@ func (h DocumentOutline) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// TODO: rename to document outline
 	outline, err := h.ProjectManager.DocumentOutline(r.Context(), projectID, filePath)
 	if err != nil {
 		var projectNotFoundError *project.ProjectNotFoundError

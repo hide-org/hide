@@ -30,7 +30,7 @@ type Service interface {
 	StartServer(ctx context.Context, languageId LanguageId) error
 	StopServer(ctx context.Context, languageId LanguageId) error
 	GetWorkspaceSymbols(ctx context.Context, query string, symbolFilter SymbolFilter) ([]SymbolInfo, error)
-	GetDocumentOutline(ctx context.Context, file model.File) ([]protocol.DocumentSymbol, error)
+	GetDocumentOutline(ctx context.Context, file model.File) (DocumentOutline, error)
 	NotifyDidOpen(ctx context.Context, file model.File) error
 	NotifyDidClose(ctx context.Context, file model.File) error
 	// TODO: check if any LSP server supports this
@@ -215,32 +215,37 @@ func (s *ServiceImpl) GetWorkspaceSymbols(ctx context.Context, query string, sym
 	return result, nil
 }
 
-func (s *ServiceImpl) GetDocumentOutline(ctx context.Context, file model.File) ([]protocol.DocumentSymbol, error) {
+func (s *ServiceImpl) GetDocumentOutline(ctx context.Context, file model.File) (DocumentOutline, error) {
 	project, ok := model.ProjectFromContext(ctx)
 	if !ok {
 		log.Error().Msg("Project not found in context")
-		return nil, fmt.Errorf("project not found in context")
+		return DocumentOutline{}, fmt.Errorf("project not found in context")
 	}
 
 	clients := s.getClients(ctx)
 	if len(clients) == 0 {
 		log.Warn().Str("projectId", project.Id).Msg("LSP client not found")
-		return nil, nil
+		return DocumentOutline{}, nil
 	}
 
 	lang := s.languageDetector.DetectLanguage(&file)
 
 	cli, ok := s.getClient(ctx, lang)
 	if !ok {
-		return nil, fmt.Errorf("client not found for language %s", lang)
+		return DocumentOutline{}, fmt.Errorf("client not found for language %s", lang)
 	}
 
-	// TODO: maybe notify didOpen/didClose
-	return cli.GetDocumentOutline(ctx, protocol.DocumentSymbolParams{
+	// TODO: maybe rename GetDocumentSymbols
+	symbols, err := cli.GetDocumentOutline(ctx, protocol.DocumentSymbolParams{
 		TextDocument: protocol.TextDocumentIdentifier{
 			URI: PathToURI(filepath.Join(project.Path, file.Path)),
 		},
 	})
+	if err != nil {
+		return DocumentOutline{}, err
+	}
+
+	return documentOutlineFrom(symbols, file.Path), nil
 }
 
 // NotifyDidClose implements Service.

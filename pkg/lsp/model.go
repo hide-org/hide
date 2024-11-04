@@ -25,6 +25,54 @@ type Position struct {
 	Character int `json:"character"`
 }
 
+type DocumentOutline struct {
+	Path            string           `json:"path"`
+	DocumentSymbols []DocumentSymbol `json:"document_symbols"`
+}
+
+type DocumentSymbol struct {
+	Name     string           `json:"name"`
+	Detail   string           `json:"detail"`
+	Kind     string           `json:"kind"`
+	Range    Range            `json:"location"`
+	Children []DocumentSymbol `json:"children,omitempty"`
+}
+
+func documentOutlineFrom(symbols []protocol.DocumentSymbol, path string) DocumentOutline {
+	out := DocumentOutline{
+		Path:            path,
+		DocumentSymbols: make([]DocumentSymbol, 0, len(symbols)),
+	}
+
+	for _, symbol := range symbols {
+		out.DocumentSymbols = append(out.DocumentSymbols, parseDocumentSymbol(symbol))
+	}
+
+	return out
+}
+
+func parseDocumentSymbol(src protocol.DocumentSymbol) DocumentSymbol {
+	out := DocumentSymbol{
+		Name:  src.Name,
+		Kind:  symbolKindToString(src.Kind),
+		Range: Range{
+			// TODO: check how the range works
+			// Start: src.Range.Start,
+		},
+		Children: make([]DocumentSymbol, 0, len(src.Children)),
+	}
+
+	if src.Detail != nil {
+		out.Detail = *src.Detail
+	}
+
+	for _, child := range src.Children {
+		out.Children = append(out.Children, parseDocumentSymbol(child))
+	}
+
+	return out
+}
+
 func symbolKindToString(kind protocol.SymbolKind) string {
 	switch kind {
 	case protocol.SymbolKindFile:

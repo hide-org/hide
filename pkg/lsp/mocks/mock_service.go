@@ -32,9 +32,9 @@ func (m *MockLspService) GetWorkspaceSymbols(ctx context.Context, query string, 
 	return args.Get(0).([]lsp.SymbolInfo), args.Error(1)
 }
 
-func (m *MockLspService) GetDocumentOutline(ctx context.Context, file model.File) ([]protocol.DocumentSymbol, error) {
+func (m *MockLspService) GetDocumentOutline(ctx context.Context, file model.File) (lsp.DocumentOutline, error) {
 	args := m.Called(ctx, file)
-	return args.Get(0).([]protocol.DocumentSymbol), args.Error(1)
+	return args.Get(0).(lsp.DocumentOutline), args.Error(1)
 }
 
 func (m *MockLspService) NotifyDidOpen(ctx context.Context, file model.File) error {
