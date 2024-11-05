@@ -236,7 +236,7 @@ func (s *ServiceImpl) GetDocumentOutline(ctx context.Context, file model.File) (
 	}
 
 	// TODO: maybe rename GetDocumentSymbols
-	symbols, err := cli.GetDocumentOutline(ctx, protocol.DocumentSymbolParams{
+	symbols, err := cli.GetDocumentSymbols(ctx, protocol.DocumentSymbolParams{
 		TextDocument: protocol.TextDocumentIdentifier{
 			URI: PathToURI(filepath.Join(project.Path, file.Path)),
 		},
