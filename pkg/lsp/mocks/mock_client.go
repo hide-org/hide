@@ -47,7 +47,7 @@ func (m *MockClient) Shutdown(ctx context.Context) error {
 	return args.Error(0)
 }
 
-func (m *MockClient) GetDocumentOutline(ctx context.Context, params protocol.DocumentSymbolParams) ([]protocol.DocumentSymbol, error) {
+func (m *MockClient) GetDocumentSymbols(ctx context.Context, params protocol.DocumentSymbolParams) ([]protocol.DocumentSymbol, error) {
 	args := m.Called(ctx, params)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
