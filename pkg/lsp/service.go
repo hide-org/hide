@@ -223,17 +223,11 @@ func (s *ServiceImpl) GetDocumentOutline(ctx context.Context, file model.File) (
 		return DocumentOutline{}, fmt.Errorf("project not found in context")
 	}
 
-	clients := s.getClients(ctx)
-	if len(clients) == 0 {
-		log.Warn().Str("projectId", project.Id).Msg("LSP client not found")
-		return DocumentOutline{}, nil
-	}
-
 	lang := s.languageDetector.DetectLanguage(&file)
 
 	cli, ok := s.getClient(ctx, lang)
 	if !ok {
-		return DocumentOutline{}, NewLanguageNotSupportedError(lang)
+		return DocumentOutline{}, NewLanguageServerNotFoundError(project.Id, lang)
 	}
 
 	// TODO: maybe rename GetDocumentSymbols
