@@ -230,7 +230,6 @@ func (s *ServiceImpl) GetDocumentOutline(ctx context.Context, file model.File) (
 		return DocumentOutline{}, NewLanguageServerNotFoundError(project.Id, lang)
 	}
 
-	// TODO: maybe rename GetDocumentSymbols
 	symbols, err := cli.GetDocumentSymbols(ctx, protocol.DocumentSymbolParams{
 		TextDocument: protocol.TextDocumentIdentifier{
 			URI: PathToURI(filepath.Join(project.Path, file.Path)),
