@@ -52,7 +52,7 @@ func (h CreateTaskHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case <-done:
 		return
 	case <-ctx.Done():
-		http.Error(w, "request timed out", http.StatusRequestTimeout)
+		http.Error(w, "Request timed out", http.StatusRequestTimeout)
 	}
 }
 
