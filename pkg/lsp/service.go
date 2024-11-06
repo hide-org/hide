@@ -2,6 +2,7 @@ package lsp
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/url"
 	"path/filepath"
@@ -30,6 +31,7 @@ type Service interface {
 	StartServer(ctx context.Context, languageId LanguageId) error
 	StopServer(ctx context.Context, languageId LanguageId) error
 	GetWorkspaceSymbols(ctx context.Context, query string, symbolFilter SymbolFilter) ([]SymbolInfo, error)
+	GetDocumentOutline(ctx context.Context, file model.File) (DocumentOutline, error)
 	NotifyDidOpen(ctx context.Context, file model.File) error
 	NotifyDidClose(ctx context.Context, file model.File) error
 	// TODO: check if any LSP server supports this
@@ -83,6 +85,9 @@ func (s *ServiceImpl) StartServer(ctx context.Context, languageId LanguageId) er
 			TextDocument: &protocol.TextDocumentClientCapabilities{
 				Synchronization: &protocol.TextDocumentSyncClientCapabilities{
 					DynamicRegistration: boolPointer(true),
+				},
+				DocumentSymbol: &protocol.DocumentSymbolClientCapabilities{
+					HierarchicalDocumentSymbolSupport: boolPointer(true),
 				},
 			},
 		},
@@ -211,13 +216,39 @@ func (s *ServiceImpl) GetWorkspaceSymbols(ctx context.Context, query string, sym
 	return result, nil
 }
 
+func (s *ServiceImpl) GetDocumentOutline(ctx context.Context, file model.File) (DocumentOutline, error) {
+	project, ok := model.ProjectFromContext(ctx)
+	if !ok {
+		log.Error().Msg("Project not found in context")
+		return DocumentOutline{}, fmt.Errorf("project not found in context")
+	}
+
+	lang := s.languageDetector.DetectLanguage(&file)
+
+	cli, ok := s.getClient(ctx, lang)
+	if !ok {
+		return DocumentOutline{}, NewLanguageServerNotFoundError(project.Id, lang)
+	}
+
+	symbols, err := cli.GetDocumentSymbols(ctx, protocol.DocumentSymbolParams{
+		TextDocument: protocol.TextDocumentIdentifier{
+			URI: PathToURI(filepath.Join(project.Path, file.Path)),
+		},
+	})
+	if err != nil {
+		return DocumentOutline{}, err
+	}
+
+	return documentOutlineFrom(symbols, file.Path), nil
+}
+
 // NotifyDidClose implements Service.
 func (s *ServiceImpl) NotifyDidClose(ctx context.Context, file model.File) error {
 	project, ok := model.ProjectFromContext(ctx)
 
 	if !ok {
 		log.Error().Msg("Project not found in context")
-		return fmt.Errorf("Project not found in context")
+		return errors.New("project not found in context")
 	}
 
 	languageId := s.languageDetector.DetectLanguage(&file)
