@@ -2,6 +2,7 @@ package lsp
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/url"
 	"path/filepath"
@@ -232,7 +233,7 @@ func (s *ServiceImpl) GetDocumentOutline(ctx context.Context, file model.File) (
 
 	cli, ok := s.getClient(ctx, lang)
 	if !ok {
-		return DocumentOutline{}, fmt.Errorf("client not found for language %s", lang)
+		return DocumentOutline{}, NewLanguageNotSupportedError(lang)
 	}
 
 	// TODO: maybe rename GetDocumentSymbols
@@ -254,7 +255,7 @@ func (s *ServiceImpl) NotifyDidClose(ctx context.Context, file model.File) error
 
 	if !ok {
 		log.Error().Msg("Project not found in context")
-		return fmt.Errorf("Project not found in context")
+		return errors.New("project not found in context")
 	}
 
 	languageId := s.languageDetector.DetectLanguage(&file)
