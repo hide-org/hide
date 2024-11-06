@@ -102,7 +102,7 @@ var runCmd = &cobra.Command{
 		diagnosticsStore := lsp.NewDiagnosticsStore()
 		clientPool := lsp.NewClientPool()
 		lspService := lsp.NewService(languageDetector, lsp.LspServerExecutables, diagnosticsStore, clientPool)
-		projectManager := project.NewProjectManager(containerRunner, projectStore, projectsDir, fileManager, lspService, languageDetector, random.String, git.NewClient())
+		projectManager := project.NewProjectManager(containerRunner, projectStore, projectsDir, fileManager, lspService, languageDetector, random.String, git.NewClient(os.Getenv("GITHUB_ACCESS_TOKEN")))
 		validator := validator.New(validator.WithRequiredStructEnabled())
 
 		router := handlers.

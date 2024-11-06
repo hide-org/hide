@@ -2,9 +2,11 @@ package git
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
+	"github.com/go-git/go-git/v5/plumbing/transport/http"
 )
 
 type Client interface {
@@ -12,10 +14,12 @@ type Client interface {
 	Clone(url, dst string) (*Repository, error)
 }
 
-type ClientImpl struct{}
+type ClientImpl struct {
+	accessToken string
+}
 
-func NewClient() Client {
-	return &ClientImpl{}
+func NewClient(accessToken string) Client {
+	return &ClientImpl{accessToken: accessToken}
 }
 
 func (c *ClientImpl) Checkout(repo Repository, commit string) error {
@@ -38,9 +42,22 @@ func (c *ClientImpl) Checkout(repo Repository, commit string) error {
 }
 
 func (c *ClientImpl) Clone(url, dst string) (*Repository, error) {
-	_, err := git.PlainClone(dst, false, &git.CloneOptions{
-		URL: url,
-	})
+	var opts *git.CloneOptions
+	if strings.Contains(url, "ghe.spotify.net") {
+		opts = &git.CloneOptions{
+			URL: url,
+			Auth: &http.BasicAuth{
+				Username: "x-access-token",
+				Password: c.accessToken,
+			},
+		}
+	} else {
+		opts = &git.CloneOptions{
+			URL: url,
+		}
+	}
+
+	_, err := git.PlainClone(dst, false, opts)
 	if err != nil {
 		return nil, err
 	}
