@@ -1,10 +1,12 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/hide-org/hide/pkg/model"
 	"github.com/hide-org/hide/pkg/project"
@@ -32,6 +34,31 @@ type CreateTaskHandler struct {
 }
 
 func (h CreateTaskHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	timeOutSec := getTimeOutSeconds(r)
+	if timeOutSec <= 0 {
+		h.do(r.Context(), w, r)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), time.Second*time.Duration(timeOutSec))
+	defer cancel()
+
+	done := make(chan bool)
+	go func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+		done <- h.do(ctx, w, r)
+	}(ctx, w, r)
+
+	select {
+	case <-done:
+		return
+	case <-ctx.Done():
+		http.Error(w, "Request timed out", http.StatusRequestTimeout)
+	}
+}
+
+func (h CreateTaskHandler) do(ctx context.Context, w http.ResponseWriter, r *http.Request) (done bool) {
+	done = true // handling is always done
+
 	projectID, err := getProjectID(r)
 	if err != nil {
 		http.Error(w, "invalid project ID", http.StatusBadRequest)
@@ -53,7 +80,7 @@ func (h CreateTaskHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	var command string
 
 	if request.Alias != nil {
-		task, err := h.Manager.ResolveTaskAlias(r.Context(), projectID, *request.Alias)
+		task, err := h.Manager.ResolveTaskAlias(ctx, projectID, *request.Alias)
 		if err != nil {
 			var projectNotFoundError *project.ProjectNotFoundError
 			if errors.As(err, &projectNotFoundError) {
@@ -75,7 +102,7 @@ func (h CreateTaskHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		command = *request.Command
 	}
 
-	taskResult, err := h.Manager.CreateTask(r.Context(), projectID, command)
+	taskResult, err := h.Manager.CreateTask(ctx, projectID, command)
 	if err != nil {
 		var projectNotFoundError *project.ProjectNotFoundError
 		if errors.As(err, &projectNotFoundError) {
@@ -90,4 +117,6 @@ func (h CreateTaskHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(taskResult)
+
+	return
 }
