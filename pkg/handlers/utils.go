@@ -15,6 +15,18 @@ func getProjectID(r *http.Request) (string, error) {
 	return getPathValue(r, "id")
 }
 
+func getTimeOutSeconds(r *http.Request) int {
+	var timeOut int
+	if timeoutStr := r.Header.Get("X-Timeout-Seconds"); timeoutStr != "" {
+		if t, err := strconv.Atoi(timeoutStr); err == nil {
+			if t > 0 {
+				timeOut = t
+			}
+		}
+	}
+	return timeOut
+}
+
 func GetFilePath(r *http.Request) (string, error) {
 	return getPathValue(r, "path")
 }
