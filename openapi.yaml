@@ -1,4 +1,4 @@
-openapi: 3.1.0
+openapi: 3.0.3
 info:
   title: Hide API
   description: API specification for Hide project management and codebase interaction
@@ -10,13 +10,6 @@ servers:
 
 components:
   schemas:
-    Error:
-      type: object
-      properties:
-        message:
-          type: string
-          description: Error message
-
     File:
       type: object
       properties:
