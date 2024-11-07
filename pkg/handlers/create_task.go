@@ -45,7 +45,7 @@ func (h CreateTaskHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	done := make(chan bool)
 	go func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
-		done <- h.do(ctx, w, r)
+		done <- h.do(ctx, w, r) // TODO: don't return true
 	}(ctx, w, r)
 
 	select {

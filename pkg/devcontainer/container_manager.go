@@ -14,8 +14,10 @@ import (
 	"github.com/docker/go-connections/nat"
 )
 
-const DefaultShell = "/bin/sh"
-const DefaultWorkingDir = "/workspace"
+const (
+	DefaultShell      = "/bin/sh"
+	DefaultWorkingDir = "/workspace"
+)
 
 var DefaultContainerCommand = []string{DefaultShell, "-c", "while sleep 1000; do :; done"}
 
@@ -64,7 +66,6 @@ func (cm *DockerContainerManager) CreateContainer(ctx context.Context, image str
 		for _, port := range config.AppPort {
 			port_str := strconv.Itoa(port)
 			port, err := nat.NewPort("tcp", port_str)
-
 			if err != nil {
 				return "", fmt.Errorf("Failed to create new TCP port from port %s: %w", port_str, err)
 			}
@@ -95,7 +96,6 @@ func (cm *DockerContainerManager) CreateContainer(ctx context.Context, image str
 	if len(config.Mounts) > 0 {
 		for _, m := range config.Mounts {
 			mountType, err := stringToType(m.Type)
-
 			if err != nil {
 				return "", fmt.Errorf("Failed to convert mount type %s to mount.Type: %w", m.Type, err)
 			}
@@ -142,13 +142,12 @@ func (cm *DockerContainerManager) Exec(ctx context.Context, containerId string, 
 	if err != nil {
 		return ExecResult{}, fmt.Errorf("Failed to attach to exec process %s in container %s: %w", execID, containerId, err)
 	}
-
 	defer resp.Close()
 
 	var stdOut, stdErr bytes.Buffer
 	logPipe := &logPipe{}
 
-	if err := readOutputFromContainer(resp.Reader, io.MultiWriter(&stdOut, logPipe), io.MultiWriter(&stdErr, logPipe)); err != nil {
+	if err := readOutputFromContainer(ctx, resp.Reader, io.MultiWriter(&stdOut, logPipe), io.MultiWriter(&stdErr, logPipe)); err != nil {
 		return ExecResult{}, fmt.Errorf("Failed reading output from container %s: %w", containerId, err)
 	}
 
