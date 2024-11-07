@@ -3,6 +3,7 @@ package devcontainer
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"strconv"
@@ -11,6 +12,7 @@ import (
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/mount"
 	"github.com/docker/docker/client"
+	"github.com/docker/docker/pkg/stdcopy"
 	"github.com/docker/go-connections/nat"
 )
 
@@ -147,7 +149,14 @@ func (cm *DockerContainerManager) Exec(ctx context.Context, containerId string, 
 	var stdOut, stdErr bytes.Buffer
 	logPipe := &logPipe{}
 
-	if err := readOutputFromContainer(ctx, resp.Reader, io.MultiWriter(&stdOut, logPipe), io.MultiWriter(&stdErr, logPipe)); err != nil {
+	if err := readOutputFromContainer(ctx, resp, io.MultiWriter(&stdOut, logPipe), io.MultiWriter(&stdErr, logPipe)); err != nil {
+		if errors.Is(err, context.Canceled) {
+			return ExecResult{}, nil
+		}
+		if errors.Is(err, context.DeadlineExceeded) {
+			return ExecResult{StdOut: stdOut.String(), StdErr: stdErr.String(), ExitCode: 124}, nil
+		}
+
 		return ExecResult{}, fmt.Errorf("Failed reading output from container %s: %w", containerId, err)
 	}
 
@@ -157,6 +166,28 @@ func (cm *DockerContainerManager) Exec(ctx context.Context, containerId string, 
 	}
 
 	return ExecResult{StdOut: stdOut.String(), StdErr: stdErr.String(), ExitCode: inspectResp.ExitCode}, nil
+}
+
+// Docker combines stdout and stderr into a single stream with headers to distinguish between them.
+// The StdCopy function demultiplexes this stream back into separate stdout and stderr.
+func readOutputFromContainer(ctx context.Context, src types.HijackedResponse, stdout, stderr io.Writer) error {
+	defer src.Close()
+
+	errCh := make(chan error, 1)
+	go func() {
+		_, err := stdcopy.StdCopy(stdout, stderr, src.Reader)
+		errCh <- err
+	}()
+
+	select {
+	case <-ctx.Done():
+		return fmt.Errorf("timeout or cancellation while reading output from container: %w", ctx.Err())
+	case err := <-errCh:
+		if err != nil {
+			return fmt.Errorf("error during output copy: %w", err)
+		}
+		return nil
+	}
 }
 
 func stringToType(s string) (mount.Type, error) {
