@@ -269,9 +269,7 @@ func cmdMaybeWithTimeout(ctx context.Context, cmd string) (command []string) {
 	}
 
 	duration := time.Until(deadline)
-	cmd = fmt.Sprintf("timeout --kill-after=1s --verbose %fs %s", duration.Seconds(), cmd)
-
-	return []string{"/bin/bash", "-c", cmd}
+	return []string{"timeout", "--kill-after=1s", "--verbose", fmt.Sprintf("%fs", duration.Seconds()), "/bin/bash", "-c", cmd}
 }
 
 func (pm ManagerImpl) Cleanup(ctx context.Context) error {
