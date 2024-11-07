@@ -108,6 +108,15 @@ func (h CreateTaskHandler) do(ctx context.Context, w http.ResponseWriter, r *htt
 			return
 		}
 
+		if errors.Is(err, context.Canceled) {
+			// do not write any response since it can only be cancelled by client
+			return
+		}
+
+		if errors.Is(err, context.DeadlineExceeded) {
+			http.Error(w, "", http.StatusRequestTimeout)
+		}
+
 		http.Error(w, fmt.Sprintf("Failed to run task %s", err), http.StatusInternalServerError)
 		return
 	}
