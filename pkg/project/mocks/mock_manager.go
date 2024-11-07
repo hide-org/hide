@@ -27,6 +27,7 @@ type MockProjectManager struct {
 	SearchSymbolsFunc    func(ctx context.Context, projectId model.ProjectId, query string, symbolFilter lsp.SymbolFilter) ([]lsp.SymbolInfo, error)
 	UpdateFileFunc       func(ctx context.Context, projectId, path, content string) (*model.File, error)
 	UpdateLinesFunc      func(ctx context.Context, projectId, path string, lineDiff files.LineDiffChunk) (*model.File, error)
+	DocumentOutlineFunc  func(ctx context.Context, projectId string) (lsp.DocumentOutline, error)
 }
 
 func (m *MockProjectManager) CreateProject(ctx context.Context, request project.CreateProjectRequest) (*model.Project, error) {
@@ -87,4 +88,8 @@ func (m *MockProjectManager) UpdateLines(ctx context.Context, projectId, path st
 
 func (m *MockProjectManager) SearchSymbols(ctx context.Context, projectId model.ProjectId, query string, symbolFilter lsp.SymbolFilter) ([]lsp.SymbolInfo, error) {
 	return m.SearchSymbolsFunc(ctx, projectId, query, symbolFilter)
+}
+
+func (m *MockProjectManager) DocumentOutline(ctx context.Context, projectId string, path string) (lsp.DocumentOutline, error) {
+	return m.DocumentOutlineFunc(ctx, projectId)
 }
