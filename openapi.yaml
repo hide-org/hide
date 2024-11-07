@@ -456,6 +456,39 @@ components:
         config:
           $ref: '#/components/schemas/DevContainerConfig'
 
+    DocumentSymbol:
+      type: object
+      properties:
+        name:
+          type: string
+        detail:
+          type: string
+        kind:
+          type: string
+        range:
+          $ref: '#/components/schemas/Range'
+        children:
+          type: array
+          items:
+            $ref: '#/components/schemas/DocumentSymbol'
+      required:
+        - name
+        - kind
+        - range
+
+    DocumentOutline:
+      type: object
+      properties:
+        path:
+          type: string
+        document_symbols:
+          type: array
+          items:
+            $ref: '#/components/schemas/DocumentSymbol'
+      required:
+        - path
+        - document_symbols
+
   parameters:
     projectId:
       name: id
@@ -939,6 +972,42 @@ paths:
               schema:
                 type: string
               example: "Project not found"
+        '500':
+          description: Internal server error
+          content:
+            text/plain:
+              schema:
+                type: string
+              example: "Internal server error"
+
+  /projects/{id}/outline/{path}:
+    get:
+      summary: Get document outline
+      operationId: getDocumentOutline
+      parameters:
+        - $ref: '#/components/parameters/projectId'
+        - $ref: '#/components/parameters/filePath'
+      responses:
+        '200':
+          description: Document outline
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DocumentOutline'
+        '400':
+          description: Invalid request
+          content:
+            text/plain:
+              schema:
+                type: string
+              example: "Invalid request"
+        '404':
+          description: Project or file not found
+          content:
+            text/plain:
+              schema:
+                type: string
+              example: "Project or file not found"
         '500':
           description: Internal server error
           content:
