@@ -20,4 +20,3 @@ install:
 
 format:
 	go fmt ./...
-
