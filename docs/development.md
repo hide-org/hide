@@ -101,7 +101,13 @@ This will start a local server at `http://127.0.0.1:8000/`.
 The OpenAPI specification is defined in the `openapi.yaml` file. To run the Swagger Editor and visualize the OpenAPI specification, run the following command:
 
 ```bash
-docker run -d -p 8081:8080 -v $(pwd):/tmp -e SWAGGER_FILE=/tmp/openapi.yaml swaggerapi/swagger-editor
+docker run -p 8081:8080 -v $(pwd):/tmp -e SWAGGER_FILE=/tmp/openapi.yaml swaggerapi/swagger-editor
+```
+
+or use the `make` command:
+
+```bash
+make openapi
 ```
 
 This will start a local server at `http://127.0.0.1:8081/`.
