@@ -43,22 +43,10 @@ func (h CreateTaskHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), time.Second*time.Duration(timeOutSec))
 	defer cancel()
 
-	done := make(chan bool)
-	go func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
-		done <- h.do(ctx, w, r) // TODO: don't return true
-	}(ctx, w, r)
-
-	select {
-	case <-done:
-		return
-	case <-ctx.Done():
-		http.Error(w, "request timed out", http.StatusRequestTimeout)
-	}
+	h.do(ctx, w, r)
 }
 
-func (h CreateTaskHandler) do(ctx context.Context, w http.ResponseWriter, r *http.Request) (done bool) {
-	done = true // handling is always done
-
+func (h CreateTaskHandler) do(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	projectID, err := getProjectID(r)
 	if err != nil {
 		http.Error(w, "invalid project ID", http.StatusBadRequest)
@@ -80,6 +68,7 @@ func (h CreateTaskHandler) do(ctx context.Context, w http.ResponseWriter, r *htt
 	var command string
 
 	if request.Alias != nil {
+		// check for context cancellation error
 		task, err := h.Manager.ResolveTaskAlias(ctx, projectID, *request.Alias)
 		if err != nil {
 			var projectNotFoundError *project.ProjectNotFoundError
@@ -92,6 +81,15 @@ func (h CreateTaskHandler) do(ctx context.Context, w http.ResponseWriter, r *htt
 			if errors.As(err, &taskNotFoundError) {
 				http.Error(w, taskNotFoundError.Error(), http.StatusNotFound)
 				return
+			}
+
+			if errors.Is(err, context.Canceled) {
+				// do not write any response since it can only be cancelled by client
+				return
+			}
+
+			if errors.Is(err, context.DeadlineExceeded) {
+				http.Error(w, "", http.StatusRequestTimeout)
 			}
 
 			http.Error(w, fmt.Sprintf("Failed to resolve task alias: %s", err), http.StatusInternalServerError)
