@@ -4,8 +4,8 @@ import "fmt"
 
 var (
 	Major = 0
-	Minor = 3
-	Patch = 0
+	Minor = 4
+	Patch = 1
 )
 
 func Version() string {

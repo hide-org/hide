@@ -1,0 +1,1017 @@
+openapi: 3.0.3
+info:
+  title: Hide API
+  description: API specification for Hide project management and codebase interaction
+  version: 0.4.1
+
+servers:
+  - url: 'http://localhost:8080'
+    description: Local server
+
+components:
+  schemas:
+    File:
+      type: object
+      properties:
+        path:
+          type: string
+        lines:
+          type: array
+          items:
+            $ref: '#/components/schemas/Line'
+        diagnostics:
+          type: array
+          items:
+            $ref: '#/components/schemas/Diagnostic'
+      required:
+        - path
+        - lines
+
+    Line:
+      type: object
+      properties:
+        number:
+          type: integer
+        content:
+          type: string
+
+    Position:
+      type: object
+      properties:
+        line:
+          type: integer
+        character:
+          type: integer
+      required:
+        - line
+        - character
+
+    Range:
+      type: object
+      properties:
+        start:
+          $ref: '#/components/schemas/Position'
+        end:
+          $ref: '#/components/schemas/Position'
+      required:
+        - start
+        - end
+
+    Location:
+      type: object
+      properties:
+        uri:
+          type: string
+          format: uri
+        range:
+          $ref: '#/components/schemas/Range'
+      required:
+        - uri
+        - range
+
+    SymbolLocation:
+      type: object
+      properties:
+        path:
+          type: string
+        range:
+          $ref: '#/components/schemas/Range'
+      required:
+        - path
+        - range
+
+    DiagnosticRelatedInformation:
+      type: object
+      properties:
+        location:
+          $ref: '#/components/schemas/Location'
+        message:
+          type: string
+      required:
+        - location
+        - message
+
+    CodeDescription:
+      type: object
+      properties:
+        href:
+          type: string
+          format: uri
+      required:
+        - href
+
+    Diagnostic:
+      type: object
+      properties:
+        range:
+          $ref: '#/components/schemas/Range'
+        severity:
+          type: integer
+          enum: [1, 2, 3, 4]
+          description: "1: Error, 2: Warning, 3: Information, 4: Hint"
+        code:
+          oneOf:
+            - type: string
+            - type: integer
+        codeDescription:
+          $ref: '#/components/schemas/CodeDescription'
+        source:
+          type: string
+        message:
+          type: string
+        tags:
+          type: array
+          items:
+            type: integer
+            enum: [1, 2]
+            description: "1: Unnecessary, 2: Deprecated"
+        relatedInformation:
+          type: array
+          items:
+            $ref: '#/components/schemas/DiagnosticRelatedInformation'
+        data:
+          type: object
+          description: "Additional structured data"
+      required:
+        - range
+        - message
+
+    FileInfo:
+      type: object
+      properties:
+        path:
+          type: string
+
+    Symbol:
+      type: object
+      properties:
+        name:
+          type: string
+        kind:
+          type: string
+        location:
+          $ref: '#/components/schemas/SymbolLocation'
+
+    Repository:
+      type: object
+      required:
+        - url
+      properties:
+        url:
+          type: string
+          format: url
+        commit:
+          type: string
+
+    DevContainerConfig:
+      type: object
+      properties:
+        # DockerImageProps
+        image:
+          type: string
+          description: Required when using an image
+        dockerfile:
+          type: string
+          description: Dockerfile path
+        context:
+          type: string
+          description: Docker build context
+        build:
+          $ref: '#/components/schemas/BuildProps'
+        appPort:
+          oneOf:
+            - type: integer
+            - type: string
+            - type: array
+              items:
+                oneOf:
+                  - type: integer
+                  - type: string
+        workspaceMount:
+          $ref: '#/components/schemas/Mount'
+        workspaceFolder:
+          type: string
+        runArgs:
+          type: array
+          items:
+            type: string
+        
+        # DockerComposeProps
+        dockerComposeFile:
+          oneOf:
+            - type: array
+              items:
+                type: string
+            - type: string
+        service:
+          type: string
+        runServices:
+          type: array
+          items:
+            type: string
+
+        # LifecycleProps
+        initializeCommand:
+          oneOf:
+            - type: string
+            - type: array
+              items:
+                type: string
+            - type: object
+              additionalProperties:
+                type: string
+        onCreateCommand:
+          oneOf:
+            - type: string
+            - type: array
+              items:
+                type: string
+            - type: object
+              additionalProperties:
+                type: string
+        updateContentCommand:
+          oneOf:
+            - type: string
+            - type: array
+              items:
+                type: string
+            - type: object
+              additionalProperties:
+                type: string
+        postCreateCommand:
+          oneOf:
+            - type: string
+            - type: array
+              items:
+                type: string
+            - type: object
+              additionalProperties:
+                type: string
+        postStartCommand:
+          oneOf:
+            - type: string
+            - type: array
+              items:
+                type: string
+            - type: object
+              additionalProperties:
+                type: string
+        postAttachCommand:
+          oneOf:
+            - type: string
+            - type: array
+              items:
+                type: string
+            - type: object
+              additionalProperties:
+                type: string
+        waitFor:
+          type: string
+
+        # HostRequirements
+        cpus:
+          type: integer
+        memory:
+          type: string
+        storage:
+          type: string
+
+        # GeneralProperties
+        name:
+          type: string
+        forwardPorts:
+          type: array
+          items:
+            type: string
+        portsAttributes:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/PortAttributes'
+        otherPortsAttributes:
+          $ref: '#/components/schemas/PortAttributes'
+        containerEnv:
+          type: object
+          additionalProperties:
+            type: string
+        remoteEnv:
+          type: object
+          additionalProperties:
+            type: string
+        remoteUser:
+          type: string
+        containerUser:
+          type: string
+        updateRemoteUserUID:
+          type: boolean
+          default: true
+        userEnvProbe:
+          type: string
+        overrideCommand:
+          type: boolean
+        shutdownAction:
+          type: string
+        init:
+          type: boolean
+          default: false
+        privileged:
+          type: boolean
+          default: false
+        capAdd:
+          type: array
+          items:
+            type: string
+        securityOpt:
+          type: array
+          items:
+            type: string
+        mounts:
+          type: array
+          items:
+            $ref: '#/components/schemas/Mount'
+        features:
+          type: object
+        overrideFeatureInstallOrder:
+          type: array
+          items:
+            type: string
+        customizations:
+          $ref: '#/components/schemas/Customizations'
+        
+    BuildProps:
+      type: object
+      properties:
+        dockerfile:
+          type: string
+        context:
+          type: string
+          default: "."
+        args:
+          type: object
+          additionalProperties:
+            type: string
+        options:
+          type: array
+          items:
+            type: string
+        target:
+          type: string
+        cacheFrom:
+          oneOf:
+            - type: array
+              items:
+                type: string
+            - type: string
+
+    Mount:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [bind, volume, tmpfs]
+        source:
+          type: string
+        destination:
+          type: string
+
+    PortAttributes:
+      type: object
+      properties:
+        label:
+          type: string
+        protocol:
+          type: string
+        onAutoForward:
+          type: string
+        requireLocalPort:
+          type: boolean
+        elevateIfNeeded:
+          type: boolean
+
+    Customizations:
+      type: object
+
+    Task:
+      type: object
+      required:
+        - alias
+        - command
+      properties:
+        alias:
+          type: string
+        command:
+          type: string
+
+    CreateProjectRequest:
+      type: object
+      required:
+        - repository
+      properties:
+        repository:
+          $ref: '#/components/schemas/Repository'
+        languages:
+          type: array
+          items:
+            type: string
+            enum: [Go, JavaScript, Python, TypeScript]
+        devcontainer:
+          $ref: '#/components/schemas/DevContainerConfig'
+
+    TaskResult:
+      type: object
+      properties:
+        stdout:
+          type: string
+          description: Standard output from the task execution
+        stderr:
+          type: string
+          description: Standard error output from the task execution
+        exitCode:
+          type: integer
+          description: Exit code returned by the task
+      required:
+        - stdout
+        - stderr
+        - exitCode
+
+    TaskRequest:
+      oneOf:
+        - type: object
+          required: ['command']
+          properties:
+            command:
+              type: string
+        - type: object
+          required: ['alias']
+          properties:
+            alias:
+              type: string
+
+    Project:
+      type: object
+      properties:
+        id:
+          type: string
+        path:
+          type: string
+        config:
+          $ref: '#/components/schemas/DevContainerConfig'
+
+    DocumentSymbol:
+      type: object
+      properties:
+        name:
+          type: string
+        detail:
+          type: string
+        kind:
+          type: string
+        range:
+          $ref: '#/components/schemas/Range'
+        children:
+          type: array
+          items:
+            $ref: '#/components/schemas/DocumentSymbol'
+      required:
+        - name
+        - kind
+        - range
+
+    DocumentOutline:
+      type: object
+      properties:
+        path:
+          type: string
+        document_symbols:
+          type: array
+          items:
+            $ref: '#/components/schemas/DocumentSymbol'
+      required:
+        - path
+        - document_symbols
+
+  parameters:
+    projectId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Project identifier
+
+    filePath:
+      name: path
+      in: path
+      required: true
+      schema:
+        type: string
+      description: File path
+
+paths:
+  /projects:
+    post:
+      summary: Create a new project
+      operationId: createProject
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateProjectRequest'
+      responses:
+        '201':
+          description: Project created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+        '400':
+          description: Invalid request
+          content:
+            text/plain:
+              schema:
+                type: string
+              example: "Invalid request"
+        '500':
+          description: Internal server error
+          content:
+            text/plain:
+              schema:
+                type: string
+              example: "Internal server error"
+
+  /projects/{id}:
+    delete:
+      summary: Delete a project
+      operationId: deleteProject
+      parameters:
+        - $ref: '#/components/parameters/projectId'
+      responses:
+        '204':
+          description: Project deleted successfully
+        '400':
+          description: Invalid request
+          content:
+            text/plain:
+              schema:
+                type: string
+              example: "Invalid request"
+        '404':
+          description: Project not found
+          content:
+            text/plain:
+              schema:
+                type: string
+              example: "Project not found"
+        '500':
+          description: Internal server error
+          content:
+            text/plain:
+              schema:
+                type: string
+              example: "Internal server error"
+
+  /projects/{id}/files:
+    get:
+      summary: List files in project
+      operationId: listFiles
+      parameters:
+        - $ref: '#/components/parameters/projectId'
+        - name: showHidden
+          in: query
+          schema:
+            type: boolean
+        - name: include
+          in: query
+          schema:
+            type: array
+            items:
+              type: string
+        - name: exclude
+          in: query
+          schema:
+            type: array
+            items:
+              type: string
+      responses:
+        '200':
+          description: List of files
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/FileInfo'
+            text/plain:
+              schema:
+                type: string
+        '400':
+          description: Invalid request
+          content:
+            text/plain:
+              schema:
+                type: string
+              example: "Invalid request"
+        '404':
+          description: Project not found
+          content:
+            text/plain:
+              schema:
+                type: string
+              example: "Project not found"
+        '500':
+          description: Internal server error
+          content:
+            text/plain:
+              schema:
+                type: string
+              example: "Internal server error"
+
+    post:
+      summary: Create a new file
+      operationId: createFile
+      parameters:
+        - $ref: '#/components/parameters/projectId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - path
+                - content
+              properties:
+                path:
+                  type: string
+                content:
+                  type: string
+      responses:
+        '201':
+          description: File created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/File'
+        '400':
+          description: Invalid request
+          content:
+            text/plain:
+              schema:
+                type: string
+              example: "Invalid request"
+        '404':
+          description: Project not found
+          content:
+            text/plain:
+              schema:
+                type: string
+              example: "Project not found"
+        '409':
+          description: File already exists
+          content:
+            text/plain:
+              schema:
+                type: string
+              example: "File already exists"
+        '500':
+          description: Internal server error
+          content:
+            text/plain:
+              schema:
+                type: string
+              example: "Internal server error"
+
+  /projects/{id}/files/{path}:
+    get:
+      summary: Read file contents
+      operationId: readFile
+      parameters:
+        - $ref: '#/components/parameters/projectId'
+        - $ref: '#/components/parameters/filePath'
+        - name: startLine
+          in: query
+          schema:
+            type: integer
+        - name: numLines
+          in: query
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: File contents
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/File'
+        '400':
+          description: Invalid request
+          content:
+            text/plain:
+              schema:
+                type: string
+              example: "Invalid request"
+        '404':
+          description: Project not found
+          content:
+            text/plain:
+              schema:
+                type: string
+              example: "Project not found"
+        '500':
+          description: Internal server error
+          content:
+            text/plain:
+              schema:
+                type: string
+              example: "Internal server error"
+
+    put:
+      summary: Update file contents
+      operationId: updateFile
+      parameters:
+        - $ref: '#/components/parameters/projectId'
+        - $ref: '#/components/parameters/filePath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required: ['type', 'udiff']
+                  properties:
+                    type:
+                      type: string
+                      enum: ['udiff']
+                    udiff:
+                      type: object
+                      properties:
+                        patch:
+                          type: string
+                - type: object
+                  required: ['type', 'linediff']
+                  properties:
+                    type:
+                      type: string
+                      enum: ['linediff']
+                    linediff:
+                      type: object
+                      properties:
+                        startLine:
+                          type: integer
+                        endLine:
+                          type: integer
+                        content:
+                          type: string
+                - type: object
+                  required: ['type', 'overwrite']
+                  properties:
+                    type:
+                      type: string
+                      enum: ['overwrite']
+                    overwrite:
+                      type: object
+                      properties:
+                        content:
+                          type: string
+      responses:
+        '200':
+          description: File updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/File'
+        '400':
+          description: Invalid request
+          content:
+            text/plain:
+              schema:
+                type: string
+              example: "Invalid request"
+        '404':
+          description: Project not found
+          content:
+            text/plain:
+              schema:
+                type: string
+              example: "Project not found"
+        '500':
+          description: Internal server error
+          content:
+            text/plain:
+              schema:
+                type: string
+              example: "Internal server error"
+
+    delete:
+      summary: Delete a file
+      operationId: deleteFile
+      parameters:
+        - $ref: '#/components/parameters/projectId'
+        - $ref: '#/components/parameters/filePath'
+      responses:
+        '204':
+          description: File deleted successfully
+        '400':
+          description: Invalid request
+          content:
+            text/plain:
+              schema:
+                type: string
+              example: "Invalid request"
+        '404':
+          description: Project not found
+          content:
+            text/plain:
+              schema:
+                type: string
+              example: "Project not found"
+        '500':
+          description: Internal server error
+          content:
+            text/plain:
+              schema:
+                type: string
+              example: "Internal server error"
+
+  /projects/{id}/tasks:
+    get:
+      summary: List tasks
+      operationId: listTasks
+      parameters:
+        - $ref: '#/components/parameters/projectId'
+      responses:
+        '200':
+          description: List of tasks
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Task'
+        '400':
+          description: Invalid request
+          content:
+            text/plain:
+              schema:
+                type: string
+              example: "Invalid request"
+        '404':
+          description: Project not found
+          content:
+            text/plain:
+              schema:
+                type: string
+              example: "Project not found"
+        '500':
+          description: Internal server error
+          content:
+            text/plain:
+              schema:
+                type: string
+              example: "Internal server error"
+
+    post:
+      summary: Create a new task
+      operationId: createTask
+      parameters:
+        - $ref: '#/components/parameters/projectId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TaskRequest'
+      responses:
+        '200':
+          description: Task created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskResult'
+        '400':
+          description: Invalid request
+          content:
+            text/plain:
+              schema:
+                type: string
+              example: "Invalid request"
+        '404':
+          description: Project not found
+          content:
+            text/plain:
+              schema:
+                type: string
+              example: "Project not found"
+        '500':
+          description: Internal server error
+          content:
+            text/plain:
+              schema:
+                type: string
+              example: "Internal server error"
+
+  /projects/{id}/search:
+    get:
+      summary: Search files or symbols
+      operationId: search
+      parameters:
+        - $ref: '#/components/parameters/projectId'
+        - name: type
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [content, symbol]
+        - name: query
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: exact
+          in: query
+          schema:
+            type: boolean
+          x-conditional: type=content
+        - name: regex
+          in: query
+          schema:
+            type: boolean
+          x-conditional: type=content
+        - name: limit
+          in: query
+          schema:
+            type: integer
+          x-conditional: type=symbol
+      responses:
+        '200':
+          description: Search results
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: array
+                    items:
+                      $ref: '#/components/schemas/File'
+                    description: Results when type=content
+                  - type: array
+                    items:
+                      $ref: '#/components/schemas/Symbol'
+                    description: Results when type=symbol
+        '400':
+          description: Invalid request
+          content:
+            text/plain:
+              schema:
+                type: string
+              example: "Invalid request"
+        '404':
+          description: Project not found
+          content:
+            text/plain:
+              schema:
+                type: string
+              example: "Project not found"
+        '500':
+          description: Internal server error
+          content:
+            text/plain:
+              schema:
+                type: string
+              example: "Internal server error"
+
+  /projects/{id}/outline/{path}:
+    get:
+      summary: Get document outline
+      operationId: getDocumentOutline
+      parameters:
+        - $ref: '#/components/parameters/projectId'
+        - $ref: '#/components/parameters/filePath'
+      responses:
+        '200':
+          description: Document outline
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DocumentOutline'
+        '400':
+          description: Invalid request
+          content:
+            text/plain:
+              schema:
+                type: string
+              example: "Invalid request"
+        '404':
+          description: Project or file not found
+          content:
+            text/plain:
+              schema:
+                type: string
+              example: "Project or file not found"
+        '500':
+          description: Internal server error
+          content:
+            text/plain:
+              schema:
+                type: string
+              example: "Internal server error"
