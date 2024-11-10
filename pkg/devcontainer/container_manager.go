@@ -3,6 +3,7 @@ package devcontainer
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"strconv"
@@ -11,11 +12,14 @@ import (
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/mount"
 	"github.com/docker/docker/client"
+	"github.com/docker/docker/pkg/stdcopy"
 	"github.com/docker/go-connections/nat"
 )
 
-const DefaultShell = "/bin/sh"
-const DefaultWorkingDir = "/workspace"
+const (
+	DefaultShell      = "/bin/sh"
+	DefaultWorkingDir = "/workspace"
+)
 
 var DefaultContainerCommand = []string{DefaultShell, "-c", "while sleep 1000; do :; done"}
 
@@ -64,7 +68,6 @@ func (cm *DockerContainerManager) CreateContainer(ctx context.Context, image str
 		for _, port := range config.AppPort {
 			port_str := strconv.Itoa(port)
 			port, err := nat.NewPort("tcp", port_str)
-
 			if err != nil {
 				return "", fmt.Errorf("Failed to create new TCP port from port %s: %w", port_str, err)
 			}
@@ -95,7 +98,6 @@ func (cm *DockerContainerManager) CreateContainer(ctx context.Context, image str
 	if len(config.Mounts) > 0 {
 		for _, m := range config.Mounts {
 			mountType, err := stringToType(m.Type)
-
 			if err != nil {
 				return "", fmt.Errorf("Failed to convert mount type %s to mount.Type: %w", m.Type, err)
 			}
@@ -142,13 +144,20 @@ func (cm *DockerContainerManager) Exec(ctx context.Context, containerId string, 
 	if err != nil {
 		return ExecResult{}, fmt.Errorf("Failed to attach to exec process %s in container %s: %w", execID, containerId, err)
 	}
-
 	defer resp.Close()
 
 	var stdOut, stdErr bytes.Buffer
 	logPipe := &logPipe{}
 
-	if err := readOutputFromContainer(resp.Reader, io.MultiWriter(&stdOut, logPipe), io.MultiWriter(&stdErr, logPipe)); err != nil {
+	if err := readOutputFromContainer(ctx, resp, io.MultiWriter(&stdOut, logPipe), io.MultiWriter(&stdErr, logPipe)); err != nil {
+		if errors.Is(err, context.Canceled) {
+			return ExecResult{}, err
+		}
+		if errors.Is(err, context.DeadlineExceeded) {
+			// return exec result with correct exit code instead of err
+			return ExecResult{StdOut: stdOut.String(), StdErr: stdErr.String(), ExitCode: 124}, nil
+		}
+
 		return ExecResult{}, fmt.Errorf("Failed reading output from container %s: %w", containerId, err)
 	}
 
@@ -158,6 +167,28 @@ func (cm *DockerContainerManager) Exec(ctx context.Context, containerId string, 
 	}
 
 	return ExecResult{StdOut: stdOut.String(), StdErr: stdErr.String(), ExitCode: inspectResp.ExitCode}, nil
+}
+
+// Docker combines stdout and stderr into a single stream with headers to distinguish between them.
+// The StdCopy function demultiplexes this stream back into separate stdout and stderr.
+func readOutputFromContainer(ctx context.Context, src types.HijackedResponse, stdout, stderr io.Writer) error {
+	defer src.Close()
+
+	errCh := make(chan error, 1)
+	go func() {
+		_, err := stdcopy.StdCopy(stdout, stderr, src.Reader)
+		errCh <- err
+	}()
+
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case err := <-errCh:
+		if err != nil {
+			return fmt.Errorf("error during output copy: %w", err)
+		}
+		return nil
+	}
 }
 
 func stringToType(s string) (mount.Type, error) {

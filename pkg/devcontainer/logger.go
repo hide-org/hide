@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"io"
 
-	"github.com/docker/docker/pkg/stdcopy"
 	"github.com/rs/zerolog/log"
 )
 
@@ -25,16 +24,6 @@ func logResponse(src io.Reader) error {
 	}
 
 	if err := scanner.Err(); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// Docker combines stdout and stderr into a single stream with headers to distinguish between them.
-// The StdCopy function demultiplexes this stream back into separate stdout and stderr.
-func readOutputFromContainer(src io.Reader, stdout, stderr io.Writer) error {
-	if _, err := stdcopy.StdCopy(stdout, stderr, src); err != nil {
 		return err
 	}
 

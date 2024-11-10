@@ -251,7 +251,7 @@ func (pm ManagerImpl) CreateTask(ctx context.Context, projectId string, command 
 		return TaskResult{}, fmt.Errorf("Failed to get project with id %s: %w", projectId, err)
 	}
 
-	execResult, err := pm.devContainerRunner.Exec(ctx, project.ContainerId, []string{"/bin/bash", "-c", command})
+	execResult, err := pm.devContainerRunner.Exec(ctx, project.ContainerId, cmdMaybeWithTimeout(ctx, command))
 	if err != nil {
 		log.Error().Err(err).Msgf("Failed to execute command '%s' in container %s", command, project.ContainerId)
 		return TaskResult{}, fmt.Errorf("Failed to execute command: %w", err)
@@ -260,6 +260,19 @@ func (pm ManagerImpl) CreateTask(ctx context.Context, projectId string, command 
 	log.Debug().Msgf("Task '%s' for project %s completed", command, projectId)
 
 	return TaskResult{StdOut: execResult.StdOut, StdErr: execResult.StdErr, ExitCode: execResult.ExitCode}, nil
+}
+
+// cmdMaybeWithTimeout prepends timeout command to the command.
+//
+// Note: this is a workaround to ensure that the process is actually stopped after the timeout duration exceeded.
+func cmdMaybeWithTimeout(ctx context.Context, cmd string) (command []string) {
+	deadline, ok := ctx.Deadline()
+	if !ok {
+		return []string{"/bin/bash", "-c", cmd}
+	}
+
+	duration := time.Until(deadline)
+	return []string{"timeout", "--kill-after=1s", "--verbose", fmt.Sprintf("%fs", duration.Seconds()), "/bin/bash", "-c", cmd}
 }
 
 func (pm ManagerImpl) Cleanup(ctx context.Context) error {

@@ -6,9 +6,9 @@ This quickstart assumes that you have already installed Hide Runtime and SDK, an
 
 ## Requirements
 
-- Python 3.10+
-- Hide Runtime running on your local machine
-- Hide SDK installed (`pip install hide-py`)
+-   Python 3.10+
+-   Hide Runtime running on your local machine
+-   Hide SDK installed (`pip install hide-py`)
 
 ## Creating a Client
 
@@ -77,7 +77,7 @@ You could notice that the devcontainer [configuration](https://github.com/hide-o
 
 ```python
 result = hc.run_task(
-    project_id=project.id, 
+    project_id=project.id,
     alias="test"
 )
 
@@ -87,7 +87,7 @@ print(result.stdout)
 # rootdir: /workspace
 # plugins: anyio-4.3.0
 # collected 3 items
-# 
+#
 # tests/test_api.py ...                                                    [100%]
 # ======================== 3 passed, 5 warnings in 0.05s =========================
 ```
@@ -96,7 +96,7 @@ Running tasks is powered by the Task API which also allows us to run arbitrary s
 
 ```python
 result = hc.run_task(
-    project_id=project.id, 
+    project_id=project.id,
     command="pwd"
 )
 
@@ -105,6 +105,16 @@ print(result.stdout)
 ```
 
 The tasks are executed from the project root so the print statement outputs the path to the project root directory.
+
+**Note**: Task API supports timeouts. It's a good practice to use it especially when the task is created by an agent.
+
+```python
+result = hc.run_task(
+    project_id=project.id,
+    command="pwd",
+    timeout=1, #time out and release resources after 1 second.
+)
+```
 
 ### Reading and Updating Files
 
@@ -119,11 +129,11 @@ file = hc.get_file(
 print(file)
 #  1 | """Endpoint examples with input/output models and error handling."""
 #  2 | import logging
-#  3 | 
+#  3 |
 #  4 | import fastapi
 #  5 | import pydantic
 #  6 | import starlette.status
-#  7 | 
+#  7 |
 #  8 | router = fastapi.APIRouter()
 #... | ...
 #112 |         raise fastapi.HTTPException(
@@ -166,7 +176,7 @@ patch = """\
 """
 
 file = hc.update_file(
-    project_id=project.id, 
+    project_id=project.id,
     path='my_tiny_service/api/routers/maths.py',
     update=model.UdiffUpdate(patch=patch)
 )
@@ -174,11 +184,11 @@ file = hc.update_file(
 print(file)
 #  1 | """Endpoint examples with input/output models and error handling."""
 #  2 | import logging
-#  3 | 
+#  3 |
 #  4 | import fastapi
 #  5 | import pydantic
 #  6 | import starlette.status
-#  7 | 
+#  7 |
 #  8 | router = fastapi.APIRouter()
 #... | ...
 #123 | def exp(maths_input: MathsIn) -> MathsResult:
@@ -226,9 +236,9 @@ for tool in lc_toolkit.get_tools():
 # Name: append_lines
 # Description: append_lines(path: str, content: str) -> str - Append lines to a file in the project.
 # Args: {'path': {'title': 'Path', 'type': 'string'}, 'content': {'title': 'Content', 'type': 'string'}}
-# 
+#
 # ...
-# 
+#
 # Name: run_task
 # Description: run_task(command: Optional[str] = None, alias: Optional[str] = None) -> str - Run a task in the project. Provide either command or alias. Command will be executed in the shell.
 #         For the list of available tasks and their aliases, use the `get_tasks` tool.
@@ -267,13 +277,13 @@ response = agent_executor.invoke({"input": prompt})
 
 print(response["output"])
 # > Entering new AgentExecutor chain...
-# 
+#
 # Invoking: `get_file` with `{'path': 'my_tiny_service/api/routers/maths.py'}`
-# 
+#
 # ...
-# 
+#
 # > Finished chain.
-# 
+#
 # All tests, including the new one for exponentiation, have passed.
 ```
 
