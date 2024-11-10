@@ -54,7 +54,6 @@ func (h CreateTaskHandler) do(ctx context.Context, w http.ResponseWriter, r *htt
 	}
 
 	var request TaskRequest
-
 	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
 		http.Error(w, "Failed parsing request body", http.StatusBadRequest)
 		return
@@ -124,6 +123,4 @@ func (h CreateTaskHandler) do(ctx context.Context, w http.ResponseWriter, r *htt
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(taskResult)
-
-	return
 }

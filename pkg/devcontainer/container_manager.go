@@ -151,9 +151,10 @@ func (cm *DockerContainerManager) Exec(ctx context.Context, containerId string, 
 
 	if err := readOutputFromContainer(ctx, resp, io.MultiWriter(&stdOut, logPipe), io.MultiWriter(&stdErr, logPipe)); err != nil {
 		if errors.Is(err, context.Canceled) {
-			return ExecResult{}, nil
+			return ExecResult{}, err
 		}
 		if errors.Is(err, context.DeadlineExceeded) {
+			// return exec result with correct exit code instead of err
 			return ExecResult{StdOut: stdOut.String(), StdErr: stdErr.String(), ExitCode: 124}, nil
 		}
 
@@ -181,7 +182,7 @@ func readOutputFromContainer(ctx context.Context, src types.HijackedResponse, st
 
 	select {
 	case <-ctx.Done():
-		return fmt.Errorf("timeout or cancellation while reading output from container: %w", ctx.Err())
+		return ctx.Err()
 	case err := <-errCh:
 		if err != nil {
 			return fmt.Errorf("error during output copy: %w", err)

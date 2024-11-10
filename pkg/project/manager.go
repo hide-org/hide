@@ -264,7 +264,7 @@ func (pm ManagerImpl) CreateTask(ctx context.Context, projectId string, command 
 
 // cmdMaybeWithTimeout prepends timeout command to the command.
 //
-// Note: this is a workaround to ensure that the process is actually stopped after the timeout duration exceeded
+// Note: this is a workaround to ensure that the process is actually stopped after the timeout duration exceeded.
 func cmdMaybeWithTimeout(ctx context.Context, cmd string) (command []string) {
 	deadline, ok := ctx.Deadline()
 	if !ok {
