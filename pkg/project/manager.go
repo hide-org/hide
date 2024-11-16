@@ -57,6 +57,7 @@ type Manager interface {
 	SearchSymbols(ctx context.Context, projectId model.ProjectId, query string, symbolFilter lsp.SymbolFilter) ([]lsp.SymbolInfo, error)
 	UpdateFile(ctx context.Context, projectId, path, content string) (*model.File, error)
 	UpdateLines(ctx context.Context, projectId, path string, lineDiff files.LineDiffChunk) (*model.File, error)
+	// Deprecated: use outline.Service instead
 	DocumentOutline(ctx context.Context, projectId, path string) (lsp.DocumentOutline, error)
 }
 
