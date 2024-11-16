@@ -22,26 +22,27 @@ import (
 const MaxDiagnosticsDelay = time.Second * 1
 
 type Service interface {
-	CreateFile(ctx context.Context, fs afero.Fs, path, content string) (*model.File, error)
-	ReadFile(ctx context.Context, fs afero.Fs, path string) (*model.File, error)
-	UpdateFile(ctx context.Context, fs afero.Fs, path, content string) (*model.File, error)
-	DeleteFile(ctx context.Context, fs afero.Fs, path string) error
-	ListFiles(ctx context.Context, fs afero.Fs, opts ...ListFileOption) (model.Files, error)
-	ApplyPatch(ctx context.Context, fs afero.Fs, path, patch string) (*model.File, error)
-	UpdateLines(ctx context.Context, fs afero.Fs, path string, lineDiff LineDiffChunk) (*model.File, error)
+	CreateFile(ctx context.Context, path, content string) (*model.File, error)
+	ReadFile(ctx context.Context, path string) (*model.File, error)
+	UpdateFile(ctx context.Context, path, content string) (*model.File, error)
+	DeleteFile(ctx context.Context, path string) error
+	ListFiles(ctx context.Context, opts ...ListFileOption) (model.Files, error)
+	ApplyPatch(ctx context.Context, path, patch string) (*model.File, error)
+	UpdateLines(ctx context.Context, path string, lineDiff LineDiffChunk) (*model.File, error)
 }
 
 type ServiceImpl struct {
 	gitignoreFactory gitignore.MatcherFactory
 	lspService       lsp.Service
+	fs afero.Fs
 }
 
 func NewService(factory gitignore.MatcherFactory, lspService lsp.Service) Service {
 	return &ServiceImpl{gitignoreFactory: factory, lspService: lspService}
 }
 
-func (fm *ServiceImpl) CreateFile(ctx context.Context, fs afero.Fs, path, content string) (*model.File, error) {
-	exists, err := fileExists(fs, path)
+func (s *ServiceImpl) CreateFile(ctx context.Context, path, content string) (*model.File, error) {
+	exists, err := fileExists(s.fs, path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to check if file %s exists: %w", path, err)
 	}
@@ -51,21 +52,21 @@ func (fm *ServiceImpl) CreateFile(ctx context.Context, fs afero.Fs, path, conten
 	}
 
 	dir := filepath.Dir(path)
-	if err := fs.MkdirAll(dir, 0o755); err != nil {
+	if err := s.fs.MkdirAll(dir, 0o755); err != nil {
 		return nil, fmt.Errorf("failed to create directory %s: %w", dir, err)
 	}
 
-	if err := afero.WriteFile(fs, path, []byte(content), 0o644); err != nil {
+	if err := afero.WriteFile(s.fs, path, []byte(content), 0o644); err != nil {
 		return nil, fmt.Errorf("failed to write file %s: %w", path, err)
 	}
 
-	file, err := readFile(fs, path)
+	file, err := readFile(s.fs, path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read file %s after creating it: %w", path, err)
 	}
 
 	// TODO: check if should fetch diagnostics here
-	diagnostics, err := fm.getDiagnostics(ctx, *file, MaxDiagnosticsDelay)
+	diagnostics, err := s.getDiagnostics(ctx, *file, MaxDiagnosticsDelay)
 	if err != nil {
 		log.Warn().Err(err).Str("path", path).Msg("Failed to get diagnostics but ignoring it.")
 
@@ -75,8 +76,8 @@ func (fm *ServiceImpl) CreateFile(ctx context.Context, fs afero.Fs, path, conten
 	return model.NewFile(path, content).WithDiagnostics(diagnostics), nil
 }
 
-func (fm *ServiceImpl) ReadFile(ctx context.Context, fs afero.Fs, path string) (*model.File, error) {
-	exists, err := fileExists(fs, path)
+func (s *ServiceImpl) ReadFile(ctx context.Context, path string) (*model.File, error) {
+	exists, err := fileExists(s.fs, path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to check if file %s exists: %w", path, err)
 	}
@@ -85,13 +86,13 @@ func (fm *ServiceImpl) ReadFile(ctx context.Context, fs afero.Fs, path string) (
 		return nil, NewFileNotFoundError(path)
 	}
 
-	file, err := readFile(fs, path)
+	file, err := readFile(s.fs, path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read file %s: %w", path, err)
 	}
 
 	// TODO: check if should fetch diagnostics here
-	diagnostics, err := fm.getDiagnostics(ctx, *file, MaxDiagnosticsDelay)
+	diagnostics, err := s.getDiagnostics(ctx, *file, MaxDiagnosticsDelay)
 	if err != nil {
 		log.Warn().Err(err).Str("path", path).Msg("Failed to get diagnostics but ignoring it.")
 
@@ -101,8 +102,8 @@ func (fm *ServiceImpl) ReadFile(ctx context.Context, fs afero.Fs, path string) (
 	return file.WithDiagnostics(diagnostics), nil
 }
 
-func (fm *ServiceImpl) UpdateFile(ctx context.Context, fs afero.Fs, path, content string) (*model.File, error) {
-	exists, err := fileExists(fs, path)
+func (s *ServiceImpl) UpdateFile(ctx context.Context, path, content string) (*model.File, error) {
+	exists, err := fileExists(s.fs, path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to check if file %s exists: %w", path, err)
 	}
@@ -113,17 +114,17 @@ func (fm *ServiceImpl) UpdateFile(ctx context.Context, fs afero.Fs, path, conten
 
 	file := model.NewFile(path, content)
 
-	if err := writeFile(fs, file); err != nil {
+	if err := writeFile(s.fs, file); err != nil {
 		return nil, fmt.Errorf("failed to write file %s: %w", path, err)
 	}
 
-	file, err = readFile(fs, path)
+	file, err = readFile(s.fs, path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read file %s after updating it: %w", path, err)
 	}
 
 	// TODO: check if should fetch diagnostics here
-	diagnostics, err := fm.getDiagnostics(ctx, *file, MaxDiagnosticsDelay)
+	diagnostics, err := s.getDiagnostics(ctx, *file, MaxDiagnosticsDelay)
 	if err != nil {
 		log.Warn().Err(err).Str("path", path).Msg("Failed to get diagnostics but ignoring it.")
 
@@ -133,8 +134,8 @@ func (fm *ServiceImpl) UpdateFile(ctx context.Context, fs afero.Fs, path, conten
 	return file.WithDiagnostics(diagnostics), nil
 }
 
-func (fm *ServiceImpl) DeleteFile(ctx context.Context, fs afero.Fs, path string) error {
-	exists, err := fileExists(fs, path)
+func (s *ServiceImpl) DeleteFile(ctx context.Context, path string) error {
+	exists, err := fileExists(s.fs, path)
 	if err != nil {
 		return fmt.Errorf("failed to check if file %s exists: %w", path, err)
 	}
@@ -142,10 +143,10 @@ func (fm *ServiceImpl) DeleteFile(ctx context.Context, fs afero.Fs, path string)
 	if !exists {
 		return NewFileNotFoundError(path)
 	}
-	return fs.Remove(path)
+	return s.fs.Remove(path)
 }
 
-func (fm *ServiceImpl) ListFiles(ctx context.Context, fs afero.Fs, opts ...ListFileOption) (model.Files, error) {
+func (s *ServiceImpl) ListFiles(ctx context.Context, opts ...ListFileOption) (model.Files, error) {
 	var files []*model.File
 
 	opt := &ListFilesOptions{}
@@ -153,12 +154,12 @@ func (fm *ServiceImpl) ListFiles(ctx context.Context, fs afero.Fs, opts ...ListF
 		o(opt)
 	}
 
-	m, err := fm.gitignoreFactory.NewMatcher(fs)
+	m, err := s.gitignoreFactory.NewMatcher(s.fs)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create gitignore matcher: %w", err)
 	}
 
-	err = afero.Walk(fs, "/", func(path string, info os.FileInfo, err error) error {
+	err = afero.Walk(s.fs, "/", func(path string, info os.FileInfo, err error) error {
 		select {
 		case <-ctx.Done():
 			return errors.New("context cancelled")
@@ -207,7 +208,7 @@ func (fm *ServiceImpl) ListFiles(ctx context.Context, fs afero.Fs, opts ...ListF
 				return nil
 			}
 
-			file, err := readFile(fs, path)
+			file, err := readFile(s.fs, path)
 			if err != nil {
 				return fmt.Errorf("error reading file %s: %w", path, err)
 			}
@@ -227,8 +228,8 @@ func (fm *ServiceImpl) ListFiles(ctx context.Context, fs afero.Fs, opts ...ListF
 	return files, err
 }
 
-func (fm *ServiceImpl) ApplyPatch(ctx context.Context, fs afero.Fs, path, patch string) (*model.File, error) {
-	exists, err := fileExists(fs, path)
+func (s *ServiceImpl) ApplyPatch(ctx context.Context, path, patch string) (*model.File, error) {
+	exists, err := fileExists(s.fs, path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to check if file %s exists: %w", path, err)
 	}
@@ -237,7 +238,7 @@ func (fm *ServiceImpl) ApplyPatch(ctx context.Context, fs afero.Fs, path, patch 
 		return nil, NewFileNotFoundError(path)
 	}
 
-	file, err := readFile(fs, path)
+	file, err := readFile(s.fs, path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read file %s: %w", path, err)
 	}
@@ -261,17 +262,17 @@ func (fm *ServiceImpl) ApplyPatch(ctx context.Context, fs afero.Fs, path, patch 
 		return nil, fmt.Errorf("failed to apply patch to %s: %w\n%s", path, err, patch)
 	}
 
-	if err := afero.WriteFile(fs, path, output.Bytes(), 0o644); err != nil {
+	if err := afero.WriteFile(s.fs, path, output.Bytes(), 0o644); err != nil {
 		return nil, fmt.Errorf("failed to write file %s after applying patch: %w", path, err)
 	}
 
-	file, err = readFile(fs, path)
+	file, err = readFile(s.fs, path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read file %s after applying patch: %w", path, err)
 	}
 
 	// TODO: check if should fetch diagnostics here
-	diagnostics, err := fm.getDiagnostics(ctx, *file, MaxDiagnosticsDelay)
+	diagnostics, err := s.getDiagnostics(ctx, *file, MaxDiagnosticsDelay)
 	if err != nil {
 		log.Warn().Err(err).Str("path", path).Msg("Failed to get diagnostics but ignoring it.")
 
@@ -281,8 +282,8 @@ func (fm *ServiceImpl) ApplyPatch(ctx context.Context, fs afero.Fs, path, patch 
 	return file.WithDiagnostics(diagnostics), nil
 }
 
-func (fm *ServiceImpl) UpdateLines(ctx context.Context, fs afero.Fs, path string, lineDiff LineDiffChunk) (*model.File, error) {
-	exists, err := fileExists(fs, path)
+func (s *ServiceImpl) UpdateLines(ctx context.Context, path string, lineDiff LineDiffChunk) (*model.File, error) {
+	exists, err := fileExists(s.fs, path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to check if file %s exists: %w", path, err)
 	}
@@ -291,7 +292,7 @@ func (fm *ServiceImpl) UpdateLines(ctx context.Context, fs afero.Fs, path string
 		return nil, NewFileNotFoundError(path)
 	}
 
-	file, err := readFile(fs, path)
+	file, err := readFile(s.fs, path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read file %s: %w", path, err)
 	}
@@ -315,17 +316,17 @@ func (fm *ServiceImpl) UpdateLines(ctx context.Context, fs afero.Fs, path string
 		return nil, fmt.Errorf("failed to replace lines: %w", err)
 	}
 
-	if err := writeFile(fs, file); err != nil {
+	if err := writeFile(s.fs, file); err != nil {
 		return nil, fmt.Errorf("failed to write file %s: %w", path, err)
 	}
 
-	file, err = readFile(fs, path)
+	file, err = readFile(s.fs, path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read file %s after updating lines: %w", path, err)
 	}
 
 	// TODO: check if should fetch diagnostics here
-	diagnostics, err := fm.getDiagnostics(ctx, *file, MaxDiagnosticsDelay)
+	diagnostics, err := s.getDiagnostics(ctx, *file, MaxDiagnosticsDelay)
 	if err != nil {
 		log.Warn().Err(err).Str("path", path).Msg("Failed to get diagnostics but ignoring it.")
 
