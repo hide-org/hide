@@ -15,6 +15,7 @@ import (
 	"github.com/spf13/afero"
 )
 
+// Deprecated: use files.Service instead
 type FileManager interface {
 	CreateFile(ctx context.Context, fs afero.Fs, path, content string) (*model.File, error)
 	ReadFile(ctx context.Context, fs afero.Fs, path string) (*model.File, error)
@@ -263,6 +264,7 @@ func (fm *FileManagerImpl) UpdateLines(ctx context.Context, fs afero.Fs, path st
 	return readFile(fs, path)
 }
 
+// TODO: move to service.go after removing FileManager
 func readFile(fs afero.Fs, path string) (*model.File, error) {
 	content, err := afero.ReadFile(fs, path)
 	if err != nil {
@@ -272,14 +274,17 @@ func readFile(fs afero.Fs, path string) (*model.File, error) {
 	return model.NewFile(path, string(content)), nil
 }
 
+// TODO: move to service.go after removing FileManager
 func writeFile(fs afero.Fs, file *model.File) error {
 	return afero.WriteFile(fs, file.Path, []byte(file.GetContent()), 0o644)
 }
 
+// TODO: move to service.go after removing FileManager
 func fileExists(fs afero.Fs, path string) (bool, error) {
 	return afero.Exists(fs, path)
 }
 
+// TODO: move to service.go after removing FileManager
 func isHidden(path string) bool {
 	name := filepath.Base(path)
 	return strings.HasPrefix(name, ".") && name != "." && name != ".."
