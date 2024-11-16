@@ -54,6 +54,7 @@ type Manager interface {
 	ListFiles(ctx context.Context, projectId string, opts ...files.ListFileOption) (model.Files, error)
 	ReadFile(ctx context.Context, projectId, path string) (*model.File, error)
 	ResolveTaskAlias(ctx context.Context, projectId model.ProjectId, alias string) (devcontainer.Task, error)
+	// Deprecated: use symbol.Service instead
 	SearchSymbols(ctx context.Context, projectId model.ProjectId, query string, symbolFilter lsp.SymbolFilter) ([]lsp.SymbolInfo, error)
 	UpdateFile(ctx context.Context, projectId, path, content string) (*model.File, error)
 	UpdateLines(ctx context.Context, projectId, path string, lineDiff files.LineDiffChunk) (*model.File, error)
