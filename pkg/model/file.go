@@ -80,6 +80,11 @@ func (f *File) GetLineRange(start, end int) []Line {
 	return f.Lines[start:end]
 }
 
+// WithDiagnostics returns a new File with the given diagnostics.
+func (f *File) WithDiagnostics(diagnostics []protocol.Diagnostic) *File {
+	return &File{Path: f.Path, Lines: f.Lines, Diagnostics: diagnostics}
+}
+
 // WithLineRange returns a new File with the lines between start and end (exclusive). Line numbers are 1-based.
 func (f *File) WithLineRange(start, end int) *File {
 	return &File{Path: f.Path, Lines: f.GetLineRange(start, end)}
