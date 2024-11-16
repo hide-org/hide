@@ -26,7 +26,7 @@ var LspServerExecutables = map[LanguageId]Command{
 }
 
 type Service interface {
-	StartServer(ctx context.Context, languageId LanguageId, projectRoot string) error
+	StartServer(ctx context.Context, languageId LanguageId) error
 	StopServer(ctx context.Context, languageId LanguageId) error
 	GetWorkspaceSymbols(ctx context.Context, query string, symbolFilter SymbolFilter) ([]SymbolInfo, error)
 	GetDocumentOutline(ctx context.Context, file model.File) (DocumentOutline, error)
@@ -43,10 +43,12 @@ type ServiceImpl struct {
 	clientPool           ClientPool
 	diagnosticsStore     *DiagnosticsStore
 	lspServerExecutables map[LanguageId]Command
+	// TODO: can we pass the root URI as url.URL?
+	rootURI              string // example: "file:///workspace"
 }
 
 // StartServer implements Service.
-func (s *ServiceImpl) StartServer(ctx context.Context, languageId LanguageId, projectRoot string) error {
+func (s *ServiceImpl) StartServer(ctx context.Context, languageId LanguageId) error {
 	command, ok := s.lspServerExecutables[languageId]
 	if !ok {
 		return NewLanguageNotSupportedError(languageId)
@@ -68,7 +70,7 @@ func (s *ServiceImpl) StartServer(ctx context.Context, languageId LanguageId, pr
 	client, diagnostics := NewClient(process)
 
 	// Initialize the language server
-	root := PathToURI(projectRoot)
+	root := DocumentURI(s.rootURI)
 	initResult, err := client.Initialize(ctx, protocol.InitializeParams{
 		RootURI: &root,
 		Capabilities: protocol.ClientCapabilities{
@@ -143,7 +145,7 @@ func (s *ServiceImpl) GetWorkspaceSymbols(ctx context.Context, query string, sym
 	for _, client := range clients {
 		select {
 		case <-ctx.Done():
-			return nil, fmt.Errorf("context cancelled")
+			return nil, ctx.Err()
 		default:
 		}
 
@@ -167,7 +169,7 @@ func (s *ServiceImpl) GetWorkspaceSymbols(ctx context.Context, query string, sym
 	for _, symbol := range symbols {
 		select {
 		case <-ctx.Done():
-			return nil, fmt.Errorf("context cancelled")
+			return nil, ctx.Err()
 		default:
 		}
 
@@ -177,11 +179,23 @@ func (s *ServiceImpl) GetWorkspaceSymbols(ctx context.Context, query string, sym
 			return nil, fmt.Errorf("failed to remove file prefix from URI: %w", err)
 		}
 
+		url, err := url.Parse(symbolPath)
+		if err != nil {
+			log.Error().Err(err).Str("path", symbolPath).Msg("failed to parse path")
+			return nil, fmt.Errorf("failed to parse path: %w", err)
+		}
+
+		relativePath, err := filepath.Rel(url.Path, symbolPath)
+		if err != nil {
+			log.Error().Err(err).Str("base", url.Path).Str("path", symbolPath).Msg("failed to get relative path of file")
+			return nil, fmt.Errorf("failed to get relative path of file: %w", err)
+		}
+
 		result = append(result, SymbolInfo{
 			Name: symbol.Name,
 			Kind: symbolKindToString(symbol.Kind),
 			// NOTE: LSP uses 0-based line numbers, but Hide uses 1-based. Characters remain 0-based.
-			Location: Location{Path: symbolPath, Range: Range{Start: Position{Line: int(symbol.Location.Range.Start.Line) + 1, Character: int(symbol.Location.Range.Start.Character)}, End: Position{Line: int(symbol.Location.Range.End.Line) + 1, Character: int(symbol.Location.Range.End.Character)}}},
+			Location: Location{Path: relativePath, Range: Range{Start: Position{Line: int(symbol.Location.Range.Start.Line) + 1, Character: int(symbol.Location.Range.Start.Character)}, End: Position{Line: int(symbol.Location.Range.End.Line) + 1, Character: int(symbol.Location.Range.End.Character)}}},
 		})
 	}
 
@@ -198,7 +212,7 @@ func (s *ServiceImpl) GetDocumentOutline(ctx context.Context, file model.File) (
 
 	symbols, err := cli.GetDocumentSymbols(ctx, protocol.DocumentSymbolParams{
 		TextDocument: protocol.TextDocumentIdentifier{
-			URI: PathToURI(file.Path),
+			URI: DocumentURI(file.Path),
 		},
 	})
 	if err != nil {
@@ -220,7 +234,7 @@ func (s *ServiceImpl) NotifyDidClose(ctx context.Context, file model.File) error
 
 	err := client.NotifyDidClose(ctx, protocol.DidCloseTextDocumentParams{
 		TextDocument: protocol.TextDocumentIdentifier{
-			URI: PathToURI(file.Path),
+			URI: DocumentURI(file.Path),
 		},
 	})
 
@@ -239,7 +253,7 @@ func (s *ServiceImpl) NotifyDidOpen(ctx context.Context, file model.File) error 
 
 	err := client.NotifyDidOpen(ctx, protocol.DidOpenTextDocumentParams{
 		TextDocument: protocol.TextDocumentItem{
-			URI:     PathToURI(file.Path),
+			URI:     DocumentURI(file.Path),
 			Version: 1,
 			Text:    file.GetContent(),
 		},
@@ -249,7 +263,7 @@ func (s *ServiceImpl) NotifyDidOpen(ctx context.Context, file model.File) error 
 }
 
 func (s *ServiceImpl) GetDiagnostics(ctx context.Context, file model.File) ([]protocol.Diagnostic, error) {
-	uri := PathToURI(file.Path)
+	uri := DocumentURI(file.Path)
 	if diagnostics, ok := s.diagnosticsStore.Get(uri); ok {
 		return diagnostics, nil
 	}
@@ -299,8 +313,8 @@ func (s *ServiceImpl) updateDiagnostics(diagnostics protocol.PublishDiagnosticsP
 	s.diagnosticsStore.Set(diagnostics.URI, diagnostics.Diagnostics)
 }
 
-func PathToURI(path string) protocol.DocumentUri {
-	return protocol.DocumentUri("file://" + path)
+func DocumentURI(pathURI string) protocol.DocumentUri {
+	return protocol.DocumentUri(pathURI)
 }
 
 func NewService(languageDetector LanguageDetector, lspServerExecutables map[LanguageId]Command, diagnosticsStore *DiagnosticsStore, clientPool ClientPool) Service {

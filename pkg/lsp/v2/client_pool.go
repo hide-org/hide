@@ -42,7 +42,6 @@ func (c *ClientPoolImpl) Delete(languageId LanguageId) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	// TODO: can this thing fail if the languageId is not found?
 	delete(c.clients, languageId)
 }
 
