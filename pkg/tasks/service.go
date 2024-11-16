@@ -3,7 +3,6 @@ package task
 import (
 	"context"
 	"fmt"
-	"os"
 	"time"
 
 	"github.com/rs/zerolog/log"
@@ -30,13 +29,13 @@ type Service interface {
 
 type ServiceImpl struct {
 	executor Executor
-	store map[string]Task
+	store    map[string]Task
 }
 
 func NewService(executor Executor, store map[string]Task) Service {
 	return ServiceImpl{
 		executor: executor,
-		store: store,
+		store:    store,
 	}
 }
 
@@ -56,6 +55,11 @@ func (s ServiceImpl) List(ctx context.Context) ([]Task, error) {
 	return tasks, nil
 }
 
+func (s ServiceImpl) Upsert(ctx context.Context, alias, command string) (Task, error) {
+	s.store[alias] = Task{Alias: alias, Command: command}
+	return s.Get(ctx, alias)
+}
+
 func (s ServiceImpl) Run(ctx context.Context, alias string) (Result, error) {
 	task, err := s.Get(ctx, alias)
 	if err != nil {
@@ -66,38 +70,16 @@ func (s ServiceImpl) Run(ctx context.Context, alias string) (Result, error) {
 }
 
 func (s ServiceImpl) RunCommand(ctx context.Context, command string) (Result, error) {
-	return Result{}, nil
-}
-
-func (s ServiceImpl) Upsert(ctx context.Context, alias, command string) (Task, error) {
-	s.store[alias] = Task{Alias: alias, Command: command}
-	return s.Get(ctx, alias)
-}
-
-func (s ServiceImpl) CreateTask(ctx context.Context, command string) (Result, error) {
 	log.Debug().Msgf("Creating task for command: %s", command)
 
-	// TODO: implement running commands, i.e. handling output, dirs, etc.
-	stdout, stderr := os.Stdout, os.Stderr
-	err := s.executor.Run(cmdMaybeWithTimeout(ctx, command), "/workspace", stdout, stderr)
+	result, err := s.executor.Run(cmdMaybeWithTimeout(ctx, command), "/workspace")
 	if err != nil {
 		log.Error().Err(err).Msgf("Failed to execute command '%s'", command)
-		return Result{}, fmt.Errorf("Failed to execute command: %w", err)
+		return Result{}, fmt.Errorf("failed to execute command: %w", err)
 	}
+	log.Debug().Msgf("Task for command %s completed", command)
 
-	log.Debug().Msgf("Task for command %s completed", command, )
-
-	return Result{StdOut: "", StdErr: "", ExitCode: 0}, nil
-}
-
-func (s ServiceImpl) ListTasks(ctx context.Context) ([]Task, error) {
-	// TODO: implement listing tasks
-	return []Task{}, nil
-}
-
-func (s ServiceImpl) ResolveTaskAlias(ctx context.Context, alias string) (Task, error) {
-	// TODO: implement resolving task aliases
-	return Task{}, nil
+	return result, nil
 }
 
 // cmdMaybeWithTimeout prepends timeout command to the command.

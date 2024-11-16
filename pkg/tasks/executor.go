@@ -5,29 +5,29 @@ import (
 	"fmt"
 	"io"
 	"os/exec"
-	"strings"
 
 	"github.com/rs/zerolog/log"
 )
 
 type Executor interface {
-	Run(command []string, dir string, stdout, stderr io.Writer) error
+	Run(command []string, dir string) (result Result, err error)
 }
 
-type ExecutorImpl struct {
-}
+type ExecutorImpl struct{}
 
 func NewExecutorImpl() Executor {
 	return &ExecutorImpl{}
 }
 
-func (e *ExecutorImpl) Run(command []string, dir string) (stdout io.ReadCloser, stderr io.ReadCloser, err error) {
+func (e *ExecutorImpl) Run(command []string, dir string) (result Result, err error) {
 	log.Debug().Msgf("> %s", command)
 
 	if len(command) == 0 {
-		return nil, nil, fmt.Errorf("command is empty")
+		return result, fmt.Errorf("command is empty")
 	}
+
 	cmnd := command[0]
+
 	var args []string
 	if len(command) > 0 {
 		args = command[1:]
@@ -36,38 +36,44 @@ func (e *ExecutorImpl) Run(command []string, dir string) (stdout io.ReadCloser, 
 	cmd := exec.Command(cmnd, args...)
 	cmd.Dir = dir
 
-	err := cmd.Run()
+	err = cmd.Run()
 	if errors.Is(err, &exec.ExitError{}) {
 		v := err.(*exec.ExitError)
-		exitCode := v.ExitCode()
-		stdErr := string(v.Stderr)
+		result.ExitCode = v.ExitCode()
 	}
-	// cmdStdout, err := cmd.StdoutPipe()
+	if err != nil {
+		return result, err
+	}
 
-	// if err != nil {
-	// 	log.Error().Err(err).Msg("Error creating StdoutPipe")
-	// 	return nil, nil, fmt.Errorf("Error creating StdoutPipe: %w", err)
-	// }
+	stdOut, err := cmd.StdoutPipe()
+	if err != nil {
+		return result, err
+	}
+	stdOutStr, err := readAll(stdOut)
+	if err != nil {
+		return result, err
+	}
+	result.StdOut = stdOutStr
 
-	// cmdStderr, err := cmd.StderrPipe()
-	// if err != nil {
-	// 	log.Error().Err(err).Msg("Error creating StderrPipe")
-	// 	return nil, nil, fmt.Errorf("Error creating StderrPipe: %w", err)
-	// }
+	stdErr, err := cmd.StderrPipe()
+	if err != nil {
+		return result, err
+	}
+	stdErrStr, err := readAll(stdErr)
+	if err != nil {
+		return result, err
+	}
+	result.StdErr = stdErrStr
 
-	// if err := cmd.Start(); err != nil {
-	// 	log.Error().Err(err).Msg("Error starting command")
-	// 	return nil, nil, fmt.Errorf("Error starting command: %w", err)
-	// }
+	return
+}
 
-	// // Wait for the command to complete
-	// // TODO: do async wait
-	// if err := cmd.Wait(); err != nil {
-	// 	log.Error().Err(err).Msg("Error waiting for command")
-	// 	return nil, nil, fmt.Errorf("Error waiting for command: %w", err)
-	// }
-
-	// return cmdStdout, cmdStderr, nil
+func readAll(src io.Reader) (string, error) {
+	out, err := io.ReadAll(src)
+	if err != nil {
+		return "", err
+	}
+	return string(out), nil
 }
 
 func readOutput(src io.Reader, dst io.Writer) error {
