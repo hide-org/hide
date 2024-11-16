@@ -75,11 +75,3 @@ func readAll(src io.Reader) (string, error) {
 	}
 	return string(out), nil
 }
-
-func readOutput(src io.Reader, dst io.Writer) error {
-	if _, err := io.Copy(dst, src); err != nil {
-		return err
-	}
-
-	return nil
-}
