@@ -1,4 +1,4 @@
-package golang
+package gopls
 
 import (
 	"context"
@@ -14,14 +14,14 @@ import (
 
 type Adapter struct{}
 
-type GoplsVersion struct {
+type Version struct {
 	Version string `json:"version"`
 }
 
 func (a *Adapter) FetchServerBinary(ctx context.Context, version interface{}, delegate lsp.Delegate) (*lsp.Binary, error) {
 	var goplsVersion string
 
-	if v, ok := version.(*GoplsVersion); ok {
+	if v, ok := version.(*Version); ok {
 		goplsVersion = v.Version
 	} else {
 		goplsVersion = "latest"
