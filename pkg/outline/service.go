@@ -3,7 +3,7 @@ package outline
 import (
 	"context"
 
-	"github.com/hide-org/hide/pkg/lsp"
+	"github.com/hide-org/hide/pkg/lsp/v2"
 	"github.com/hide-org/hide/pkg/model"
 )
 
