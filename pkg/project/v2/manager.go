@@ -11,7 +11,7 @@ import (
 	"github.com/hide-org/hide/pkg/devcontainer/v2"
 	"github.com/hide-org/hide/pkg/files"
 	"github.com/hide-org/hide/pkg/git"
-	"github.com/hide-org/hide/pkg/lsp"
+	"github.com/hide-org/hide/pkg/lsp/v2"
 	"github.com/hide-org/hide/pkg/model"
 
 	"github.com/rs/zerolog/log"

@@ -6,7 +6,7 @@ import (
 
 	"github.com/rs/zerolog/log"
 
-	"github.com/hide-org/hide/pkg/lsp"
+	"github.com/hide-org/hide/pkg/lsp/v2"
 )
 
 type Service interface {
