@@ -12,7 +12,7 @@ import (
 
 	"github.com/bluekeyes/go-gitdiff/gitdiff"
 	"github.com/hide-org/hide/pkg/gitignore"
-	"github.com/hide-org/hide/pkg/lsp"
+	"github.com/hide-org/hide/pkg/lsp/v2"
 	"github.com/hide-org/hide/pkg/model"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/afero"
@@ -34,7 +34,7 @@ type Service interface {
 type ServiceImpl struct {
 	gitignoreFactory gitignore.MatcherFactory
 	lspService       lsp.Service
-	fs afero.Fs
+	fs               afero.Fs
 }
 
 func NewService(factory gitignore.MatcherFactory, lspService lsp.Service) Service {
