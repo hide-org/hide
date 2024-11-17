@@ -44,7 +44,7 @@ type ServiceImpl struct {
 	diagnosticsStore     *DiagnosticsStore
 	lspServerExecutables map[LanguageId]Command
 	// TODO: can we pass the root URI as url.URL?
-	rootURI              string // example: "file:///workspace"
+	rootURI string // example: "file:///workspace"
 }
 
 // StartServer implements Service.
