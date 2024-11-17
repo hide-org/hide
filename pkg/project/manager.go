@@ -42,21 +42,30 @@ type TaskResult struct {
 }
 
 type Manager interface {
+	// Deprecated: use files.Service instead
 	ApplyPatch(ctx context.Context, projectId, path, patch string) (*model.File, error)
 	Cleanup(ctx context.Context) error
+	// Deprecated: use files.Service instead
 	CreateFile(ctx context.Context, projectId, path, content string) (*model.File, error)
 	CreateProject(ctx context.Context, request CreateProjectRequest) (*model.Project, error)
+	// Deprecated: use tasks.Service instead
 	CreateTask(ctx context.Context, projectId model.ProjectId, command string) (TaskResult, error)
+	// Deprecated: use files.Service instead
 	DeleteFile(ctx context.Context, projectId, path string) error
 	DeleteProject(ctx context.Context, projectId model.ProjectId) error
 	GetProject(ctx context.Context, projectId model.ProjectId) (model.Project, error)
 	GetProjects(ctx context.Context) ([]*model.Project, error)
+	// Deprecated: use files.Service instead
 	ListFiles(ctx context.Context, projectId string, opts ...files.ListFileOption) (model.Files, error)
+	// Deprecated: use files.Service instead
 	ReadFile(ctx context.Context, projectId, path string) (*model.File, error)
+	// Deprecated: use tasks.Service instead
 	ResolveTaskAlias(ctx context.Context, projectId model.ProjectId, alias string) (devcontainer.Task, error)
 	// Deprecated: use symbol.Service instead
 	SearchSymbols(ctx context.Context, projectId model.ProjectId, query string, symbolFilter lsp.SymbolFilter) ([]lsp.SymbolInfo, error)
+	// Deprecated: use files.Service instead
 	UpdateFile(ctx context.Context, projectId, path, content string) (*model.File, error)
+	// Deprecated: use files.Service instead
 	UpdateLines(ctx context.Context, projectId, path string, lineDiff files.LineDiffChunk) (*model.File, error)
 	// Deprecated: use outline.Service instead
 	DocumentOutline(ctx context.Context, projectId, path string) (lsp.DocumentOutline, error)
