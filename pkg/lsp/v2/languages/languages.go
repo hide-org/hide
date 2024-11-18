@@ -14,5 +14,5 @@ const (
 type LanguageAdapterRegistry map[LanguageID]Adapter
 
 var AdapterRegistry = LanguageAdapterRegistry{
-	Go: gopls{},
+	Go: &gopls{},
 }
