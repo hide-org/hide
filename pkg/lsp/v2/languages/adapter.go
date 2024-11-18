@@ -1,4 +1,4 @@
-package lsp
+package lang
 
 import (
 	"context"
@@ -29,15 +29,13 @@ type Adapter interface {
 	FetchServerBinary(ctx context.Context, version interface{}, delegate Delegate) (*Binary, error)
 
 	// InitializationOptions provides server-specific initialization options. See protocol.InitializeParams
-	InitializationOptions(ctx context.Context, delegate Delegate) (json.RawMessage, error)
+	InitializationOptions(ctx context.Context, delegate Delegate) json.RawMessage
 
 	// WorkspaceConfiguration configure the language server's behavior for the workspace. In devcontainer those are typically in customizations.
 	//
 	// Typically is applied with with lspCli.Notify(ctx, "workspace/didChangeConfiguration", protocol.DidChangeConfigurationParams{})
-	// WorkspaceConfiguration(ctx context.Context, delegate Delegate) (json.RawMessage, error)
+	WorkspaceConfiguration(ctx context.Context, delegate Delegate) (json.RawMessage, error)
 
-	CodeActionKinds() []protocol.CodeActionKind
-
-	// LanguageIDs returns a list of languages server support. F.ex. typescript-language-server supports JS, TypeScript and TSX
-	LanguageIDs() []LanguageId
+	// CodeActions returns code actions supported by the LSP
+	CodeActions() ([]protocol.CodeActionKind, error)
 }

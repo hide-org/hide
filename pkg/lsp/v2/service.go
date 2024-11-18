@@ -26,6 +26,7 @@ var LspServerExecutables = map[LanguageId]Command{
 }
 
 type Service interface {
+	// TODO: refactor StartServer to use adapter from lang.AdapterRegistry
 	StartServer(ctx context.Context, languageId LanguageId) error
 	StopServer(ctx context.Context, languageId LanguageId) error
 	GetWorkspaceSymbols(ctx context.Context, query string, symbolFilter SymbolFilter) ([]SymbolInfo, error)
