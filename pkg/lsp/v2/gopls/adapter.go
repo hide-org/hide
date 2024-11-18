@@ -9,7 +9,7 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/hide-org/hide/pkg/lsp"
+	lsp "github.com/hide-org/hide/pkg/lsp/v2"
 )
 
 type Adapter struct{}
@@ -66,6 +66,8 @@ func (a *Adapter) FetchServerBinary(ctx context.Context, version interface{}, de
 		},
 	}, nil
 }
+
+// func (a *Adapter)
 
 func checkVersion(path string, wantVersion string) (bool, error) {
 	if _, err := os.Stat(path); err != nil {
