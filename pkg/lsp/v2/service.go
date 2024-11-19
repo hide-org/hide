@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/url"
 	"path/filepath"
+	"sync"
 
 	lang "github.com/hide-org/hide/pkg/lsp/v2/languages"
 	"github.com/hide-org/hide/pkg/model"
@@ -12,14 +13,71 @@ import (
 	protocol "github.com/tliron/glsp/protocol_3_16"
 )
 
+func init() {
+	// TODO: implement
+}
+
+// func initializeLanguageServer(a) {}
+
 type (
 	ProjectRoot    = string
 	LspClientStore = map[lang.LanguageID]Client
 	LspDiagnostics = map[protocol.DocumentUri][]protocol.Diagnostic
 )
 
+type LspRuntime struct {
+	sync.RWMutex
+
+	bins map[lang.LanguageID]*lang.Binary
+	// in the future we can add routines tha monitor liveliness of language server
+	running map[lang.LanguageID]struct{}
+}
+
+func (l *LspRuntime) Init(language lang.LanguageID, adopter lang.Adapter, delegate lang.Delegate) error {
+	// since single LSP can support multiple languages lets check if it's already running
+	if l.isRunning(language) {
+		return nil
+	}
+
+	// maybe we should set some reasonable timeout on this
+	ctx := context.Background()
+
+	// TODO (@Art, @Aleh): implement delegate
+	version, err := adopter.FetchLatestServerVersion(ctx, delegate)
+	if err != nil {
+		return err
+	}
+
+	bin, err := adopter.FetchServerBinary(ctx, version, delegate)
+
+	l.Lock()
+	defer l.Unlock()
+
+	l.bins[language] = bin
+
+	return nil
+}
+
+func (l *LspRuntime) isRunning(language lang.LanguageID) bool {
+	l.RLock()
+	defer l.RUnlock()
+	_, ok := l.running[language]
+
+	return ok
+}
+
+func (l *LspRuntime) StartServer(language lang.LanguageID) error {
+	return nil
+}
+
+func (l *LspRuntime) StopServer(language lang.LanguageID) error {
+	return nil
+}
+
+var LspServers = new(LspRuntime)
+
 // TODO: register on demand
-var LspServerExecutables = map[lang.LanguageID]Command{
+var LspServerExecutables = map[lang.LanguageID]lang.Binary{
 	// Go:         NewCommand("gopls", []string{}),
 	// Python:     NewCommand("pyright-langserver", []string{"--stdio"}),
 	// JavaScript: NewCommand("typescript-language-server", []string{"--stdio"}),
@@ -44,7 +102,7 @@ type ServiceImpl struct {
 	languageDetector     LanguageDetector
 	clientPool           ClientPool
 	diagnosticsStore     *DiagnosticsStore
-	lspServerExecutables map[lang.LanguageID]Command
+	lspServerExecutables map[lang.LanguageID]lang.Binary
 	// TODO: can we pass the root URI as url.URL?
 	rootURI string // example: "file:///workspace"
 }
@@ -319,7 +377,7 @@ func DocumentURI(pathURI string) protocol.DocumentUri {
 	return protocol.DocumentUri(pathURI)
 }
 
-func NewService(languageDetector LanguageDetector, lspServerExecutables map[lang.LanguageID]Command, diagnosticsStore *DiagnosticsStore, clientPool ClientPool) Service {
+func NewService(languageDetector LanguageDetector, lspServerExecutables map[lang.LanguageID]lang.Binary, diagnosticsStore *DiagnosticsStore, clientPool ClientPool) Service {
 	return &ServiceImpl{
 		languageDetector:     languageDetector,
 		clientPool:           clientPool,

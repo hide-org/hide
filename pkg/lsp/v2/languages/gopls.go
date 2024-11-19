@@ -87,6 +87,7 @@ func (a *gopls) FetchServerBinary(ctx context.Context, version interface{}, dele
 	}
 
 	return &Binary{
+		Name:      a.Name(),
 		Path:      goplsPath,
 		Arguments: []string{"serve"},
 		Env: map[string]string{

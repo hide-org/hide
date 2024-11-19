@@ -3,19 +3,38 @@ package lang
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"sort"
 
 	protocol "github.com/tliron/glsp/protocol_3_16"
 )
 
-type ServerName string
+type ServerName = string
 
 type Binary struct {
+	Name string
 	// Path to the binary
 	Path string
 	// Command line arguments
 	Arguments []string
 	// Environment variables
 	Env map[string]string
+}
+
+// EnvAsKeyVal returns env vars in the form "key=value".
+func (b *Binary) EnvAsKeyVal() []string {
+	// does not have a deterministic order
+	out := make([]string, 0, len(b.Env))
+	for k, v := range b.Env {
+		out = append(out, fmt.Sprintf("%s=%s", k, v))
+	}
+
+	// sort for determinism
+	sort.Slice(out, func(i, j int) bool {
+		return out[i] < out[j]
+	})
+
+	return out
 }
 
 type Adapter interface {

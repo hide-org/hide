@@ -5,6 +5,8 @@ import (
 	"io"
 	"os/exec"
 	"syscall"
+
+	lang "github.com/hide-org/hide/pkg/lsp/v2/languages"
 )
 
 type Command struct {
@@ -42,8 +44,9 @@ type ProcessImpl struct {
 	rwc io.ReadWriteCloser
 }
 
-func NewProcess(command Command) (Process, error) {
-	cmd := exec.Command(command.name, command.args...)
+func NewProcess(bin lang.Binary) (Process, error) {
+	cmd := exec.Command(bin.Name, bin.Arguments...)
+	cmd.Env = bin.EnvAsKeyVal()
 
 	// Set SysProcAttr to create a new process group
 	cmd.SysProcAttr = &syscall.SysProcAttr{
