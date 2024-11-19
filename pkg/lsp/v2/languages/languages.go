@@ -1,6 +1,6 @@
 package lang
 
-type LanguageID string
+type LanguageID = string
 
 // Language IDs based on https://github.com/go-enry/go-enry
 // For reference see https://github.com/go-enry/go-enry/blob/master/data/languageInfo.go

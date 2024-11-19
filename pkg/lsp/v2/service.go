@@ -6,29 +6,30 @@ import (
 	"net/url"
 	"path/filepath"
 
+	lang "github.com/hide-org/hide/pkg/lsp/v2/languages"
 	"github.com/hide-org/hide/pkg/model"
 	"github.com/rs/zerolog/log"
 	protocol "github.com/tliron/glsp/protocol_3_16"
 )
 
 type (
-	LanguageId     = string
 	ProjectRoot    = string
-	LspClientStore = map[LanguageId]Client
+	LspClientStore = map[lang.LanguageID]Client
 	LspDiagnostics = map[protocol.DocumentUri][]protocol.Diagnostic
 )
 
-var LspServerExecutables = map[LanguageId]Command{
-	Go:         NewCommand("gopls", []string{}),
-	Python:     NewCommand("pyright-langserver", []string{"--stdio"}),
-	JavaScript: NewCommand("typescript-language-server", []string{"--stdio"}),
-	TypeScript: NewCommand("typescript-language-server", []string{"--stdio"}),
+// TODO: register on demand
+var LspServerExecutables = map[lang.LanguageID]Command{
+	// Go:         NewCommand("gopls", []string{}),
+	// Python:     NewCommand("pyright-langserver", []string{"--stdio"}),
+	// JavaScript: NewCommand("typescript-language-server", []string{"--stdio"}),
+	// TypeScript: NewCommand("typescript-language-server", []string{"--stdio"}),
 }
 
 type Service interface {
 	// TODO: refactor StartServer to use adapter from lang.AdapterRegistry
-	StartServer(ctx context.Context, languageId LanguageId) error
-	StopServer(ctx context.Context, languageId LanguageId) error
+	StartServer(ctx context.Context, languageId lang.LanguageID) error
+	StopServer(ctx context.Context, languageId lang.LanguageID) error
 	GetWorkspaceSymbols(ctx context.Context, query string, symbolFilter SymbolFilter) ([]SymbolInfo, error)
 	GetDocumentOutline(ctx context.Context, file model.File) (DocumentOutline, error)
 	NotifyDidOpen(ctx context.Context, file model.File) error
@@ -43,13 +44,13 @@ type ServiceImpl struct {
 	languageDetector     LanguageDetector
 	clientPool           ClientPool
 	diagnosticsStore     *DiagnosticsStore
-	lspServerExecutables map[LanguageId]Command
+	lspServerExecutables map[lang.LanguageID]Command
 	// TODO: can we pass the root URI as url.URL?
 	rootURI string // example: "file:///workspace"
 }
 
 // StartServer implements Service.
-func (s *ServiceImpl) StartServer(ctx context.Context, languageId LanguageId) error {
+func (s *ServiceImpl) StartServer(ctx context.Context, languageId lang.LanguageID) error {
 	command, ok := s.lspServerExecutables[languageId]
 	if !ok {
 		return NewLanguageNotSupportedError(languageId)
@@ -117,7 +118,7 @@ func (s *ServiceImpl) StartServer(ctx context.Context, languageId LanguageId) er
 	return nil
 }
 
-func (s *ServiceImpl) StopServer(ctx context.Context, languageId LanguageId) error {
+func (s *ServiceImpl) StopServer(ctx context.Context, languageId lang.LanguageID) error {
 	client, ok := s.getClient(ctx, languageId)
 
 	if !ok {
@@ -282,7 +283,7 @@ func (s *ServiceImpl) Cleanup(ctx context.Context) error {
 	return nil
 }
 
-func (s *ServiceImpl) getClient(ctx context.Context, languageId LanguageId) (Client, bool) {
+func (s *ServiceImpl) getClient(ctx context.Context, languageId lang.LanguageID) (Client, bool) {
 	client, ok := s.clientPool.Get(languageId)
 	return client, ok
 }
@@ -318,7 +319,7 @@ func DocumentURI(pathURI string) protocol.DocumentUri {
 	return protocol.DocumentUri(pathURI)
 }
 
-func NewService(languageDetector LanguageDetector, lspServerExecutables map[LanguageId]Command, diagnosticsStore *DiagnosticsStore, clientPool ClientPool) Service {
+func NewService(languageDetector LanguageDetector, lspServerExecutables map[lang.LanguageID]Command, diagnosticsStore *DiagnosticsStore, clientPool ClientPool) Service {
 	return &ServiceImpl{
 		languageDetector:     languageDetector,
 		clientPool:           clientPool,

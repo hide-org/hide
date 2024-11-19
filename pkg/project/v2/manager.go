@@ -12,6 +12,7 @@ import (
 	"github.com/hide-org/hide/pkg/files"
 	"github.com/hide-org/hide/pkg/git"
 	"github.com/hide-org/hide/pkg/lsp/v2"
+	lang "github.com/hide-org/hide/pkg/lsp/v2/languages"
 	"github.com/hide-org/hide/pkg/model"
 
 	"github.com/rs/zerolog/log"
@@ -28,7 +29,7 @@ type Repository struct {
 type CreateProjectRequest struct {
 	Repository   Repository           `json:"repository" validate:"required"`
 	DevContainer *devcontainer.Config `json:"devcontainer,omitempty"`
-	Languages    []lsp.LanguageId     `json:"languages,omitempty" validate:"dive,oneof=Go JavaScript Python TypeScript"`
+	Languages    []lang.LanguageID    `json:"languages,omitempty" validate:"dive,oneof=Go JavaScript Python TypeScript"`
 }
 
 type Manager interface {
