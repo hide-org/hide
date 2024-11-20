@@ -44,7 +44,7 @@ type ServiceImpl struct {
 	diagnosticsStore     *DiagnosticsStore
 	lspServerExecutables map[LanguageId]Command
 	// TODO: can we pass the root URI as url.URL?
-	rootURI              string // example: "file:///workspace"
+	rootURI string // example: "file:///workspace"
 }
 
 // StartServer implements Service.
@@ -317,12 +317,13 @@ func DocumentURI(pathURI string) protocol.DocumentUri {
 	return protocol.DocumentUri(pathURI)
 }
 
-func NewService(languageDetector LanguageDetector, lspServerExecutables map[LanguageId]Command, diagnosticsStore *DiagnosticsStore, clientPool ClientPool) Service {
+func NewService(languageDetector LanguageDetector, lspServerExecutables map[LanguageId]Command, diagnosticsStore *DiagnosticsStore, clientPool ClientPool, rootURI string) Service {
 	return &ServiceImpl{
 		languageDetector:     languageDetector,
 		clientPool:           clientPool,
 		diagnosticsStore:     diagnosticsStore,
 		lspServerExecutables: lspServerExecutables,
+		rootURI:              rootURI,
 	}
 }
 

@@ -5,14 +5,13 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
-	"path"
 	"sync"
 
 	"github.com/hide-org/hide/pkg/devcontainer/v2"
-	"github.com/hide-org/hide/pkg/files"
 	"github.com/hide-org/hide/pkg/git"
 	"github.com/hide-org/hide/pkg/lsp/v2"
 	"github.com/hide-org/hide/pkg/model"
+	"github.com/hide-org/hide/pkg/server"
 
 	"github.com/rs/zerolog/log"
 	// "github.com/spf13/afero"
@@ -40,127 +39,51 @@ type Manager interface {
 }
 
 type ManagerImpl struct {
-	devContainerRunner devcontainer.Runner
-	store              Store
-	projectsRoot       string
-	fileManager        files.Service
-	lspService         lsp.Service
-	languageDetector   lsp.LanguageDetector
-	randomString       func(int) string
-	git                git.Client
+	devcontainers devcontainer.Service
+	servers       server.Service
+	store         Store
+	git           git.Client
 }
 
 func NewProjectManager(
-	devContainerRunner devcontainer.Runner,
-	projectStore Store,
-	projectsRoot string,
-	fileManager files.Service,
-	lspService lsp.Service,
-	languageDetector lsp.LanguageDetector,
-	randomString func(int) string,
+	devcontainers devcontainer.Service,
+	servers server.Service,
+	store Store,
 	git git.Client,
 ) Manager {
-	return ManagerImpl{
-		devContainerRunner: devContainerRunner,
-		store:              projectStore,
-		projectsRoot:       projectsRoot,
-		fileManager:        fileManager,
-		lspService:         lspService,
-		languageDetector:   languageDetector,
-		randomString:       randomString,
-		git:                git,
+	return &ManagerImpl{
+		devcontainers: devcontainers,
+		servers:       servers,
+		store:         store,
+		git:           git,
 	}
 }
 
 func (pm ManagerImpl) CreateProject(ctx context.Context, request CreateProjectRequest) (*model.Project, error) {
 	log.Debug().Msgf("Creating project for repo %s", request.Repository.Url)
 
-	projectId := pm.randomString(10)
-	projectPath := path.Join(pm.projectsRoot, projectId)
-
-	// Clone git repo
-	if err := pm.createProjectDir(projectPath); err != nil {
-		log.Error().Err(err).Msg("Failed to create project directory")
-		return nil, fmt.Errorf("Failed to create project directory: %w", err)
-	}
-
-	r, err := pm.git.Clone(request.Repository.Url, projectPath)
+	// Create and start container
+	container, err := pm.devcontainers.Create(ctx, request.Repository.Url)
 	if err != nil {
-		log.Error().Err(err).Msg("Failed to clone git repo")
-		removeProjectDir(projectPath)
-		return nil, fmt.Errorf("Failed to clone git repo: %w", err)
+		return nil, fmt.Errorf("failed to create dev container: %w", err)
 	}
 
-	if request.Repository.Commit != nil {
-		if err := pm.git.Checkout(*r, *request.Repository.Commit); err != nil {
-			log.Error().Err(err).Msg("Failed to checkout commit")
-			removeProjectDir(projectPath)
-			return nil, fmt.Errorf("Failed to checkout commit %s: %w", *request.Repository.Commit, err)
-		}
+	// Start dev server
+	if err := pm.servers.Start(ctx, container); err != nil {
+		return nil, fmt.Errorf("failed to start dev server: %w", err)
 	}
 
-	// Start devcontainer
-	var devContainerConfig devcontainer.Config
-
-	if request.DevContainer != nil {
-		devContainerConfig = *request.DevContainer
-	} else {
-		config, err := pm.configFromProject(os.DirFS(projectPath))
-		if err != nil {
-			log.Error().Err(err).Msgf("Failed to get devcontainer config from repository %s", request.Repository.Url)
-			removeProjectDir(projectPath)
-			return nil, fmt.Errorf("Failed to read devcontainer.json: %w", err)
-		}
-
-		devContainerConfig = config
+	project := model.Project{
+		ID:          container.ID(),
+		ContainerId: container.ID(),
 	}
-
-	containerId, err := pm.devContainerRunner.Run(ctx, projectPath, devContainerConfig)
-	if err != nil {
-		log.Error().Err(err).Msg("Failed to launch devcontainer")
-		removeProjectDir(projectPath)
-		return nil, fmt.Errorf("Failed to launch devcontainer: %w", err)
-	}
-
-	// Start hide server
-	execID, err := pm.devContainerRunner.ExecDetached(ctx, containerId, []string{HideBin, "devserver", "--port", "8081"})
-	if err != nil {
-		log.Error().Err(err).Msg("Failed to start hide server")
-		removeProjectDir(projectPath)
-		return nil, fmt.Errorf("Failed to start hide server: %w", err)
-	}
-
-	log.Debug().Msgf("Started hide server with ID %s", execID)
-
-	project := model.Project{Id: projectId, Path: projectPath, Config: model.Config{}, ContainerId: containerId}
-
-	// TODO: Start LSP server in container
-	// languages := request.Languages
-	// if len(languages) == 0 {
-	// 	languages, err = pm.detectLanguages(project)
-	// 	if err != nil {
-	// 		log.Error().Err(err).Msg("Failed to detect project languages")
-	// 		removeProjectDir(projectPath)
-	// 		return nil, fmt.Errorf("Failed to detect project languages: %w", err)
-	// 	}
-	// }
-	//
-	// for _, language := range languages {
-	// 	if err := pm.lspService.StartServer(model.NewContextWithProject(context.Background(), &project), language, "/workspace"); err != nil {
-	// 		log.Warn().Err(err).Msg("Failed to start LSP server. Diagnostics will not be available.")
-	// 	}
-	// }
-
-	// TODO: Create tasks
 
 	// Save project in store
 	if err := pm.store.CreateProject(&project); err != nil {
-		log.Error().Err(err).Msg("Failed to save project")
-		removeProjectDir(projectPath)
-		return nil, fmt.Errorf("Failed to save project: %w", err)
+		return nil, fmt.Errorf("failed to save project: %w", err)
 	}
 
-	log.Debug().Msgf("Created project %s for repo %s", projectId, request.Repository.Url)
+	log.Debug().Msgf("Created project %s for repo %s", project.ID, request.Repository.Url)
 
 	return &project, nil
 }
@@ -194,7 +117,13 @@ func (pm ManagerImpl) DeleteProject(ctx context.Context, projectId string) error
 		return fmt.Errorf("Failed to get project with id %s: %w", projectId, err)
 	}
 
-	if err := pm.devContainerRunner.Stop(ctx, project.ContainerId); err != nil {
+	container, err := pm.devcontainers.Get(ctx, project.ContainerId)
+	if err != nil {
+		log.Error().Err(err).Msgf("Failed to get container %s", project.ContainerId)
+		return fmt.Errorf("Failed to get container: %w", err)
+	}
+
+	if err := container.Stop(ctx); err != nil {
 		log.Error().Err(err).Msgf("Failed to stop container %s", project.ContainerId)
 		return fmt.Errorf("Failed to stop container: %w", err)
 	}
@@ -225,7 +154,7 @@ func (pm ManagerImpl) Cleanup(ctx context.Context) error {
 		wg.Add(1)
 		go func(p *model.Project) {
 			defer wg.Done()
-			if err := pm.DeleteProject(ctx, p.Id); err != nil {
+			if err := pm.DeleteProject(ctx, p.ID); err != nil {
 				errChan <- err
 			}
 			return

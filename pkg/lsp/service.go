@@ -55,7 +55,7 @@ func (s *ServiceImpl) StartServer(ctx context.Context, languageId LanguageId) er
 		return fmt.Errorf("Project not found in context")
 	}
 
-	projectId := project.Id
+	projectId := project.ID
 
 	command, ok := s.lspServerExecutables[languageId]
 	if !ok {
@@ -94,7 +94,7 @@ func (s *ServiceImpl) StartServer(ctx context.Context, languageId LanguageId) er
 		WorkspaceFolders: []protocol.WorkspaceFolder{
 			{
 				URI:  root,
-				Name: project.Id,
+				Name: project.ID,
 			},
 		},
 	})
@@ -134,16 +134,16 @@ func (s *ServiceImpl) StopServer(ctx context.Context, languageId LanguageId) err
 	client, ok := s.getClient(ctx, languageId)
 
 	if !ok {
-		log.Warn().Str("languageId", languageId).Str("projectId", project.Id).Msg("LSP client not found")
+		log.Warn().Str("languageId", languageId).Str("projectId", project.ID).Msg("LSP client not found")
 		return nil
 	}
 
 	if err := client.Shutdown(ctx); err != nil {
-		log.Error().Err(err).Str("languageId", languageId).Str("projectId", project.Id).Msg("Failed to stop language server")
+		log.Error().Err(err).Str("languageId", languageId).Str("projectId", project.ID).Msg("Failed to stop language server")
 		return fmt.Errorf("Failed to stop language server: %w", err)
 	}
 
-	s.clientPool.Delete(project.Id, languageId)
+	s.clientPool.Delete(project.ID, languageId)
 
 	return nil
 }
@@ -157,7 +157,7 @@ func (s *ServiceImpl) GetWorkspaceSymbols(ctx context.Context, query string, sym
 
 	clients := s.getClients(ctx)
 	if len(clients) == 0 {
-		log.Warn().Str("projectId", project.Id).Msg("LSP client not found")
+		log.Warn().Str("projectId", project.ID).Msg("LSP client not found")
 		return nil, nil
 	}
 
@@ -227,7 +227,7 @@ func (s *ServiceImpl) GetDocumentOutline(ctx context.Context, file model.File) (
 
 	cli, ok := s.getClient(ctx, lang)
 	if !ok {
-		return DocumentOutline{}, NewLanguageServerNotFoundError(project.Id, lang)
+		return DocumentOutline{}, NewLanguageServerNotFoundError(project.ID, lang)
 	}
 
 	symbols, err := cli.GetDocumentSymbols(ctx, protocol.DocumentSymbolParams{
@@ -255,8 +255,8 @@ func (s *ServiceImpl) NotifyDidClose(ctx context.Context, file model.File) error
 	client, ok := s.getClient(ctx, languageId)
 
 	if !ok {
-		log.Warn().Str("languageId", languageId).Str("projectId", project.Id).Msg("LSP client not found")
-		return LanguageServerNotFoundError{ProjectId: project.Id, LanguageId: languageId}
+		log.Warn().Str("languageId", languageId).Str("projectId", project.ID).Msg("LSP client not found")
+		return LanguageServerNotFoundError{ProjectId: project.ID, LanguageId: languageId}
 	}
 
 	fullPath := filepath.Join(project.Path, file.Path)
@@ -283,8 +283,8 @@ func (s *ServiceImpl) NotifyDidOpen(ctx context.Context, file model.File) error 
 	client, ok := s.getClient(ctx, languageId)
 
 	if !ok {
-		log.Warn().Str("languageId", languageId).Str("projectId", project.Id).Msg("LSP client not found")
-		return LanguageServerNotFoundError{ProjectId: project.Id, LanguageId: languageId}
+		log.Warn().Str("languageId", languageId).Str("projectId", project.ID).Msg("LSP client not found")
+		return LanguageServerNotFoundError{ProjectId: project.ID, LanguageId: languageId}
 	}
 
 	fullPath := filepath.Join(project.Path, file.Path)
@@ -309,7 +309,7 @@ func (s *ServiceImpl) GetDiagnostics(ctx context.Context, file model.File) ([]pr
 	}
 
 	uri := PathToURI(filepath.Join(project.Path, file.Path))
-	if diagnostics, ok := s.diagnosticsStore.Get(project.Id, uri); ok {
+	if diagnostics, ok := s.diagnosticsStore.Get(project.ID, uri); ok {
 		return diagnostics, nil
 	}
 
@@ -340,7 +340,7 @@ func (s *ServiceImpl) getClient(ctx context.Context, languageId LanguageId) (Cli
 		return nil, false
 	}
 
-	if client, ok := s.clientPool.Get(project.Id, languageId); ok {
+	if client, ok := s.clientPool.Get(project.ID, languageId); ok {
 		return client, true
 	}
 
@@ -356,7 +356,7 @@ func (s *ServiceImpl) getClients(ctx context.Context) []Client {
 
 	clients := make([]Client, 0)
 
-	if clientz, ok := s.clientPool.GetAllForProject(project.Id); ok {
+	if clientz, ok := s.clientPool.GetAllForProject(project.ID); ok {
 		for _, client := range clientz {
 			clients = append(clients, client)
 		}

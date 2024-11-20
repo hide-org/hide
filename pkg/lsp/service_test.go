@@ -5,9 +5,9 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/hide-org/hide/pkg/model"
 	"github.com/hide-org/hide/pkg/lsp"
 	"github.com/hide-org/hide/pkg/lsp/mocks"
+	"github.com/hide-org/hide/pkg/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	protocol "github.com/tliron/glsp/protocol_3_16"
@@ -33,7 +33,7 @@ func TestService_GetWorkspaceSymbols(t *testing.T) {
 	}{
 		{
 			name:  "success",
-			ctx:   model.NewContextWithProject(context.Background(), &model.Project{Id: "project-id", Path: "/test/project"}),
+			ctx:   model.NewContextWithProject(context.Background(), &model.Project{ID: "project-id", Path: "/test/project"}),
 			query: "test-query",
 			mockSetup: func(m *mocks.MockClientPool) {
 				client := &mocks.MockClient{}
@@ -52,7 +52,7 @@ func TestService_GetWorkspaceSymbols(t *testing.T) {
 		},
 		{
 			name:        "client not found",
-			ctx:         model.NewContextWithProject(context.Background(), &model.Project{Id: "project-id", Path: "/test/project"}),
+			ctx:         model.NewContextWithProject(context.Background(), &model.Project{ID: "project-id", Path: "/test/project"}),
 			query:       "test-query",
 			mockSetup:   func(m *mocks.MockClientPool) { m.On("GetAllForProject", "project-id").Return(nil, false) },
 			wantSymbols: nil,
@@ -61,7 +61,7 @@ func TestService_GetWorkspaceSymbols(t *testing.T) {
 		{
 			name: "context cancelled",
 			ctx: func() context.Context {
-				ctx, cancel := context.WithCancel(model.NewContextWithProject(context.Background(), &model.Project{Id: "project-id", Path: "/test/project"}))
+				ctx, cancel := context.WithCancel(model.NewContextWithProject(context.Background(), &model.Project{ID: "project-id", Path: "/test/project"}))
 				cancel()
 
 				return ctx
@@ -76,7 +76,7 @@ func TestService_GetWorkspaceSymbols(t *testing.T) {
 		},
 		{
 			name:  "client error",
-			ctx:   model.NewContextWithProject(context.Background(), &model.Project{Id: "project-id", Path: "/test/project"}),
+			ctx:   model.NewContextWithProject(context.Background(), &model.Project{ID: "project-id", Path: "/test/project"}),
 			query: "test-query",
 			mockSetup: func(m *mocks.MockClientPool) {
 				client := &mocks.MockClient{}
@@ -88,7 +88,7 @@ func TestService_GetWorkspaceSymbols(t *testing.T) {
 		},
 		{
 			name:  "exclude symbols",
-			ctx:   model.NewContextWithProject(context.Background(), &model.Project{Id: "project-id", Path: "/test/project"}),
+			ctx:   model.NewContextWithProject(context.Background(), &model.Project{ID: "project-id", Path: "/test/project"}),
 			query: "test-query",
 			mockSetup: func(m *mocks.MockClientPool) {
 				client := &mocks.MockClient{}
@@ -101,7 +101,7 @@ func TestService_GetWorkspaceSymbols(t *testing.T) {
 		},
 		{
 			name:  "include symbols",
-			ctx:   model.NewContextWithProject(context.Background(), &model.Project{Id: "project-id", Path: "/test/project"}),
+			ctx:   model.NewContextWithProject(context.Background(), &model.Project{ID: "project-id", Path: "/test/project"}),
 			query: "test-query",
 			mockSetup: func(m *mocks.MockClientPool) {
 				client := &mocks.MockClient{}
@@ -114,7 +114,7 @@ func TestService_GetWorkspaceSymbols(t *testing.T) {
 		},
 		{
 			name:  "fail to remove file prefix",
-			ctx:   model.NewContextWithProject(context.Background(), &model.Project{Id: "project-id", Path: "/test/project"}),
+			ctx:   model.NewContextWithProject(context.Background(), &model.Project{ID: "project-id", Path: "/test/project"}),
 			query: "test-query",
 			mockSetup: func(m *mocks.MockClientPool) {
 				client := &mocks.MockClient{}
@@ -126,7 +126,7 @@ func TestService_GetWorkspaceSymbols(t *testing.T) {
 		},
 		{
 			name:  "fail to get relative path of file",
-			ctx:   model.NewContextWithProject(context.Background(), &model.Project{Id: "project-id", Path: "invalid-path"}),
+			ctx:   model.NewContextWithProject(context.Background(), &model.Project{ID: "project-id", Path: "invalid-path"}),
 			query: "test-query",
 			mockSetup: func(m *mocks.MockClientPool) {
 				client := &mocks.MockClient{}

@@ -19,6 +19,7 @@ type Runner interface {
 	Stop(ctx context.Context, containerId string) error
 	Exec(ctx context.Context, containerId string, command []string) (ExecResult, error)
 	ExecDetached(ctx context.Context, containerId string, command []string) (string, error)
+	CopyFile(ctx context.Context, containerId string, hostPath, containerPath string) error
 }
 
 type DockerRunner struct {
@@ -179,4 +180,8 @@ func (r *DockerRunner) getOrPullImage(ctx context.Context, imageId string) (stri
 	}
 
 	return imageId, nil
+}
+
+func (r *DockerRunner) CopyFile(ctx context.Context, containerId string, hostPath, containerPath string) error {
+	return r.containerManager.CopyFile(ctx, containerId, hostPath, containerPath)
 }

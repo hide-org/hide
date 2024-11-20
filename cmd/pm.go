@@ -11,17 +11,11 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/docker/docker/client"
 	"github.com/go-playground/validator/v10"
-	"github.com/hide-org/hide/pkg/devcontainer/v2"
-	"github.com/hide-org/hide/pkg/files"
 	"github.com/hide-org/hide/pkg/git"
-	"github.com/hide-org/hide/pkg/gitignore"
 	"github.com/hide-org/hide/pkg/handlers/v2"
-	"github.com/hide-org/hide/pkg/lsp/v2"
 	"github.com/hide-org/hide/pkg/model"
 	"github.com/hide-org/hide/pkg/project/v2"
-	"github.com/hide-org/hide/pkg/random"
 	"github.com/hide-org/hide/pkg/util"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
@@ -78,26 +72,26 @@ var pmRunCmd = &cobra.Command{
 			log.Warn().Msg("DOCKER_USER or DOCKER_TOKEN environment variables are empty. This might cause problems when pulling images from Docker Hub.")
 		}
 
-		dockerClient, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
-		if err != nil {
-			log.Fatal().Err(err).Msg("Cannot initialize docker client")
-		}
+		// dockerClient, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+		// if err != nil {
+		// 	log.Fatal().Err(err).Msg("Cannot initialize docker client")
+		// }
 
-		containerRunner := devcontainer.NewDockerRunner(devcontainer.NewExecutorImpl(), devcontainer.NewImageManager(dockerClient, random.String, devcontainer.NewDockerHubRegistryCredentials(dockerUser, dockerToken)), devcontainer.NewDockerContainerManager(dockerClient))
+		// containerRunner := devcontainer.NewDockerRunner(devcontainer.NewExecutorImpl(), devcontainer.NewImageManager(dockerClient, random.String, devcontainer.NewDockerHubRegistryCredentials(dockerUser, dockerToken)), devcontainer.NewDockerContainerManager(dockerClient))
 		projectStore := project.NewInMemoryStore(make(map[string]*model.Project))
-		home, err := os.UserHomeDir()
-		if err != nil {
-			log.Fatal().Err(err).Msg("User's home directory is not set")
-		}
+		// home, err := os.UserHomeDir()
+		// if err != nil {
+		// 	log.Fatal().Err(err).Msg("User's home directory is not set")
+		// }
 
-		projectsDir := filepath.Join(home, HidePath, ProjectsDir)
+		// projectsDir := filepath.Join(home, HidePath, ProjectsDir)
 
-		languageDetector := lsp.NewLanguageDetector()
-		diagnosticsStore := lsp.NewDiagnosticsStore()
-		clientPool := lsp.NewClientPool()
-		lspService := lsp.NewService(languageDetector, lsp.LspServerExecutables, diagnosticsStore, clientPool)
-		fileManager := files.NewService(gitignore.NewMatcherFactory(), lspService)
-		projectManager := project.NewProjectManager(containerRunner, projectStore, projectsDir, fileManager, lspService, languageDetector, random.String, git.NewClient())
+		// languageDetector := lsp.NewLanguageDetector()
+		// diagnosticsStore := lsp.NewDiagnosticsStore()
+		// clientPool := lsp.NewClientPool()
+		// lspService := lsp.NewService(languageDetector, lsp.LspServerExecutables, diagnosticsStore, clientPool)
+		// fileManager := files.NewService(gitignore.NewMatcherFactory(), lspService)
+		projectManager := project.NewProjectManager(nil, nil, projectStore, git.NewClient())
 		validator := validator.New(validator.WithRequiredStructEnabled())
 
 		router := handlers.
