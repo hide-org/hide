@@ -29,7 +29,7 @@ func TestListTasksHandler_ServeHTTP(t *testing.T) {
 			mockManager: &mocks.MockProjectManager{
 				GetProjectFunc: func(ctx context.Context, projectId string) (model.Project, error) {
 					return model.Project{
-						Id: projectId,
+						ID: projectId,
 						Config: model.Config{
 							DevContainerConfig: devcontainer.Config{
 								GeneralProperties: devcontainer.GeneralProperties{
@@ -56,7 +56,7 @@ func TestListTasksHandler_ServeHTTP(t *testing.T) {
 			mockManager: &mocks.MockProjectManager{
 				GetProjectFunc: func(ctx context.Context, projectId string) (model.Project, error) {
 					return model.Project{
-						Id: projectId,
+						ID: projectId,
 						Config: model.Config{
 							DevContainerConfig: devcontainer.Config{
 								GeneralProperties: devcontainer.GeneralProperties{
