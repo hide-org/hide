@@ -32,10 +32,11 @@ var runtime = new(run)
 type run struct {
 	sync.RWMutex
 
-	support map[lang.LanguageID]lang.ServerName
-	bins    map[lang.ServerName]*lang.Binary
+	support   map[lang.LanguageID]lang.ServerName
+	bins      map[lang.ServerName]*lang.Binary
+	processes map[lang.ServerName]Process // I think it's better to register cmd type here
+
 	// in the future we can add routines tha monitor liveliness of language server
-	processes map[lang.ServerName]Process
 }
 
 func (r *run) setupServer(ctx context.Context, adapter lang.Adapter, delegate lang.Delegate) error {
