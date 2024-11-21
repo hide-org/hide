@@ -11,22 +11,22 @@ import (
 )
 
 type Installer interface {
-	Install(ctx context.Context, container devcontainer.DevContainer) (int, error)
+	Install(ctx context.Context, container devcontainer.Container) (int, error)
 }
 
 type InstallerImpl struct {
-	binPath string
+	binPath      string
 	githubClient github.Client
 }
 
 func NewInstaller(binaryPath string, githubClient github.Client) Installer {
 	return &InstallerImpl{
-		binPath: binaryPath,
+		binPath:      binaryPath,
 		githubClient: githubClient,
 	}
 }
 
-func (i *InstallerImpl) Install(ctx context.Context, container devcontainer.DevContainer) (int, error) {
+func (i *InstallerImpl) Install(ctx context.Context, container devcontainer.Container) (int, error) {
 	arch, err := devcontainer.GetArchitecture(ctx, container)
 	if err != nil {
 		return 0, fmt.Errorf("failed to determine container architecture: %w", err)
