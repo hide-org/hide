@@ -132,7 +132,7 @@ func (pm ManagerImpl) CreateProject(ctx context.Context, request CreateProjectRe
 
 	log.Debug().Msgf("Started hide server with ID %s", execID)
 
-	project := model.Project{Id: projectId, Path: projectPath, Config: model.Config{}, ContainerId: containerId}
+	project := model.Project{ID: projectId, Path: projectPath, Config: model.Config{}, ContainerId: containerId}
 
 	// TODO: Start LSP server in container
 	// languages := request.Languages
@@ -225,7 +225,7 @@ func (pm ManagerImpl) Cleanup(ctx context.Context) error {
 		wg.Add(1)
 		go func(p *model.Project) {
 			defer wg.Done()
-			if err := pm.DeleteProject(ctx, p.Id); err != nil {
+			if err := pm.DeleteProject(ctx, p.ID); err != nil {
 				errChan <- err
 			}
 			return
