@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/url"
 	"path/filepath"
-	"sync"
 
 	lang "github.com/hide-org/hide/pkg/lsp/v2/languages"
 	"github.com/hide-org/hide/pkg/model"
@@ -13,79 +12,13 @@ import (
 	protocol "github.com/tliron/glsp/protocol_3_16"
 )
 
-func init() {
-	// TODO: implement
-}
-
-// func initializeLanguageServer(a) {}
-
 type (
 	ProjectRoot    = string
 	LspClientStore = map[lang.LanguageID]Client
 	LspDiagnostics = map[protocol.DocumentUri][]protocol.Diagnostic
 )
 
-type LspRuntime struct {
-	sync.RWMutex
-
-	bins map[lang.LanguageID]*lang.Binary
-	// in the future we can add routines tha monitor liveliness of language server
-	running map[lang.LanguageID]struct{}
-}
-
-func (l *LspRuntime) Init(language lang.LanguageID, adopter lang.Adapter, delegate lang.Delegate) error {
-	// since single LSP can support multiple languages lets check if it's already running
-	if l.isRunning(language) {
-		return nil
-	}
-
-	// maybe we should set some reasonable timeout on this
-	ctx := context.Background()
-
-	// TODO (@Art, @Aleh): implement delegate
-	version, err := adopter.FetchLatestServerVersion(ctx, delegate)
-	if err != nil {
-		return err
-	}
-
-	bin, err := adopter.FetchServerBinary(ctx, version, delegate)
-
-	l.Lock()
-	defer l.Unlock()
-
-	l.bins[language] = bin
-
-	return nil
-}
-
-func (l *LspRuntime) isRunning(language lang.LanguageID) bool {
-	l.RLock()
-	defer l.RUnlock()
-	_, ok := l.running[language]
-
-	return ok
-}
-
-func (l *LspRuntime) StartServer(language lang.LanguageID) error {
-	return nil
-}
-
-func (l *LspRuntime) StopServer(language lang.LanguageID) error {
-	return nil
-}
-
-var LspServers = new(LspRuntime)
-
-// TODO: register on demand
-var LspServerExecutables = map[lang.LanguageID]lang.Binary{
-	// Go:         NewCommand("gopls", []string{}),
-	// Python:     NewCommand("pyright-langserver", []string{"--stdio"}),
-	// JavaScript: NewCommand("typescript-language-server", []string{"--stdio"}),
-	// TypeScript: NewCommand("typescript-language-server", []string{"--stdio"}),
-}
-
 type Service interface {
-	// TODO: refactor StartServer to use adapter from lang.AdapterRegistry
 	StartServer(ctx context.Context, languageId lang.LanguageID) error
 	StopServer(ctx context.Context, languageId lang.LanguageID) error
 	GetWorkspaceSymbols(ctx context.Context, query string, symbolFilter SymbolFilter) ([]SymbolInfo, error)
@@ -99,31 +32,18 @@ type Service interface {
 }
 
 type ServiceImpl struct {
-	languageDetector     LanguageDetector
-	clientPool           ClientPool
-	diagnosticsStore     *DiagnosticsStore
-	lspServerExecutables map[lang.LanguageID]lang.Binary
+	languageDetector LanguageDetector
+	clientPool       ClientPool
+	diagnosticsStore *DiagnosticsStore
 	// TODO: can we pass the root URI as url.URL?
 	rootURI string // example: "file:///workspace"
 }
 
 // StartServer implements Service.
 func (s *ServiceImpl) StartServer(ctx context.Context, languageId lang.LanguageID) error {
-	command, ok := s.lspServerExecutables[languageId]
-	if !ok {
-		return NewLanguageNotSupportedError(languageId)
-	}
-
-	// Start the language server
-	process, err := NewProcess(command)
+	process, err := runtime.startServer(ctx, languageId)
 	if err != nil {
-		log.Error().Err(err).Msg("Failed to create language server process")
-		return fmt.Errorf("Failed to create language server process: %w", err)
-	}
-
-	if err := process.Start(); err != nil {
-		log.Error().Err(err).Msg("Failed to start language server")
-		return fmt.Errorf("Failed to start language server: %w", err)
+		log.Error().Str("languageId", languageId).Err(err).Msg("Failed to start language server process")
 	}
 
 	// Create a client for the language server
@@ -377,12 +297,11 @@ func DocumentURI(pathURI string) protocol.DocumentUri {
 	return protocol.DocumentUri(pathURI)
 }
 
-func NewService(languageDetector LanguageDetector, lspServerExecutables map[lang.LanguageID]lang.Binary, diagnosticsStore *DiagnosticsStore, clientPool ClientPool) Service {
+func NewService(languageDetector LanguageDetector, diagnosticsStore *DiagnosticsStore, clientPool ClientPool) Service {
 	return &ServiceImpl{
-		languageDetector:     languageDetector,
-		clientPool:           clientPool,
-		diagnosticsStore:     diagnosticsStore,
-		lspServerExecutables: lspServerExecutables,
+		languageDetector: languageDetector,
+		clientPool:       clientPool,
+		diagnosticsStore: diagnosticsStore,
 	}
 }
 

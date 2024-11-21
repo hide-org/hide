@@ -68,10 +68,18 @@ var serverRunCmd = &cobra.Command{
 			}
 		}
 
+		// TODO: implement delegate
+		if err := lsp.SetupServers(cmd.Context(), nil); err != nil {
+			// this should work (in the future)
+			panic(err)
+		}
+
 		languageDetector := lsp.NewLanguageDetector()
 		diagnosticsStore := lsp.NewDiagnosticsStore()
 		clientPool := lsp.NewClientPool()
-		lspService := lsp.NewService(languageDetector, lsp.LspServerExecutables, diagnosticsStore, clientPool)
+
+		// TODO: setup language servers
+		lspService := lsp.NewService(languageDetector, diagnosticsStore, clientPool)
 
 		taskService := tasks.NewService(tasks.NewExecutorImpl(), map[string]tasks.Task{})
 		fileService := files.NewService(gitignore.NewMatcherFactory(), lspService)

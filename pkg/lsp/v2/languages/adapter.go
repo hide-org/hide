@@ -57,4 +57,7 @@ type Adapter interface {
 
 	// CodeActions returns code actions supported by the LSP
 	CodeActions() ([]protocol.CodeActionKind, error)
+
+	// Languages returns the list of supported languages
+	Languages() []LanguageID
 }

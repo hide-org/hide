@@ -144,3 +144,7 @@ func (a *gopls) WorkspaceConfiguration(ctx context.Context, delegate Delegate) (
 func (a *gopls) CodeActions() ([]protocol.CodeActionKind, error) {
 	return nil, nil
 }
+
+func (a *gopls) Languages() []LanguageID {
+	return []LanguageID{Go}
+}
