@@ -317,13 +317,12 @@ func DocumentURI(pathURI string) protocol.DocumentUri {
 	return protocol.DocumentUri(pathURI)
 }
 
-func NewService(languageDetector LanguageDetector, lspServerExecutables map[LanguageId]Command, diagnosticsStore *DiagnosticsStore, clientPool ClientPool, rootURI string) Service {
+func NewService(languageDetector LanguageDetector, lspServerExecutables map[LanguageId]Command, diagnosticsStore *DiagnosticsStore, clientPool ClientPool) Service {
 	return &ServiceImpl{
 		languageDetector:     languageDetector,
 		clientPool:           clientPool,
 		diagnosticsStore:     diagnosticsStore,
 		lspServerExecutables: lspServerExecutables,
-		rootURI:              rootURI,
 	}
 }
 
