@@ -73,7 +73,7 @@ func TestManagerImpl_CreateProject(t *testing.T) {
 }
 
 func TestManagerImpl_GetProject_Succeeds(t *testing.T) {
-	_project := model.Project{Id: "test-project", Path: "/tmp/test-project", Config: model.Config{}}
+	_project := model.Project{ID: "test-project", Path: "/tmp/test-project", Config: model.Config{}}
 	pm := project.NewProjectManager(nil, project.NewInMemoryStore(map[string]*model.Project{"test-project": &_project}), "/tmp", nil, nil, nil, nil, nil)
 	project, err := pm.GetProject(context.Background(), "test-project")
 
@@ -82,7 +82,7 @@ func TestManagerImpl_GetProject_Succeeds(t *testing.T) {
 	}
 
 	if !reflect.DeepEqual(project, _project) {
-		t.Errorf("Expected project id to be test-project, got %s", project.Id)
+		t.Errorf("Expected project id to be test-project, got %s", project.ID)
 	}
 }
 
@@ -98,7 +98,7 @@ func TestManagerImpl_GetProject_Fails(t *testing.T) {
 func TestManagerImpl_ResolveTaskAlias_Succeeds(t *testing.T) {
 	task := devcontainer.Task{Alias: "test-alias", Command: "echo test"}
 	_project := model.Project{
-		Id:   "test-project",
+		ID:   "test-project",
 		Path: "/tmp/test-project",
 		Config: model.Config{
 			DevContainerConfig: devcontainer.Config{
@@ -134,7 +134,7 @@ func TestManagerImpl_ResolveTaskAlias_ProjectNotFound(t *testing.T) {
 }
 
 func TestManagerImpl_ResolveTaskAlias_TaskNotFound(t *testing.T) {
-	_project := model.Project{Id: "test-project", Path: "/tmp/test-project", Config: model.Config{}}
+	_project := model.Project{ID: "test-project", Path: "/tmp/test-project", Config: model.Config{}}
 	pm := project.NewProjectManager(nil, project.NewInMemoryStore(map[string]*model.Project{"test-project": &_project}), "/tmp", nil, nil, nil, nil, nil)
 	_, err := pm.ResolveTaskAlias(context.Background(), "test-project", "missing-alias")
 

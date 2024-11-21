@@ -154,7 +154,7 @@ func (pm ManagerImpl) CreateProject(ctx context.Context, request CreateProjectRe
 		return nil, fmt.Errorf("Failed to launch devcontainer: %w", err)
 	}
 
-	project := model.Project{Id: projectId, Path: projectPath, Config: model.Config{DevContainerConfig: devContainerConfig}, ContainerId: containerId}
+	project := model.Project{ID: projectId, Path: projectPath, Config: model.Config{DevContainerConfig: devContainerConfig}, ContainerId: containerId}
 
 	languages := request.Languages
 	if len(languages) == 0 {
@@ -302,7 +302,7 @@ func (pm ManagerImpl) Cleanup(ctx context.Context) error {
 		wg.Add(1)
 		go func(p *model.Project) {
 			defer wg.Done()
-			if err := pm.DeleteProject(ctx, p.Id); err != nil {
+			if err := pm.DeleteProject(ctx, p.ID); err != nil {
 				errChan <- err
 			}
 			return
@@ -588,7 +588,7 @@ func (pm ManagerImpl) detectLanguages(project model.Project) ([]lsp.LanguageId, 
 
 	// TODO: handle multiple main language
 	language := pm.languageDetector.DetectMainLanguage(files)
-	log.Debug().Msgf("Detected main language %s for project %s", language, project.Id)
+	log.Debug().Msgf("Detected main language %s for project %s", language, project.ID)
 	return []lsp.LanguageId{language}, nil
 }
 

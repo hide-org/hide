@@ -30,7 +30,7 @@ func TestCreateProjectHandler(t *testing.T) {
 		{
 			name: "successful creation",
 			createProjectFunc: func(ctx context.Context, req project.CreateProjectRequest) (*model.Project, error) {
-				return &model.Project{Id: "123", Path: "/test/path"}, nil
+				return &model.Project{ID: "123", Path: "/test/path"}, nil
 			},
 			request: project.CreateProjectRequest{
 				Repository: project.Repository{
@@ -38,7 +38,7 @@ func TestCreateProjectHandler(t *testing.T) {
 				},
 			},
 			wantStatusCode: http.StatusCreated,
-			wantProject:    &model.Project{Id: "123", Path: "/test/path"},
+			wantProject:    &model.Project{ID: "123", Path: "/test/path"},
 		},
 		{
 			name: "failed creation",
@@ -74,7 +74,7 @@ func TestCreateProjectHandler(t *testing.T) {
 		{
 			name: "url with `file` protocol",
 			createProjectFunc: func(ctx context.Context, req project.CreateProjectRequest) (*model.Project, error) {
-				return &model.Project{Id: "123", Path: "/test/path"}, nil
+				return &model.Project{ID: "123", Path: "/test/path"}, nil
 			},
 			request: project.CreateProjectRequest{
 				Repository: project.Repository{
@@ -82,7 +82,7 @@ func TestCreateProjectHandler(t *testing.T) {
 				},
 			},
 			wantStatusCode: http.StatusCreated,
-			wantProject:    &model.Project{Id: "123", Path: "/test/path"},
+			wantProject:    &model.Project{ID: "123", Path: "/test/path"},
 		},
 	}
 

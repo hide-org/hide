@@ -14,14 +14,14 @@ type Config struct {
 type ProjectId = string
 
 type Project struct {
-	Id          ProjectId `json:"id"`
+	ID          ProjectId `json:"id"`
 	Path        string    `json:"path"`
 	Config      Config    `json:"config"`
 	ContainerId string
 }
 
 func NewProject(id ProjectId, path string, config Config, containerId string) Project {
-	return Project{Id: id, Path: path, Config: config, ContainerId: containerId}
+	return Project{ID: id, Path: path, Config: config, ContainerId: containerId}
 }
 
 func (project *Project) FindTaskByAlias(alias string) (devcontainer.Task, error) {
