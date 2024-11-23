@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -21,14 +22,19 @@ import (
 	"github.com/hide-org/hide/pkg/tasks"
 	"github.com/hide-org/hide/pkg/util"
 	"github.com/rs/zerolog/log"
+	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
 )
+
+var workspace string
 
 func init() {
 	pf := serverRunCmd.PersistentFlags()
 	pf.StringVar(&envPath, "env", DefaultDotEnvPath, "path to the .env file")
 	pf.BoolVar(&debug, "debug", false, "run service in a debug mode")
 	pf.IntVar(&port, "port", 8080, "service port")
+	cwd, _ := os.Getwd() // how can it fail?
+	pf.StringVar(&workspace, "workspace", cwd, "path to the workspace directory")
 
 	rootCmd.AddCommand(serverCmd)
 	serverCmd.AddCommand(serverRunCmd)
@@ -74,7 +80,7 @@ var serverRunCmd = &cobra.Command{
 		lspService := lsp.NewService(languageDetector, lsp.LspServerExecutables, diagnosticsStore, clientPool)
 
 		taskService := tasks.NewService(tasks.NewExecutorImpl(), map[string]tasks.Task{})
-		fileService := files.NewService(gitignore.NewMatcherFactory(), lspService)
+		fileService := files.NewService(gitignore.NewMatcherFactory(), lspService, afero.NewBasePathFs(afero.NewOsFs(), workspace))
 		symbolSearch := symbols.NewService(lspService)
 		outlineService := outline.NewService(lspService)
 		router := handlers.
@@ -92,13 +98,15 @@ var serverRunCmd = &cobra.Command{
 			Build()
 
 		addr := fmt.Sprintf("0.0.0.0:%d", port)
+		listener, err := net.Listen("tcp", addr)
+		if err != nil {
+			log.Fatal().Err(err).Msg("Failed to create listener")
+		}
+		fmt.Printf("Server listening on %s\n", listener.Addr().String())
 
 		server := &http.Server{
 			Handler: router,
-			Addr:    addr,
 		}
-
-		log.Info().Msgf("Server started on %s\n", addr)
 
 		go func() {
 			sigChan := make(chan os.Signal, 1)
@@ -115,7 +123,7 @@ var serverRunCmd = &cobra.Command{
 			}
 		}()
 
-		if err := server.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
+		if err := server.Serve(listener); !errors.Is(err, http.ErrServerClosed) {
 			log.Fatal().Err(err).Msgf("HTTP server error: %v", err)
 		}
 
