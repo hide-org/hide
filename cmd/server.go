@@ -101,7 +101,7 @@ var serverRunCmd = &cobra.Command{
 			defer lspService.StopServer(context.Background(), lang)
 		}
 
-		taskService := tasks.NewService(tasks.NewExecutorImpl(), map[string]tasks.Task{})
+		taskService := tasks.NewService(tasks.NewExecutorImpl(), map[string]tasks.Task{}, workspaceDir)
 		symbolSearch := symbols.NewService(lspService)
 		outlineService := outline.NewService(lspService, workspaceDir)
 		router := handlers.

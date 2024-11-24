@@ -1,9 +1,9 @@
 package tasks
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
-	"io"
 	"os/exec"
 
 	"github.com/rs/zerolog/log"
@@ -33,45 +33,20 @@ func (e *ExecutorImpl) Run(command []string, dir string) (result Result, err err
 		args = command[1:]
 	}
 
+	stdout, stderr := bytes.NewBuffer(nil), bytes.NewBuffer(nil)
 	cmd := exec.Command(cmnd, args...)
 	cmd.Dir = dir
+	cmd.Stdout = stdout
+	cmd.Stderr = stderr
 
 	err = cmd.Run()
-	if errors.Is(err, &exec.ExitError{}) {
-		v := err.(*exec.ExitError)
-		result.ExitCode = v.ExitCode()
+	var exitError *exec.ExitError
+	if errors.As(err, &exitError) {
+		return Result{StdOut: stdout.String(), StdErr: stderr.String(), ExitCode: exitError.ExitCode()}, nil
 	}
 	if err != nil {
 		return result, err
 	}
 
-	stdOut, err := cmd.StdoutPipe()
-	if err != nil {
-		return result, err
-	}
-	stdOutStr, err := readAll(stdOut)
-	if err != nil {
-		return result, err
-	}
-	result.StdOut = stdOutStr
-
-	stdErr, err := cmd.StderrPipe()
-	if err != nil {
-		return result, err
-	}
-	stdErrStr, err := readAll(stdErr)
-	if err != nil {
-		return result, err
-	}
-	result.StdErr = stdErrStr
-
-	return
-}
-
-func readAll(src io.Reader) (string, error) {
-	out, err := io.ReadAll(src)
-	if err != nil {
-		return "", err
-	}
-	return string(out), nil
+	return Result{StdOut: stdout.String(), StdErr: stderr.String(), ExitCode: 0}, nil
 }
