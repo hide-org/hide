@@ -103,7 +103,7 @@ var serverRunCmd = &cobra.Command{
 
 		taskService := tasks.NewService(tasks.NewExecutorImpl(), map[string]tasks.Task{})
 		symbolSearch := symbols.NewService(lspService)
-		outlineService := outline.NewService(lspService)
+		outlineService := outline.NewService(lspService, workspaceDir)
 		router := handlers.
 			NewRouter().
 			WithCreateTaskHandler(handlers.CreateTaskHandler{Tasks: taskService}).
