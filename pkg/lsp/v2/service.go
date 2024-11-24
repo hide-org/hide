@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/url"
 	"path/filepath"
+	"strings"
 
 	lang "github.com/hide-org/hide/pkg/lsp/v2/languages"
 	"github.com/hide-org/hide/pkg/model"
@@ -301,7 +302,10 @@ func (s *ServiceImpl) updateDiagnostics(diagnostics protocol.PublishDiagnosticsP
 }
 
 func DocumentURI(pathURI string) protocol.DocumentUri {
-	return protocol.DocumentUri(pathURI)
+	if strings.HasPrefix(pathURI, "file://") {
+		return protocol.DocumentUri(pathURI)
+	}
+	return protocol.DocumentUri("file://" + pathURI)
 }
 
 func NewService(languageDetector LanguageDetector, diagnosticsStore *DiagnosticsStore, clientPool ClientPool, rootURI string) Service {
