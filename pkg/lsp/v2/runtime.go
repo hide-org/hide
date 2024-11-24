@@ -2,6 +2,7 @@ package lsp
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"sync"
@@ -24,6 +25,9 @@ func SetupServers(ctx context.Context, delegate lang.Delegate) error {
 		return err
 	}
 
+	// TODO: check concurrency safety
+	runtime.delegate = delegate
+
 	return nil
 }
 
@@ -32,7 +36,8 @@ var runtime = new(run)
 type run struct {
 	sync.RWMutex
 
-	support   map[lang.LanguageID]lang.ServerName
+	delegate  lang.Delegate
+	support   map[lang.LanguageID]lang.Adapter
 	bins      map[lang.ServerName]*lang.Binary
 	processes map[lang.ServerName]Process // I think it's better to register cmd type here
 
@@ -61,7 +66,7 @@ func (r *run) setupServer(ctx context.Context, adapter lang.Adapter, delegate la
 		return err
 	}
 
-	if err := r.registerSupport(srv, adapter.Languages()); err != nil {
+	if err := r.registerSupport(srv, adapter); err != nil {
 		return err
 	}
 
@@ -85,7 +90,13 @@ func (r *run) startServer(_ context.Context, language lang.LanguageID) (Process,
 		return nil, fmt.Errorf("failed to start language server: %w", err)
 	}
 
-	// TODO: register
+	r.Lock()
+	defer r.Unlock()
+	v, ok := r.support[language]
+	if !ok {
+		return nil, errors.New("language not found")
+	}
+	r.processes[v.Name()] = process
 
 	return process, nil
 }
@@ -99,7 +110,7 @@ func (r *run) getBin(language lang.LanguageID) (*lang.Binary, error) {
 		return nil, errors.New("language is not supported")
 	}
 
-	bin, ok := r.bins[srv]
+	bin, ok := r.bins[srv.Name()]
 	if !ok {
 		return nil, errors.New("corrupt runtime state: language support exist, binary not found")
 	}
@@ -120,25 +131,37 @@ func (r *run) registerBin(srv lang.ServerName, bin *lang.Binary) error {
 	return nil
 }
 
-func (r *run) registerSupport(srv lang.ServerName, langs []lang.LanguageID) error {
+func (r *run) registerSupport(srv lang.ServerName, adapter lang.Adapter) error {
 	r.Lock()
 	defer r.Unlock()
 
-	for _, v := range langs {
+	for _, v := range adapter.Languages() {
 		// should never happen but let's check
 		if _, ok := r.support[v]; ok {
 			return errors.New("language already registered")
 		}
-		r.support[v] = srv
+		r.support[v] = adapter
 	}
 
 	return nil
 }
 
-func (l *run) isReady(srv lang.ServerName) bool {
-	l.RLock()
-	defer l.RUnlock()
+func (r *run) isReady(srv lang.ServerName) bool {
+	r.RLock()
+	defer r.RUnlock()
 
-	_, ok := l.bins[srv]
+	_, ok := r.bins[srv]
 	return ok
+}
+
+func (r *run) serverInitOptions(ctx context.Context, lang lang.LanguageID) (json.RawMessage, error) {
+	r.RLock()
+	defer r.RUnlock()
+
+	adapter, ok := r.support[lang]
+	if !ok {
+		return nil, nil
+	}
+
+	return adapter.InitializationOptions(ctx, r.delegate), nil
 }

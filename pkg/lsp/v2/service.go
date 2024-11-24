@@ -46,6 +46,11 @@ func (s *ServiceImpl) StartServer(ctx context.Context, languageId lang.LanguageI
 		log.Error().Str("languageId", languageId).Err(err).Msg("Failed to start language server process")
 	}
 
+	opts, err := runtime.serverInitOptions(ctx, languageId)
+	if err != nil {
+		return err
+	}
+
 	// Create a client for the language server
 	client, diagnostics := NewClient(process)
 
@@ -69,6 +74,7 @@ func (s *ServiceImpl) StartServer(ctx context.Context, languageId lang.LanguageI
 				// Name: project.Id, TODO: remove or use root
 			},
 		},
+		InitializationOptions: opts,
 	})
 	if err != nil {
 		log.Error().Str("languageId", languageId).Err(err).Msg("Failed to initialize language server")
