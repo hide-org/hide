@@ -15,13 +15,20 @@ import (
 	"github.com/hide-org/hide/pkg/gitignore"
 	"github.com/hide-org/hide/pkg/handlers/v2"
 	"github.com/hide-org/hide/pkg/lsp/v2"
+	lang "github.com/hide-org/hide/pkg/lsp/v2/languages"
 	"github.com/hide-org/hide/pkg/middleware"
 	"github.com/hide-org/hide/pkg/outline"
 	"github.com/hide-org/hide/pkg/symbols"
 	"github.com/hide-org/hide/pkg/tasks"
 	"github.com/hide-org/hide/pkg/util"
 	"github.com/rs/zerolog/log"
+	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
+)
+
+var (
+	workspaceDir string
+	lspBinaryDir string
 )
 
 func init() {
@@ -29,6 +36,8 @@ func init() {
 	pf.StringVar(&envPath, "env", DefaultDotEnvPath, "path to the .env file")
 	pf.BoolVar(&debug, "debug", false, "run service in a debug mode")
 	pf.IntVar(&port, "port", 8080, "service port")
+	pf.StringVar(&workspaceDir, "workspace-dir", "", "path to workspace directory")
+	pf.StringVar(&lspBinaryDir, "binary-dir", "", "path to directory where language server binaries are installed")
 
 	rootCmd.AddCommand(serverCmd)
 	serverCmd.AddCommand(serverRunCmd)
@@ -68,8 +77,8 @@ var serverRunCmd = &cobra.Command{
 			}
 		}
 
-		// TODO: implement delegate
-		if err := lsp.SetupServers(cmd.Context(), nil); err != nil {
+		delegate := lang.NewDefaultDelegate(afero.NewOsFs(), *http.DefaultClient, workspaceDir, lspBinaryDir)
+		if err := lsp.SetupServers(cmd.Context(), delegate); err != nil {
 			// this should work (in the future)
 			panic(err)
 		}

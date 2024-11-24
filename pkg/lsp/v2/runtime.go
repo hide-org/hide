@@ -10,6 +10,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	lang "github.com/hide-org/hide/pkg/lsp/v2/languages"
+	"github.com/rs/zerolog/log"
 )
 
 func SetupServers(ctx context.Context, delegate lang.Delegate) error {
@@ -17,7 +18,11 @@ func SetupServers(ctx context.Context, delegate lang.Delegate) error {
 	for _, adapter := range lang.Adapters {
 		adapter := adapter // capture loop variable
 		g.Go(func() error {
-			return runtime.setupServer(ctx, adapter, delegate)
+			err := runtime.setupServer(ctx, adapter, delegate)
+			if err != nil {
+				log.Error().Err(err).Msgf("Failed to setup server")
+			}
+			return err
 		})
 	}
 
@@ -31,7 +36,11 @@ func SetupServers(ctx context.Context, delegate lang.Delegate) error {
 	return nil
 }
 
-var runtime = new(run)
+var runtime = run{
+	support:   make(map[lang.LanguageID]lang.Adapter),
+	bins:      make(map[lang.ServerName]*lang.Binary),
+	processes: make(map[lang.ServerName]Process),
+}
 
 type run struct {
 	sync.RWMutex

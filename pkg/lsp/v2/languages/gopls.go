@@ -10,6 +10,7 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/rs/zerolog/log"
 	protocol "github.com/tliron/glsp/protocol_3_16"
 )
 
@@ -36,13 +37,17 @@ func (a *gopls) Name() ServerName {
 func (a *gopls) FetchLatestServerVersion(ctx context.Context, delegate Delegate) (interface{}, error) {
 	body, err := delegate.Get(ctx, "https://proxy.golang.org/golang.org/x/tools/gopls/@latest")
 	if err != nil {
+		log.Error().Err(err).Msg("gopls: failed to get version")
 		return nil, err
 	}
 
 	var version goplsVersion
 	if err := json.Unmarshal(body, &version); err != nil {
+		log.Error().Err(err).Msg("gopls: failed to unmarshal version")
 		return nil, err
 	}
+
+	log.Debug().Msgf("gopls: got version %+v", version)
 
 	return version, nil
 }
@@ -50,7 +55,7 @@ func (a *gopls) FetchLatestServerVersion(ctx context.Context, delegate Delegate)
 func (a *gopls) FetchServerBinary(ctx context.Context, version interface{}, delegate Delegate) (*Binary, error) {
 	var ver string
 
-	if v, ok := version.(*goplsVersion); ok {
+	if v, ok := version.(goplsVersion); ok {
 		ver = v.Version
 	} else {
 		ver = "latest"
@@ -58,6 +63,7 @@ func (a *gopls) FetchServerBinary(ctx context.Context, version interface{}, dele
 
 	installDir, err := delegate.MakeInstallPath(ctx, "gopls", ver)
 	if err != nil {
+		log.Error().Err(err).Msgf("gopls: failed to make install path %s", ver)
 		return nil, err
 	}
 
@@ -66,8 +72,10 @@ func (a *gopls) FetchServerBinary(ctx context.Context, version interface{}, dele
 		binaryName += ".exe"
 	}
 	goplsPath := filepath.Join(installDir, binaryName)
+	log.Debug().Msgf("gopls: will install binary to path: %s", goplsPath)
 
-	if exists, _ := checkVersion(goplsPath, ver); exists {
+	if exists, _ := checkVersion(ctx, goplsPath, ver, delegate); exists {
+		log.Debug().Msgf("gopls: version already exists")
 		return &Binary{
 			Path:      goplsPath,
 			Arguments: []string{"serve"},
@@ -97,7 +105,7 @@ func (a *gopls) FetchServerBinary(ctx context.Context, version interface{}, dele
 	}, nil
 }
 
-func checkVersion(path string, wantVersion string) (bool, error) {
+func checkVersion(ctx context.Context, path string, wantVersion string, delegate Delegate) (bool, error) {
 	if _, err := os.Stat(path); err != nil {
 		return false, nil
 	}
