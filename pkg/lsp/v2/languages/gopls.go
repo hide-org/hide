@@ -77,6 +77,7 @@ func (a *gopls) FetchServerBinary(ctx context.Context, version interface{}, dele
 	if exists, _ := checkVersion(ctx, goplsPath, ver, delegate); exists {
 		log.Debug().Msgf("gopls: version already exists")
 		return &Binary{
+			Name:      a.Name(),
 			Path:      goplsPath,
 			Arguments: []string{"serve"},
 			Env: map[string]string{

@@ -95,8 +95,8 @@ var pmRunCmd = &cobra.Command{
 		languageDetector := lsp.NewLanguageDetector()
 		diagnosticsStore := lsp.NewDiagnosticsStore()
 		clientPool := lsp.NewClientPool()
-		lspService := lsp.NewService(languageDetector, diagnosticsStore, clientPool)
-		fileManager := files.NewService(gitignore.NewMatcherFactory(), lspService)
+		lspService := lsp.NewService(languageDetector, diagnosticsStore, clientPool, "")
+		fileManager := files.NewService(gitignore.NewMatcherFactory(), lspService, nil)
 		projectManager := project.NewProjectManager(containerRunner, projectStore, projectsDir, fileManager, lspService, languageDetector, random.String, git.NewClient())
 		validator := validator.New(validator.WithRequiredStructEnabled())
 

@@ -44,12 +44,13 @@ func (s *ServiceImpl) StartServer(ctx context.Context, languageId lang.LanguageI
 	process, err := runtime.startServer(ctx, languageId)
 	if err != nil {
 		log.Error().Str("languageId", languageId).Err(err).Msg("Failed to start language server process")
-	}
-
-	opts, err := runtime.serverInitOptions(ctx, languageId)
-	if err != nil {
 		return err
 	}
+
+	// _, err = runtime.serverInitOptions(ctx, languageId)
+	// if err != nil {
+	// 	return err
+	// }
 
 	// Create a client for the language server
 	client, diagnostics := NewClient(process)
@@ -74,7 +75,7 @@ func (s *ServiceImpl) StartServer(ctx context.Context, languageId lang.LanguageI
 				// Name: project.Id, TODO: remove or use root
 			},
 		},
-		InitializationOptions: opts,
+		// InitializationOptions: opts,
 	})
 	if err != nil {
 		log.Error().Str("languageId", languageId).Err(err).Msg("Failed to initialize language server")
@@ -303,11 +304,12 @@ func DocumentURI(pathURI string) protocol.DocumentUri {
 	return protocol.DocumentUri(pathURI)
 }
 
-func NewService(languageDetector LanguageDetector, diagnosticsStore *DiagnosticsStore, clientPool ClientPool) Service {
+func NewService(languageDetector LanguageDetector, diagnosticsStore *DiagnosticsStore, clientPool ClientPool, rootURI string) Service {
 	return &ServiceImpl{
 		languageDetector: languageDetector,
 		clientPool:       clientPool,
 		diagnosticsStore: diagnosticsStore,
+		rootURI:          rootURI,
 	}
 }
 

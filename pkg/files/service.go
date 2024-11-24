@@ -37,8 +37,8 @@ type ServiceImpl struct {
 	fs               afero.Fs
 }
 
-func NewService(factory gitignore.MatcherFactory, lspService lsp.Service) Service {
-	return &ServiceImpl{gitignoreFactory: factory, lspService: lspService}
+func NewService(factory gitignore.MatcherFactory, lspService lsp.Service, fs afero.Fs) Service {
+	return &ServiceImpl{gitignoreFactory: factory, lspService: lspService, fs: fs}
 }
 
 func (s *ServiceImpl) CreateFile(ctx context.Context, path, content string) (*model.File, error) {

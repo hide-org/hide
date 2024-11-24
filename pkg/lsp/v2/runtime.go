@@ -112,7 +112,7 @@ func (r *run) startServer(_ context.Context, language lang.LanguageID) (Process,
 
 func (r *run) getBin(language lang.LanguageID) (*lang.Binary, error) {
 	r.RLock()
-	defer r.Unlock()
+	defer r.RUnlock()
 
 	srv, ok := r.support[language]
 	if !ok {

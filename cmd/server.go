@@ -88,10 +88,20 @@ var serverRunCmd = &cobra.Command{
 		clientPool := lsp.NewClientPool()
 
 		// TODO: setup language servers
-		lspService := lsp.NewService(languageDetector, diagnosticsStore, clientPool)
+		lspService := lsp.NewService(languageDetector, diagnosticsStore, clientPool, "file://"+workspaceDir)
+		fileService := files.NewService(gitignore.NewMatcherFactory(), lspService, afero.NewBasePathFs(afero.NewOsFs(), workspaceDir))
+		languages, err := detectLanguages(fileService, languageDetector)
+		if err != nil {
+			log.Error().Err(err).Msg("Failed to detect languages")
+			panic(err)
+		}
+
+		for _, lang := range languages {
+			lspService.StartServer(context.Background(), lang)
+			defer lspService.StopServer(context.Background(), lang)
+		}
 
 		taskService := tasks.NewService(tasks.NewExecutorImpl(), map[string]tasks.Task{})
-		fileService := files.NewService(gitignore.NewMatcherFactory(), lspService)
 		symbolSearch := symbols.NewService(lspService)
 		outlineService := outline.NewService(lspService)
 		router := handlers.
@@ -138,4 +148,16 @@ var serverRunCmd = &cobra.Command{
 
 		fmt.Println("👋 Goodbye!")
 	},
+}
+
+func detectLanguages(fileService files.Service, languageDetector lsp.LanguageDetector) ([]lang.LanguageID, error) {
+	files, err := fileService.ListFiles(context.Background(), files.ListFilesWithContent())
+	if err != nil {
+		return nil, fmt.Errorf("failed to list files: %w", err)
+	}
+
+	// TODO: handle multiple main language
+	language := languageDetector.DetectMainLanguage(files)
+	log.Debug().Msgf("Detected main language %s", language)
+	return []lang.LanguageID{language}, nil
 }
