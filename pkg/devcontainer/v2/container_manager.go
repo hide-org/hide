@@ -1,11 +1,14 @@
 package devcontainer
 
 import (
+	"archive/tar"
 	"bytes"
 	"context"
 	"errors"
 	"fmt"
 	"io"
+	"os"
+	"path/filepath"
 	"strconv"
 
 	"github.com/docker/docker/api/types"
@@ -19,16 +22,18 @@ import (
 const (
 	DefaultShell      = "/bin/sh"
 	DefaultWorkingDir = "/workspace"
+	HideServerPort    = "8945"
 )
 
 var DefaultContainerCommand = []string{DefaultShell, "-c", "while sleep 1000; do :; done"}
 
 type ContainerManager interface {
-	CreateContainer(ctx context.Context, image string, projectPath string, config Config) (string, error)
+	CreateContainer(ctx context.Context, imageId string, projectPath string, config Config) (string, error)
 	StartContainer(ctx context.Context, containerId string) error
 	StopContainer(ctx context.Context, containerId string) error
 	Exec(ctx context.Context, containerId string, command []string) (ExecResult, error)
 	ExecDetached(ctx context.Context, containerId string, command []string) (string, error)
+	CopyFile(ctx context.Context, containerId string, hostPath, containerPath string) error
 }
 
 type DockerContainerManager struct {
@@ -40,11 +45,21 @@ func NewDockerContainerManager(dockerContainerCli client.ContainerAPIClient) Con
 }
 
 func (cm *DockerContainerManager) CreateContainer(ctx context.Context, image string, projectPath string, config Config) (string, error) {
+	hidePort := os.Getenv("HIDE_PORT")
+	if hidePort == "" {
+		hidePort = HideServerPort
+	}
+
+	hidePortWithProtocol, err := nat.NewPort("tcp", hidePort)
+	if err != nil {
+		return "", fmt.Errorf("failed to create port: %w", err)
+	}
+
 	containerConfig := &container.Config{
 		Image: image,
 		Cmd:   DefaultContainerCommand,
 		ExposedPorts: nat.PortSet{
-			"8081/tcp": {},
+			hidePortWithProtocol: {},
 		},
 	}
 
@@ -72,10 +87,8 @@ func (cm *DockerContainerManager) CreateContainer(ctx context.Context, image str
 
 	portBindings := make(nat.PortMap)
 
-	// mounting port 8081 for hide server
-	// TODO: remove hardcoded port
-	port, _ := nat.NewPort("tcp", "8081")
-	portBindings[port] = []nat.PortBinding{{HostIP: "", HostPort: "8081"}}
+	// binding port for hide server
+	portBindings[hidePortWithProtocol] = []nat.PortBinding{{HostIP: "", HostPort: hidePort}}
 
 	for _, port := range config.AppPort {
 		port_str := strconv.Itoa(port)
@@ -189,8 +202,8 @@ func (cm *DockerContainerManager) Exec(ctx context.Context, containerId string, 
 
 func (cm *DockerContainerManager) ExecDetached(ctx context.Context, containerId string, command []string) (string, error) {
 	execConfig := types.ExecConfig{
-		Cmd:          command,
-		Detach:       true,
+		Cmd:    command,
+		Detach: true,
 	}
 
 	execIDResp, err := cm.ContainerExecCreate(ctx, containerId, execConfig)
@@ -245,4 +258,47 @@ func stringToType(s string) (mount.Type, error) {
 	default:
 		return "", fmt.Errorf("Unsupported mount type: %s", s)
 	}
+}
+
+func (m *DockerContainerManager) CopyFile(ctx context.Context, containerId string, hostPath, containerPath string) error {
+	// Create a tar archive containing the file
+	var buf bytes.Buffer
+	tw := tar.NewWriter(&buf)
+
+	file, err := os.Open(hostPath)
+	if err != nil {
+		return fmt.Errorf("failed to open file: %w", err)
+	}
+	defer file.Close()
+
+	stat, err := file.Stat()
+	if err != nil {
+		return fmt.Errorf("failed to stat file: %w", err)
+	}
+
+	header := &tar.Header{
+		Name: filepath.Base(containerPath),
+		Mode: 0755,
+		Size: stat.Size(),
+	}
+
+	if err := tw.WriteHeader(header); err != nil {
+		return fmt.Errorf("failed to write tar header: %w", err)
+	}
+
+	if _, err := io.Copy(tw, file); err != nil {
+		return fmt.Errorf("failed to copy file to tar: %w", err)
+	}
+
+	if err := tw.Close(); err != nil {
+		return fmt.Errorf("failed to close tar writer: %w", err)
+	}
+
+	// Copy the tar archive to the container
+	err = m.CopyToContainer(ctx, containerId, filepath.Dir(containerPath), &buf, types.CopyToContainerOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to copy file to container: %w", err)
+	}
+
+	return nil
 }
