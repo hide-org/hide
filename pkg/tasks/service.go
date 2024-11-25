@@ -30,12 +30,14 @@ type Service interface {
 type ServiceImpl struct {
 	executor Executor
 	store    map[string]Task
+	workDir  string
 }
 
-func NewService(executor Executor, store map[string]Task) Service {
+func NewService(executor Executor, store map[string]Task, workDir string) Service {
 	return ServiceImpl{
 		executor: executor,
 		store:    store,
+		workDir:  workDir,
 	}
 }
 
@@ -72,7 +74,7 @@ func (s ServiceImpl) Run(ctx context.Context, alias string) (Result, error) {
 func (s ServiceImpl) RunCommand(ctx context.Context, command string) (Result, error) {
 	log.Debug().Msgf("Creating task for command: %s", command)
 
-	result, err := s.executor.Run(cmdMaybeWithTimeout(ctx, command), "/workspace")
+	result, err := s.executor.Run(cmdMaybeWithTimeout(ctx, command), s.workDir)
 	if err != nil {
 		log.Error().Err(err).Msgf("Failed to execute command '%s'", command)
 		return Result{}, fmt.Errorf("failed to execute command: %w", err)

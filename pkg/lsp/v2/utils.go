@@ -4,17 +4,9 @@ import (
 	"path/filepath"
 
 	"github.com/go-enry/go-enry/v2"
+	lang "github.com/hide-org/hide/pkg/lsp/v2/languages"
 	"github.com/hide-org/hide/pkg/model"
 	"github.com/rs/zerolog/log"
-)
-
-// Language IDs based on https://github.com/go-enry/go-enry
-// For reference see https://github.com/go-enry/go-enry/blob/master/data/languageInfo.go
-const (
-	Go         = LanguageId("Go")
-	JavaScript = LanguageId("JavaScript")
-	Python     = LanguageId("Python")
-	TypeScript = LanguageId("TypeScript")
 )
 
 type LanguageDetector interface {
@@ -29,7 +21,8 @@ type LanguageDetectorImpl struct{}
 func NewLanguageDetector() LanguageDetector {
 	return &LanguageDetectorImpl{}
 }
-func (ld LanguageDetectorImpl) DetectLanguage(file *model.File) LanguageId {
+
+func (ld LanguageDetectorImpl) DetectLanguage(file *model.File) lang.LanguageID {
 	return enry.GetLanguage(filepath.Base(file.Path), file.GetContentBytes())
 }
 

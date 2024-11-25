@@ -28,8 +28,6 @@ func (d *DiagnosticsStore) Set(uri protocol.DocumentUri, diagnostics []protocol.
 	return
 }
 
-
-
 func NewDiagnosticsStore() *DiagnosticsStore {
 	return &DiagnosticsStore{
 		diagnostics: make(map[protocol.DocumentUri][]protocol.Diagnostic),

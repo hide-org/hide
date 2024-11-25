@@ -337,7 +337,14 @@ func (s *ServiceImpl) UpdateLines(ctx context.Context, path string, lineDiff Lin
 }
 
 func (s *ServiceImpl) getDiagnostics(ctx context.Context, file model.File, waitFor time.Duration) ([]protocol.Diagnostic, error) {
-	if err := s.lspService.NotifyDidOpen(ctx, file); err != nil {
+	realPath, err := s.getRealPath(&file)
+	if err != nil {
+		return nil, err
+	}
+
+	fileWithRealPath := file.WithPath(realPath)
+
+	if err := s.lspService.NotifyDidOpen(ctx, *fileWithRealPath); err != nil {
 		var lspLanguageServerNotFoundError *lsp.LanguageServerNotFoundError
 		if errors.As(err, &lspLanguageServerNotFoundError) {
 			return nil, nil
@@ -349,7 +356,7 @@ func (s *ServiceImpl) getDiagnostics(ctx context.Context, file model.File, waitF
 	// wait for diagnostics
 	time.Sleep(waitFor)
 
-	diagnostics, err := s.lspService.GetDiagnostics(ctx, file)
+	diagnostics, err := s.lspService.GetDiagnostics(ctx, *fileWithRealPath)
 	if err != nil {
 		var lspLanguageServerNotFoundError *lsp.LanguageServerNotFoundError
 		if errors.As(err, &lspLanguageServerNotFoundError) {
@@ -359,7 +366,7 @@ func (s *ServiceImpl) getDiagnostics(ctx context.Context, file model.File, waitF
 		return nil, fmt.Errorf("Failed to get diagnostics for file %s: %w", file.Path, err)
 	}
 
-	if err := s.lspService.NotifyDidClose(ctx, file); err != nil {
+	if err := s.lspService.NotifyDidClose(ctx, *fileWithRealPath); err != nil {
 		var lspLanguageServerNotFoundError *lsp.LanguageServerNotFoundError
 		if errors.As(err, &lspLanguageServerNotFoundError) {
 			return nil, nil
@@ -369,4 +376,12 @@ func (s *ServiceImpl) getDiagnostics(ctx context.Context, file model.File, waitF
 	}
 
 	return diagnostics, nil
+}
+
+func (s *ServiceImpl) getRealPath(file *model.File) (string, error) {
+	if fs, ok := s.fs.(*afero.BasePathFs); ok {
+		return fs.RealPath(file.Path)
+	}
+
+	return file.Path, nil
 }
