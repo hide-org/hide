@@ -91,6 +91,7 @@ github.com/docker/docker/pkg/ioutils
 github.com/docker/docker/pkg/longpath
 github.com/docker/docker/pkg/pools
 github.com/docker/docker/pkg/stdcopy
+github.com/docker/docker/pkg/stringid
 github.com/docker/docker/pkg/system
 # github.com/docker/go-connections v0.5.0
 ## explicit; go 1.18
@@ -343,6 +344,7 @@ github.com/stretchr/objx
 ## explicit; go 1.17
 github.com/stretchr/testify/assert
 github.com/stretchr/testify/mock
+github.com/stretchr/testify/require
 # github.com/tliron/glsp v0.2.2
 ## explicit; go 1.21
 github.com/tliron/glsp
