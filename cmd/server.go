@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -36,7 +37,8 @@ func init() {
 	pf.StringVar(&envPath, "env", DefaultDotEnvPath, "path to the .env file")
 	pf.BoolVar(&debug, "debug", false, "run service in a debug mode")
 	pf.IntVar(&port, "port", 8080, "service port")
-	pf.StringVar(&workspaceDir, "workspace-dir", "", "path to workspace directory")
+	cwd, _ := os.Getwd() // how can it fail?
+	pf.StringVar(&workspaceDir, "workspace-dir", cwd, "path to workspace directory")
 	pf.StringVar(&lspBinaryDir, "binary-dir", "", "path to directory where language server binaries are installed")
 
 	rootCmd.AddCommand(serverCmd)
@@ -118,13 +120,16 @@ var serverRunCmd = &cobra.Command{
 			Build()
 
 		addr := fmt.Sprintf("0.0.0.0:%d", port)
+		listener, err := net.Listen("tcp", addr)
+		if err != nil {
+			log.Fatal().Err(err).Msg("Failed to create listener")
+		}
+		// helps if randomly assigned port 
+		fmt.Printf("Server listening on %s\n", listener.Addr().String())
 
 		server := &http.Server{
 			Handler: router,
-			Addr:    addr,
 		}
-
-		log.Info().Msgf("Server started on %s\n", addr)
 
 		go func() {
 			sigChan := make(chan os.Signal, 1)
@@ -141,7 +146,7 @@ var serverRunCmd = &cobra.Command{
 			}
 		}()
 
-		if err := server.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
+		if err := server.Serve(listener); !errors.Is(err, http.ErrServerClosed) {
 			log.Fatal().Err(err).Msgf("HTTP server error: %v", err)
 		}
 
