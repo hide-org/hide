@@ -5,29 +5,23 @@ import (
 	"fmt"
 	"net/url"
 	"path/filepath"
+	"strings"
 
+	lang "github.com/hide-org/hide/pkg/lsp/v2/languages"
 	"github.com/hide-org/hide/pkg/model"
 	"github.com/rs/zerolog/log"
 	protocol "github.com/tliron/glsp/protocol_3_16"
 )
 
 type (
-	LanguageId     = string
 	ProjectRoot    = string
-	LspClientStore = map[LanguageId]Client
+	LspClientStore = map[lang.LanguageID]Client
 	LspDiagnostics = map[protocol.DocumentUri][]protocol.Diagnostic
 )
 
-var LspServerExecutables = map[LanguageId]Command{
-	Go:         NewCommand("gopls", []string{}),
-	Python:     NewCommand("pyright-langserver", []string{"--stdio"}),
-	JavaScript: NewCommand("typescript-language-server", []string{"--stdio"}),
-	TypeScript: NewCommand("typescript-language-server", []string{"--stdio"}),
-}
-
 type Service interface {
-	StartServer(ctx context.Context, languageId LanguageId) error
-	StopServer(ctx context.Context, languageId LanguageId) error
+	StartServer(ctx context.Context, languageId lang.LanguageID) error
+	StopServer(ctx context.Context, languageId lang.LanguageID) error
 	GetWorkspaceSymbols(ctx context.Context, query string, symbolFilter SymbolFilter) ([]SymbolInfo, error)
 	GetDocumentOutline(ctx context.Context, file model.File) (DocumentOutline, error)
 	NotifyDidOpen(ctx context.Context, file model.File) error
@@ -39,32 +33,25 @@ type Service interface {
 }
 
 type ServiceImpl struct {
-	languageDetector     LanguageDetector
-	clientPool           ClientPool
-	diagnosticsStore     *DiagnosticsStore
-	lspServerExecutables map[LanguageId]Command
+	languageDetector LanguageDetector
+	clientPool       ClientPool
+	diagnosticsStore *DiagnosticsStore
 	// TODO: can we pass the root URI as url.URL?
 	rootURI string // example: "file:///workspace"
 }
 
 // StartServer implements Service.
-func (s *ServiceImpl) StartServer(ctx context.Context, languageId LanguageId) error {
-	command, ok := s.lspServerExecutables[languageId]
-	if !ok {
-		return NewLanguageNotSupportedError(languageId)
-	}
-
-	// Start the language server
-	process, err := NewProcess(command)
+func (s *ServiceImpl) StartServer(ctx context.Context, languageId lang.LanguageID) error {
+	process, err := runtime.startServer(ctx, languageId)
 	if err != nil {
-		log.Error().Err(err).Msg("Failed to create language server process")
-		return fmt.Errorf("Failed to create language server process: %w", err)
+		log.Error().Str("languageId", languageId).Err(err).Msg("Failed to start language server process")
+		return err
 	}
 
-	if err := process.Start(); err != nil {
-		log.Error().Err(err).Msg("Failed to start language server")
-		return fmt.Errorf("Failed to start language server: %w", err)
-	}
+	// _, err = runtime.serverInitOptions(ctx, languageId)
+	// if err != nil {
+	// 	return err
+	// }
 
 	// Create a client for the language server
 	client, diagnostics := NewClient(process)
@@ -89,6 +76,7 @@ func (s *ServiceImpl) StartServer(ctx context.Context, languageId LanguageId) er
 				// Name: project.Id, TODO: remove or use root
 			},
 		},
+		// InitializationOptions: opts,
 	})
 	if err != nil {
 		log.Error().Str("languageId", languageId).Err(err).Msg("Failed to initialize language server")
@@ -116,7 +104,7 @@ func (s *ServiceImpl) StartServer(ctx context.Context, languageId LanguageId) er
 	return nil
 }
 
-func (s *ServiceImpl) StopServer(ctx context.Context, languageId LanguageId) error {
+func (s *ServiceImpl) StopServer(ctx context.Context, languageId lang.LanguageID) error {
 	client, ok := s.getClient(ctx, languageId)
 
 	if !ok {
@@ -281,7 +269,7 @@ func (s *ServiceImpl) Cleanup(ctx context.Context) error {
 	return nil
 }
 
-func (s *ServiceImpl) getClient(ctx context.Context, languageId LanguageId) (Client, bool) {
+func (s *ServiceImpl) getClient(ctx context.Context, languageId lang.LanguageID) (Client, bool) {
 	client, ok := s.clientPool.Get(languageId)
 	return client, ok
 }
@@ -314,15 +302,18 @@ func (s *ServiceImpl) updateDiagnostics(diagnostics protocol.PublishDiagnosticsP
 }
 
 func DocumentURI(pathURI string) protocol.DocumentUri {
-	return protocol.DocumentUri(pathURI)
+	if strings.HasPrefix(pathURI, "file://") {
+		return protocol.DocumentUri(pathURI)
+	}
+	return protocol.DocumentUri("file://" + pathURI)
 }
 
-func NewService(languageDetector LanguageDetector, lspServerExecutables map[LanguageId]Command, diagnosticsStore *DiagnosticsStore, clientPool ClientPool) Service {
+func NewService(languageDetector LanguageDetector, diagnosticsStore *DiagnosticsStore, clientPool ClientPool, rootURI string) Service {
 	return &ServiceImpl{
-		languageDetector:     languageDetector,
-		clientPool:           clientPool,
-		diagnosticsStore:     diagnosticsStore,
-		lspServerExecutables: lspServerExecutables,
+		languageDetector: languageDetector,
+		clientPool:       clientPool,
+		diagnosticsStore: diagnosticsStore,
+		rootURI:          rootURI,
 	}
 }
 

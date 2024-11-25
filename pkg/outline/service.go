@@ -2,6 +2,7 @@ package outline
 
 import (
 	"context"
+	"path/filepath"
 
 	"github.com/hide-org/hide/pkg/lsp/v2"
 	"github.com/hide-org/hide/pkg/model"
@@ -13,13 +14,14 @@ type Service interface {
 }
 
 type ServiceImpl struct {
-	lsp lsp.Service
+	workspaceDir string
+	lsp          lsp.Service
 }
 
-func NewService(lsp lsp.Service) Service {
-	return &ServiceImpl{lsp: lsp}
+func NewService(lsp lsp.Service, workspaceDir string) Service {
+	return &ServiceImpl{lsp: lsp, workspaceDir: workspaceDir}
 }
 
 func (s *ServiceImpl) Get(ctx context.Context, path string) (lsp.DocumentOutline, error) {
-	return s.lsp.GetDocumentOutline(ctx, model.File{Path: path})
+	return s.lsp.GetDocumentOutline(ctx, model.File{Path: "file://" + filepath.Join(s.workspaceDir, path)})
 }
