@@ -3,20 +3,16 @@ package project
 import (
 	"context"
 	"fmt"
-	"io/fs"
-	"os"
-	"path"
 	"sync"
+	"time"
 
 	"github.com/hide-org/hide/pkg/devcontainer/v2"
-	"github.com/hide-org/hide/pkg/files"
-	"github.com/hide-org/hide/pkg/git"
-	"github.com/hide-org/hide/pkg/lsp/v2"
 	lang "github.com/hide-org/hide/pkg/lsp/v2/languages"
 	"github.com/hide-org/hide/pkg/model"
+	"github.com/hide-org/hide/pkg/server"
+	"github.com/hide-org/hide/pkg/workspaces"
 
 	"github.com/rs/zerolog/log"
-	// "github.com/spf13/afero"
 )
 
 const HideBin = "/go/bin/hide_linux_arm64"
@@ -41,127 +37,74 @@ type Manager interface {
 }
 
 type ManagerImpl struct {
-	devContainerRunner devcontainer.Runner
-	store              Store
-	projectsRoot       string
-	fileManager        files.Service
-	lspService         lsp.Service
-	languageDetector   lsp.LanguageDetector
-	randomString       func(int) string
-	git                git.Client
+	servers    server.Installer
+	store      Store
+	workspaces workspaces.Service
 }
 
 func NewProjectManager(
-	devContainerRunner devcontainer.Runner,
-	projectStore Store,
-	projectsRoot string,
-	fileManager files.Service,
-	lspService lsp.Service,
-	languageDetector lsp.LanguageDetector,
-	randomString func(int) string,
-	git git.Client,
+	servers server.Installer,
+	store Store,
+	workspaces workspaces.Service,
 ) Manager {
-	return ManagerImpl{
-		devContainerRunner: devContainerRunner,
-		store:              projectStore,
-		projectsRoot:       projectsRoot,
-		fileManager:        fileManager,
-		lspService:         lspService,
-		languageDetector:   languageDetector,
-		randomString:       randomString,
-		git:                git,
+	return &ManagerImpl{
+		servers:    servers,
+		store:      store,
+		workspaces: workspaces,
 	}
 }
 
 func (pm ManagerImpl) CreateProject(ctx context.Context, request CreateProjectRequest) (*model.Project, error) {
 	log.Debug().Msgf("Creating project for repo %s", request.Repository.Url)
 
-	projectId := pm.randomString(10)
-	projectPath := path.Join(pm.projectsRoot, projectId)
-
-	// Clone git repo
-	if err := pm.createProjectDir(projectPath); err != nil {
-		log.Error().Err(err).Msg("Failed to create project directory")
-		return nil, fmt.Errorf("Failed to create project directory: %w", err)
-	}
-
-	r, err := pm.git.Clone(request.Repository.Url, projectPath)
+	// Create workspace
+	workspace, err := pm.workspaces.Create(ctx, request.Repository.Url)
 	if err != nil {
-		log.Error().Err(err).Msg("Failed to clone git repo")
-		removeProjectDir(projectPath)
-		return nil, fmt.Errorf("Failed to clone git repo: %w", err)
+		return nil, fmt.Errorf("failed to create workspace: %w", err)
 	}
 
-	if request.Repository.Commit != nil {
-		if err := pm.git.Checkout(*r, *request.Repository.Commit); err != nil {
-			log.Error().Err(err).Msg("Failed to checkout commit")
-			removeProjectDir(projectPath)
-			return nil, fmt.Errorf("Failed to checkout commit %s: %w", *request.Repository.Commit, err)
-		}
-	}
-
-	// Start devcontainer
-	var devContainerConfig devcontainer.Config
-
-	if request.DevContainer != nil {
-		devContainerConfig = *request.DevContainer
-	} else {
-		config, err := pm.configFromProject(os.DirFS(projectPath))
+	// Wait until SSH server is ready
+	log.Debug().Msg("Waiting for SSH server to be ready")
+	time.Sleep(10 * time.Second)
+	count := 0
+	for {
+		ready, err := workspace.SSHIsReady(ctx)
 		if err != nil {
-			log.Error().Err(err).Msgf("Failed to get devcontainer config from repository %s", request.Repository.Url)
-			removeProjectDir(projectPath)
-			return nil, fmt.Errorf("Failed to read devcontainer.json: %w", err)
+			return nil, fmt.Errorf("failed to check if SSH server is ready: %w", err)
 		}
-
-		devContainerConfig = config
+		if ready {
+			log.Debug().Msg("SSH server is ready")
+			break
+		}
+		log.Debug().Msg("SSH server is not ready yet")
+		count++
+		if count > 5 {
+			return nil, fmt.Errorf("SSH server is not ready after 5 attempts")
+		}
+		log.Debug().Msgf("Waiting for SSH server to be ready (%d/%d)", count, 5)
+		time.Sleep(1 * time.Second)
 	}
 
-	containerId, err := pm.devContainerRunner.Run(ctx, projectPath, devContainerConfig)
+	// Start dev server
+	log.Debug().Msg("Installing dev server")
+	port, err := pm.servers.Install(ctx, workspace)
 	if err != nil {
-		log.Error().Err(err).Msg("Failed to launch devcontainer")
-		removeProjectDir(projectPath)
-		return nil, fmt.Errorf("Failed to launch devcontainer: %w", err)
+		return nil, fmt.Errorf("failed to start dev server: %w", err)
 	}
 
-	// Start hide server
-	execID, err := pm.devContainerRunner.ExecDetached(ctx, containerId, []string{HideBin, "devserver", "--port", "8081"})
-	if err != nil {
-		log.Error().Err(err).Msg("Failed to start hide server")
-		removeProjectDir(projectPath)
-		return nil, fmt.Errorf("Failed to start hide server: %w", err)
+	log.Debug().Str("port", fmt.Sprintf("%d", port)).Msg("Installed dev server")
+
+	project := model.Project{
+		ID:          workspace.ID(),
+		ContainerId: workspace.ID(),
 	}
-
-	log.Debug().Msgf("Started hide server with ID %s", execID)
-
-	project := model.Project{ID: projectId, Path: projectPath, Config: model.Config{}, ContainerId: containerId}
-
-	// TODO: Start LSP server in container
-	// languages := request.Languages
-	// if len(languages) == 0 {
-	// 	languages, err = pm.detectLanguages(project)
-	// 	if err != nil {
-	// 		log.Error().Err(err).Msg("Failed to detect project languages")
-	// 		removeProjectDir(projectPath)
-	// 		return nil, fmt.Errorf("Failed to detect project languages: %w", err)
-	// 	}
-	// }
-	//
-	// for _, language := range languages {
-	// 	if err := pm.lspService.StartServer(model.NewContextWithProject(context.Background(), &project), language, "/workspace"); err != nil {
-	// 		log.Warn().Err(err).Msg("Failed to start LSP server. Diagnostics will not be available.")
-	// 	}
-	// }
-
-	// TODO: Create tasks
 
 	// Save project in store
 	if err := pm.store.CreateProject(&project); err != nil {
-		log.Error().Err(err).Msg("Failed to save project")
-		removeProjectDir(projectPath)
-		return nil, fmt.Errorf("Failed to save project: %w", err)
+		return nil, fmt.Errorf("failed to save project: %w", err)
 	}
 
-	log.Debug().Msgf("Created project %s for repo %s", projectId, request.Repository.Url)
+	log.Debug().Msgf("Created project %s for repo %s", project.ID, request.Repository.Url)
 
 	return &project, nil
 }
@@ -192,12 +135,18 @@ func (pm ManagerImpl) DeleteProject(ctx context.Context, projectId string) error
 	project, err := pm.GetProject(ctx, projectId)
 	if err != nil {
 		log.Error().Err(err).Msgf("Failed to get project with id %s", projectId)
-		return fmt.Errorf("Failed to get project with id %s: %w", projectId, err)
+		return fmt.Errorf("failed to get project with id %s: %w", projectId, err)
 	}
 
-	if err := pm.devContainerRunner.Stop(ctx, project.ContainerId); err != nil {
-		log.Error().Err(err).Msgf("Failed to stop container %s", project.ContainerId)
-		return fmt.Errorf("Failed to stop container: %w", err)
+	workspace, err := pm.workspaces.Get(ctx, project.ContainerId)
+	if err != nil {
+		log.Error().Err(err).Msgf("Failed to get workspace %s", project.ContainerId)
+		return fmt.Errorf("failed to get workspace: %w", err)
+	}
+
+	if err := workspace.Stop(ctx); err != nil {
+		log.Error().Err(err).Msgf("Failed to stop workspace %s", project.ContainerId)
+		return fmt.Errorf("failed to stop workspace: %w", err)
 	}
 
 	if err := pm.store.DeleteProject(projectId); err != nil {
@@ -247,51 +196,4 @@ func (pm ManagerImpl) Cleanup(ctx context.Context) error {
 
 	log.Info().Msg("Cleaned up projects")
 	return nil
-}
-
-func (pm ManagerImpl) createProjectDir(path string) error {
-	if err := os.MkdirAll(path, 0o755); err != nil {
-		return fmt.Errorf("Failed to create project directory: %w", err)
-	}
-
-	log.Debug().Msgf("Created project directory: %s", path)
-
-	return nil
-}
-
-func (pm ManagerImpl) configFromProject(fileSystem fs.FS) (devcontainer.Config, error) {
-	configFile, err := devcontainer.FindConfig(fileSystem)
-	if err != nil {
-		return devcontainer.Config{}, fmt.Errorf("Failed to find devcontainer.json: %w", err)
-	}
-
-	config, err := devcontainer.ParseConfig(configFile)
-	if err != nil {
-		return devcontainer.Config{}, fmt.Errorf("Failed to parse devcontainer.json: %w", err)
-	}
-
-	return *config, nil
-}
-
-// func (pm ManagerImpl) detectLanguages(project model.Project) ([]lsp.LanguageId, error) {
-// 	files, err := pm.fileManager.ListFiles(model.NewContextWithProject(context.Background(), &project), afero.NewBasePathFs(afero.NewOsFs(), project.Path), files.ListFilesWithContent())
-// 	if err != nil {
-// 		return nil, fmt.Errorf("failed to list files: %w", err)
-// 	}
-//
-// 	// TODO: handle multiple main language
-// 	language := pm.languageDetector.DetectMainLanguage(files)
-// 	log.Debug().Msgf("Detected main language %s for project %s", language, project.Id)
-// 	return []lsp.LanguageId{language}, nil
-// }
-
-func removeProjectDir(projectPath string) {
-	if err := os.RemoveAll(projectPath); err != nil {
-		log.Error().Err(err).Msgf("Failed to remove project directory %s", projectPath)
-		return
-	}
-
-	log.Debug().Msgf("Removed project directory: %s", projectPath)
-
-	return
 }

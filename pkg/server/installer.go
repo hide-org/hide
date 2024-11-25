@@ -46,12 +46,12 @@ func (i *InstallerImpl) Install(ctx context.Context, workspace workspaces.Worksp
 	if _, err := workspace.Ssh(ctx, "mkdir -p "+tempDir); err != nil {
 		return 0, fmt.Errorf("failed to create temp directory: %w", err)
 	}
-	defer func() {
-		// Clean up temp directory
-		if _, err := workspace.Ssh(ctx, "rm -rf "+tempDir); err != nil {
-			fmt.Printf("Warning: failed to remove temp directory: %v\n", err)
-		}
-	}()
+	// defer func() {
+	// 	// Clean up temp directory
+	// 	if _, err := workspace.Ssh(ctx, "rm -rf "+tempDir); err != nil {
+	// 		fmt.Printf("Warning: failed to remove temp directory: %v\n", err)
+	// 	}
+	// }()
 
 	scriptPath := filepath.Join(tempDir, "install.sh")
 	// Use the installScript constant
