@@ -124,6 +124,7 @@ var serverRunCmd = &cobra.Command{
 		if err != nil {
 			log.Fatal().Err(err).Msg("Failed to create listener")
 		}
+		// helps if randomly assigned port 
 		fmt.Printf("Server listening on %s\n", listener.Addr().String())
 
 		server := &http.Server{
