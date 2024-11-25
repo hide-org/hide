@@ -87,7 +87,6 @@ var serverRunCmd = &cobra.Command{
 		diagnosticsStore := lsp.NewDiagnosticsStore()
 		clientPool := lsp.NewClientPool()
 
-		// TODO: setup language servers
 		lspService := lsp.NewService(languageDetector, diagnosticsStore, clientPool, "file://"+workspaceDir)
 		fileService := files.NewService(gitignore.NewMatcherFactory(), lspService, afero.NewBasePathFs(afero.NewOsFs(), workspaceDir))
 		languages, err := detectLanguages(fileService, languageDetector)
