@@ -15,13 +15,20 @@ import (
 	"github.com/hide-org/hide/pkg/gitignore"
 	"github.com/hide-org/hide/pkg/handlers/v2"
 	"github.com/hide-org/hide/pkg/lsp/v2"
+	lang "github.com/hide-org/hide/pkg/lsp/v2/languages"
 	"github.com/hide-org/hide/pkg/middleware"
 	"github.com/hide-org/hide/pkg/outline"
 	"github.com/hide-org/hide/pkg/symbols"
 	"github.com/hide-org/hide/pkg/tasks"
 	"github.com/hide-org/hide/pkg/util"
 	"github.com/rs/zerolog/log"
+	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
+)
+
+var (
+	workspaceDir string
+	lspBinaryDir string
 )
 
 func init() {
@@ -29,6 +36,8 @@ func init() {
 	pf.StringVar(&envPath, "env", DefaultDotEnvPath, "path to the .env file")
 	pf.BoolVar(&debug, "debug", false, "run service in a debug mode")
 	pf.IntVar(&port, "port", 8080, "service port")
+	pf.StringVar(&workspaceDir, "workspace-dir", "", "path to workspace directory")
+	pf.StringVar(&lspBinaryDir, "binary-dir", "", "path to directory where language server binaries are installed")
 
 	rootCmd.AddCommand(serverCmd)
 	serverCmd.AddCommand(serverRunCmd)
@@ -68,15 +77,32 @@ var serverRunCmd = &cobra.Command{
 			}
 		}
 
+		delegate := lang.NewDefaultDelegate(afero.NewOsFs(), *http.DefaultClient, workspaceDir, lspBinaryDir)
+		if err := lsp.SetupServers(cmd.Context(), delegate); err != nil {
+			// this should work (in the future)
+			panic(err)
+		}
+
 		languageDetector := lsp.NewLanguageDetector()
 		diagnosticsStore := lsp.NewDiagnosticsStore()
 		clientPool := lsp.NewClientPool()
-		lspService := lsp.NewService(languageDetector, lsp.LspServerExecutables, diagnosticsStore, clientPool)
 
-		taskService := tasks.NewService(tasks.NewExecutorImpl(), map[string]tasks.Task{})
-		fileService := files.NewService(gitignore.NewMatcherFactory(), lspService)
+		lspService := lsp.NewService(languageDetector, diagnosticsStore, clientPool, "file://"+workspaceDir)
+		fileService := files.NewService(gitignore.NewMatcherFactory(), lspService, afero.NewBasePathFs(afero.NewOsFs(), workspaceDir))
+		languages, err := detectLanguages(fileService, languageDetector)
+		if err != nil {
+			log.Error().Err(err).Msg("Failed to detect languages")
+			panic(err)
+		}
+
+		for _, lang := range languages {
+			lspService.StartServer(context.Background(), lang)
+			defer lspService.StopServer(context.Background(), lang)
+		}
+
+		taskService := tasks.NewService(tasks.NewExecutorImpl(), map[string]tasks.Task{}, workspaceDir)
 		symbolSearch := symbols.NewService(lspService)
-		outlineService := outline.NewService(lspService)
+		outlineService := outline.NewService(lspService, workspaceDir)
 		router := handlers.
 			NewRouter().
 			WithCreateTaskHandler(handlers.CreateTaskHandler{Tasks: taskService}).
@@ -121,4 +147,16 @@ var serverRunCmd = &cobra.Command{
 
 		fmt.Println("👋 Goodbye!")
 	},
+}
+
+func detectLanguages(fileService files.Service, languageDetector lsp.LanguageDetector) ([]lang.LanguageID, error) {
+	files, err := fileService.ListFiles(context.Background(), files.ListFilesWithContent())
+	if err != nil {
+		return nil, fmt.Errorf("failed to list files: %w", err)
+	}
+
+	// TODO: handle multiple main language
+	language := languageDetector.DetectMainLanguage(files)
+	log.Debug().Msgf("Detected main language %s", language)
+	return []lang.LanguageID{language}, nil
 }
