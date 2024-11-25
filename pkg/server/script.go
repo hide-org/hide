@@ -97,7 +97,7 @@ fi
 # Start server
 echo "Starting server on port $PORT..."
 LOG_FILE="${BINARY_DIR}/hide.log"
-nohup "$BINARY_PATH" server run --workspace "$(pwd)" --port "$PORT" >"$LOG_FILE" 2>&1 &
+nohup "$BINARY_PATH" server run --workspace-dir "$(pwd)" --binary-dir "$HOME/.hide/bin" --port "$PORT" >"$LOG_FILE" 2>&1 &
 
 # Wait for server to start (simplified)
 MAX_ATTEMPTS=30
@@ -108,9 +108,9 @@ while [ $ATTEMPTS -lt $MAX_ATTEMPTS ]; do
         exit 0
     fi
     ATTEMPTS=$((ATTEMPTS + 1))
-    sleep 1
+    sleep 2
 done
 
-echo "Server failed to start within $MAX_ATTEMPTS seconds"
+echo "Server failed to start within 60 seconds"
 exit 1
 `

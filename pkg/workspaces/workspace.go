@@ -17,6 +17,7 @@ func NewSshOption(key string, value string) SshOption {
 
 type Workspace interface {
 	ID() string
+	SSHIsReady(ctx context.Context) (bool, error)
 	Ssh(ctx context.Context, command string, opts ...SshOption) (string, error)
 	Stop(ctx context.Context) error
 }

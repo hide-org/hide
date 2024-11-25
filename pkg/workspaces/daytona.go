@@ -21,7 +21,22 @@ func (c *DaytonaWorkspace) ID() string {
 	return c.workspace.GetId()
 }
 
-// Runs the command in the workspace container using daytona ssh CLI. 
+func (c *DaytonaWorkspace) SSHIsReady(ctx context.Context) (bool, error) {
+	projects, ok := c.workspace.GetProjectsOk()
+	if !ok || len(projects) == 0 {
+		return false, fmt.Errorf("workspace has no projects")
+	}
+	if len(projects) > 1 {
+		log.Warn().Msgf("workspace has more than one project, using the first one")
+	}
+
+	project := projects[0]
+	cmdArgs := []string{"ssh", c.workspace.GetId(), project.GetName(), "exit", "-o", "ConnectTimeout=5"}
+	cmd := exec.Command("daytona", cmdArgs...)
+	return cmd.Run() == nil, nil
+}
+
+// Runs the command in the workspace container using daytona ssh CLI.
 // Example: `daytona ssh hide-8a2c5bfdccea hide "curl -fsSL -o ~/.local/bin/hide 127.0.0.1:8000/bin/hide_amd64" -o "RemoteForward=8000 127.0.0.1:8000"`
 func (c *DaytonaWorkspace) Ssh(ctx context.Context, command string, opts ...SshOption) (string, error) {
 	projects, ok := c.workspace.GetProjectsOk()
@@ -41,7 +56,7 @@ func (c *DaytonaWorkspace) Ssh(ctx context.Context, command string, opts ...SshO
 	log.Debug().Msgf("Running command: daytona %s", strings.Join(cmdArgs, " "))
 
 	cmd := exec.CommandContext(ctx, "daytona", cmdArgs...)
-	
+
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		return "", fmt.Errorf("failed to create stdout pipe: %w", err)
@@ -63,7 +78,7 @@ func (c *DaytonaWorkspace) Ssh(ctx context.Context, command string, opts ...SshO
 	stderrBytes, _ := io.ReadAll(stderr) // We can ignore stderr read errors
 
 	if err := cmd.Wait(); err != nil {
-		return "", fmt.Errorf("failed to run command: %w\nstderr: %s", err, stderrBytes)
+		return "", fmt.Errorf("failed to run command: %w\n\nstdout:\n%s\n\nstderr:\n%s", err, stdoutBytes, stderrBytes)
 	}
 
 	log.Debug().Msgf("Command output:\n%s", stdoutBytes)
@@ -81,14 +96,21 @@ func NewDaytonaWorkspace(workspace *daytona.Workspace, daytona *daytona.APIClien
 
 type DaytonaService struct {
 	daytona *daytona.APIClient
+	apiKey  string
 }
 
-func NewDaytonaService(daytona *daytona.APIClient) Service {
-	return &DaytonaService{daytona: daytona}
+func NewDaytonaService(daytona *daytona.APIClient, apiKey string) Service {
+	return &DaytonaService{daytona: daytona, apiKey: apiKey}
 }
 
 func (s *DaytonaService) Create(ctx context.Context, gitURL string) (Workspace, error) {
 	repositoryContext := *daytona.NewGetRepositoryContext(gitURL)
+	ctx = context.WithValue(
+		ctx,
+		daytona.ContextAPIKeys,
+		map[string]daytona.APIKey{
+			"Bearer": {Key: s.apiKey, Prefix: "Bearer"},
+		})
 	repository, _, err := s.daytona.GitProviderAPI.GetGitContext(ctx).Repository(repositoryContext).Execute()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get repository context: %w", err)
@@ -123,6 +145,12 @@ func (s *DaytonaService) Create(ctx context.Context, gitURL string) (Workspace, 
 }
 
 func (s *DaytonaService) Get(ctx context.Context, ID string) (Workspace, error) {
+	ctx = context.WithValue(
+		ctx,
+		daytona.ContextAPIKeys,
+		map[string]daytona.APIKey{
+			"Bearer": {Key: s.apiKey, Prefix: "Bearer"},
+		})
 	workspace, _, err := s.daytona.WorkspaceAPI.GetWorkspace(ctx, ID).Execute()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get workspace: %w", err)

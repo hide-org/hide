@@ -11,18 +11,15 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/docker/docker/client"
 	"github.com/go-playground/validator/v10"
-	"github.com/hide-org/hide/pkg/devcontainer/v2"
-	"github.com/hide-org/hide/pkg/files"
-	"github.com/hide-org/hide/pkg/git"
-	"github.com/hide-org/hide/pkg/gitignore"
+	"github.com/hide-org/hide/pkg/daytona"
+	"github.com/hide-org/hide/pkg/github"
 	"github.com/hide-org/hide/pkg/handlers/v2"
-	"github.com/hide-org/hide/pkg/lsp/v2"
 	"github.com/hide-org/hide/pkg/model"
 	"github.com/hide-org/hide/pkg/project/v2"
-	"github.com/hide-org/hide/pkg/random"
+	"github.com/hide-org/hide/pkg/server"
 	"github.com/hide-org/hide/pkg/util"
+	"github.com/hide-org/hide/pkg/workspaces"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 )
@@ -71,33 +68,21 @@ var pmRunCmd = &cobra.Command{
 			}
 		}
 
-		dockerUser := os.Getenv("DOCKER_USER")
-		dockerToken := os.Getenv("DOCKER_TOKEN")
-
-		if dockerUser == "" || dockerToken == "" {
-			log.Warn().Msg("DOCKER_USER or DOCKER_TOKEN environment variables are empty. This might cause problems when pulling images from Docker Hub.")
+		var releaseProvider server.ReleaseProvider
+		var sshOpts []workspaces.SshOption
+		if os.Getenv("RELEASE_PROVIDER") == "local" {
+			releaseProvider = server.NewStaticReleaseProvider("127.0.0.1:8000/bin/hide_amd64")
+			sshOpts = append(sshOpts, workspaces.NewSshOption("RemoteForward", fmt.Sprintf("8000 %s", "127.0.0.1:8000")))
+		} else {
+			releaseProvider = server.NewGithubReleaseProvider(github.NewClient("hide-org", "hide"))
 		}
 
-		dockerClient, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
-		if err != nil {
-			log.Fatal().Err(err).Msg("Cannot initialize docker client")
-		}
-
-		containerRunner := devcontainer.NewDockerRunner(devcontainer.NewExecutorImpl(), devcontainer.NewImageManager(dockerClient, random.String, devcontainer.NewDockerHubRegistryCredentials(dockerUser, dockerToken)), devcontainer.NewDockerContainerManager(dockerClient))
+		serverInstaller := server.NewInstaller("~/.local/bin/hide", releaseProvider, sshOpts)
 		projectStore := project.NewInMemoryStore(make(map[string]*model.Project))
-		home, err := os.UserHomeDir()
-		if err != nil {
-			log.Fatal().Err(err).Msg("User's home directory is not set")
-		}
+		daytonaAPI := daytona.NewAPIClient(daytona.NewConfiguration())
+		workspacesService := workspaces.NewDaytonaService(daytonaAPI, os.Getenv("DAYTONA_API_KEY"))
 
-		projectsDir := filepath.Join(home, HidePath, ProjectsDir)
-
-		languageDetector := lsp.NewLanguageDetector()
-		diagnosticsStore := lsp.NewDiagnosticsStore()
-		clientPool := lsp.NewClientPool()
-		lspService := lsp.NewService(languageDetector, diagnosticsStore, clientPool, "")
-		fileManager := files.NewService(gitignore.NewMatcherFactory(), lspService, nil)
-		projectManager := project.NewProjectManager(containerRunner, projectStore, projectsDir, fileManager, lspService, languageDetector, random.String, git.NewClient())
+		projectManager := project.NewProjectManager(serverInstaller, projectStore, workspacesService)
 		validator := validator.New(validator.WithRequiredStructEnabled())
 
 		router := handlers.
