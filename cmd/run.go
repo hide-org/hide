@@ -110,6 +110,8 @@ var runCmd = &cobra.Command{
 			WithCreateProjectHandler(handlers.CreateProjectHandler{Manager: projectManager, Validator: validator}).
 			WithDeleteProjectHandler(handlers.DeleteProjectHandler{Manager: projectManager}).
 			WithCreateTaskHandler(handlers.CreateTaskHandler{Manager: projectManager}).
+			WithGetProjectHandler(handlers.GetProjectHandler{Manager: projectManager}).
+			WithGetProjectsHandler(handlers.GetProjectsHandler{Manager: projectManager}).
 			WithListTasksHandler(handlers.ListTasksHandler{Manager: projectManager}).
 			WithCreateFileHandler(handlers.CreateFileHandler{ProjectManager: projectManager}).
 			WithListFilesHandler(handlers.ListFilesHandler{ProjectManager: projectManager}).
