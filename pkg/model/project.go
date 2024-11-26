@@ -13,15 +13,21 @@ type Config struct {
 
 type ProjectId = string
 
+type Repository struct {
+	Url    string  `json:"url" validate:"required,url"`
+	Commit *string `json:"commit,omitempty"`
+}
+
 type Project struct {
 	ID          ProjectId `json:"id"`
 	Path        string    `json:"path"`
 	Config      Config    `json:"config"`
+	Repository  Repository `json:"repository"`
 	ContainerId string
 }
 
-func NewProject(id ProjectId, path string, config Config, containerId string) Project {
-	return Project{ID: id, Path: path, Config: config, ContainerId: containerId}
+func NewProject(id ProjectId, path string, config Config, containerId string, repository Repository) Project {
+	return Project{ID: id, Path: path, Config: config, ContainerId: containerId, Repository: repository}
 }
 
 func (project *Project) FindTaskByAlias(alias string) (devcontainer.Task, error) {
