@@ -86,6 +86,8 @@ markdown_extensions:
       emoji_generator: !!python/name:material.extensions.emoji.to_svg
 extra:
   social:
+    - icon: fontawesome/solid/paper-plane
+      link: mailto:hello@hide.sh
     - icon: fontawesome/brands/github
       link: https://github.com/hide-org/hide
     - icon: fontawesome/brands/x-twitter
