@@ -33,7 +33,7 @@ func TestCreateProjectHandler(t *testing.T) {
 				return &model.Project{ID: "123", Path: "/test/path"}, nil
 			},
 			request: project.CreateProjectRequest{
-				Repository: project.Repository{
+				Repository: model.Repository{
 					Url: "https://github.com/example/repo.git",
 				},
 			},
@@ -46,7 +46,7 @@ func TestCreateProjectHandler(t *testing.T) {
 				return nil, errors.New("Test error")
 			},
 			request: project.CreateProjectRequest{
-				Repository: project.Repository{
+				Repository: model.Repository{
 					Url: "https://github.com/example/repo.git",
 				},
 			},
@@ -56,7 +56,7 @@ func TestCreateProjectHandler(t *testing.T) {
 		{
 			name: "validation error",
 			request: project.CreateProjectRequest{
-				Repository: project.Repository{},
+				Repository: model.Repository{},
 			},
 			wantStatusCode: http.StatusBadRequest,
 			wantError:      "Validation error: Key: 'CreateProjectRequest.Repository' Error:Field validation for 'Repository' failed on the 'required' tag",
@@ -64,7 +64,7 @@ func TestCreateProjectHandler(t *testing.T) {
 		{
 			name: "url without protocol",
 			request: project.CreateProjectRequest{
-				Repository: project.Repository{
+				Repository: model.Repository{
 					Url: "github.com/django/django",
 				},
 			},
@@ -77,7 +77,7 @@ func TestCreateProjectHandler(t *testing.T) {
 				return &model.Project{ID: "123", Path: "/test/path"}, nil
 			},
 			request: project.CreateProjectRequest{
-				Repository: project.Repository{
+				Repository: model.Repository{
 					Url: "file:///code/django/django",
 				},
 			},

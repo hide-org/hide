@@ -145,7 +145,7 @@ func TestManagerImpl_ResolveTaskAlias_TaskNotFound(t *testing.T) {
 
 func TestManagerImpl_CreateTask(t *testing.T) {
 	const projectId = "test-project"
-	_project := model.NewProject(projectId, "/tmp/test-project", model.Config{}, "test-container")
+	_project := model.NewProject(projectId, "/tmp/test-project", model.Config{}, "test-container", model.Repository{})
 	devContainerRunner := &dc_mocks.MockDevContainerRunner{
 		ExecFunc: func(ctx context.Context, containerId string, command []string) (devcontainer.ExecResult, error) {
 			return devcontainer.ExecResult{StdOut: "test-stdout", StdErr: "test-stderr", ExitCode: 1}, nil
@@ -176,7 +176,7 @@ func TestManagerImpl_CreateTask_ProjectNotFound(t *testing.T) {
 
 func TestManagerImpl_CreateTask_ExecError(t *testing.T) {
 	const projectId = "test-project"
-	_project := model.NewProject(projectId, "/tmp/test-project", model.Config{}, "test-container")
+	_project := model.NewProject(projectId, "/tmp/test-project", model.Config{}, "test-container", model.Repository{})
 	devContainerRunner := &dc_mocks.MockDevContainerRunner{
 		ExecFunc: func(ctx context.Context, containerId string, command []string) (devcontainer.ExecResult, error) {
 			return devcontainer.ExecResult{}, errors.New("exec error")

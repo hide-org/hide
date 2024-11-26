@@ -24,13 +24,8 @@ import (
 
 const MaxDiagnosticsDelay = time.Second * 1
 
-type Repository struct {
-	Url    string  `json:"url" validate:"required,url"`
-	Commit *string `json:"commit,omitempty"`
-}
-
 type CreateProjectRequest struct {
-	Repository   Repository           `json:"repository" validate:"required"`
+	Repository   model.Repository     `json:"repository" validate:"required"`
 	DevContainer *devcontainer.Config `json:"devcontainer,omitempty"`
 	Languages    []lsp.LanguageId     `json:"languages,omitempty" validate:"dive,oneof=Go JavaScript Python TypeScript"`
 }
@@ -154,7 +149,7 @@ func (pm ManagerImpl) CreateProject(ctx context.Context, request CreateProjectRe
 		return nil, fmt.Errorf("Failed to launch devcontainer: %w", err)
 	}
 
-	project := model.Project{ID: projectId, Path: projectPath, Config: model.Config{DevContainerConfig: devContainerConfig}, ContainerId: containerId}
+	project := model.NewProject(projectId, projectPath, model.Config{DevContainerConfig: devContainerConfig}, containerId, request.Repository)
 
 	languages := request.Languages
 	if len(languages) == 0 {
