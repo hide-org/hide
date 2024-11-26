@@ -33,6 +33,16 @@ func (r *Router) WithCreateTaskHandler(handler http.Handler) *Router {
 	return r
 }
 
+func (r *Router) WithGetProjectHandler(handler http.Handler) *Router {
+	r.Handle("/projects/{id}", handler).Methods(http.MethodGet)
+	return r
+}
+
+func (r *Router) WithGetProjectsHandler(handler http.Handler) *Router {
+	r.Handle("/projects", handler).Methods(http.MethodGet)
+	return r
+}
+
 func (r *Router) WithListTasksHandler(handler http.Handler) *Router {
 	r.Handle("/projects/{id}/tasks", handler).Methods(http.MethodGet)
 	return r

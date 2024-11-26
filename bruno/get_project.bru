@@ -1,0 +1,15 @@
+meta {
+  name: get_project
+  type: http
+  seq: 14
+}
+
+get {
+  url: http://localhost:8080/projects/{{project}}
+  body: none
+  auth: none
+}
+
+vars:pre-request {
+  project: FILL ME
+}
