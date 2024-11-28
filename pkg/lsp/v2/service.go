@@ -198,6 +198,8 @@ func (s *ServiceImpl) GetDocumentOutline(ctx context.Context, file model.File) (
 		return DocumentOutline{}, NewLanguageServerNotFoundError(lang)
 	}
 
+	log.Debug().Msgf("get document outline %s", file.Path)
+
 	symbols, err := cli.GetDocumentSymbols(ctx, protocol.DocumentSymbolParams{
 		TextDocument: protocol.TextDocumentIdentifier{
 			URI: DocumentURI(file.Path),
@@ -269,12 +271,12 @@ func (s *ServiceImpl) Cleanup(ctx context.Context) error {
 	return nil
 }
 
-func (s *ServiceImpl) getClient(ctx context.Context, languageId lang.LanguageID) (Client, bool) {
+func (s *ServiceImpl) getClient(_ context.Context, languageId lang.LanguageID) (Client, bool) {
 	client, ok := s.clientPool.Get(languageId)
 	return client, ok
 }
 
-func (s *ServiceImpl) getClients(ctx context.Context) []Client {
+func (s *ServiceImpl) getClients(_ context.Context) []Client {
 	clients := make([]Client, 0)
 	for _, client := range s.clientPool.GetAll() {
 		clients = append(clients, client)
