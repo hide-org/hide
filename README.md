@@ -9,7 +9,7 @@ Hide provides containerized development environments for codebases and exposes A
 
 A typical installation for Hide consists of 2 parts: a runtime that runs on a local or remote Docker host, and an SDK that interacts with it. Runtime is the backend system responsible for managing development containers and executing tasks. SDK is a set of APIs and toolkits designed for coding agents to interact with the codebase.
 
-This repository contains the source code for the Hide Runtime. For more information on how to use Hide and Hide SDK, go to our documentation site: https://hide.sh
+This repository contains the source code for the Hide Runtime. For more information on how to use Hide and Hide SDK, go to our documentation site: https://docs.hide.sh
 
 ## Installation
 
