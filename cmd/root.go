@@ -20,7 +20,7 @@ var rootCmd = &cobra.Command{
 	Use: "hide",
 	Long: fmt.Sprintf(`%s
 %s is a headless IDE for coding agents.
-	`, splash, termlink.ColorLink("Hide", "https://hide.sh", "blue")),
+	`, splash, termlink.ColorLink("Hide", "https://docs.hide.sh", "blue")),
 	CompletionOptions: cobra.CompletionOptions{
 		HiddenDefaultCmd: true,
 	},
