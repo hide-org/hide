@@ -75,7 +75,7 @@ func (r *run) setupServer(ctx context.Context, adapter lang.Adapter, delegate la
 		return err
 	}
 
-	if err := r.registerSupport(srv, adapter); err != nil {
+	if err := r.registerSupport(adapter); err != nil {
 		return err
 	}
 
@@ -140,7 +140,7 @@ func (r *run) registerBin(srv lang.ServerName, bin *lang.Binary) error {
 	return nil
 }
 
-func (r *run) registerSupport(srv lang.ServerName, adapter lang.Adapter) error {
+func (r *run) registerSupport(adapter lang.Adapter) error {
 	r.Lock()
 	defer r.Unlock()
 
