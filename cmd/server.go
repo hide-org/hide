@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"runtime"
 	"syscall"
 	"time"
 
@@ -37,9 +38,20 @@ func init() {
 	pf.StringVar(&envPath, "env", DefaultDotEnvPath, "path to the .env file")
 	pf.BoolVar(&debug, "debug", false, "run service in a debug mode")
 	pf.IntVar(&port, "port", 8080, "service port")
-	cwd, _ := os.Getwd() // how can it fail?
+
+	cwd, err := os.Getwd()
+	if err != nil {
+		panic(err)
+	}
+
 	pf.StringVar(&workspaceDir, "workspace-dir", cwd, "path to workspace directory")
-	pf.StringVar(&lspBinaryDir, "binary-dir", "", "path to directory where language server binaries are installed")
+
+	binDir, err := getBinDir()
+	if err != nil {
+		panic(err)
+	}
+
+	pf.StringVar(&lspBinaryDir, "binary-dir", binDir, "path to directory where language server binaries are installed")
 
 	rootCmd.AddCommand(serverCmd)
 	serverCmd.AddCommand(serverRunCmd)
@@ -124,7 +136,7 @@ var serverRunCmd = &cobra.Command{
 		if err != nil {
 			log.Fatal().Err(err).Msg("Failed to create listener")
 		}
-		// helps if randomly assigned port 
+		// helps if randomly assigned port
 		fmt.Printf("Server listening on %s\n", listener.Addr().String())
 
 		server := &http.Server{
@@ -164,4 +176,39 @@ func detectLanguages(fileService files.Service, languageDetector lsp.LanguageDet
 	language := languageDetector.DetectMainLanguage(files)
 	log.Debug().Msgf("Detected main language %s", language)
 	return []lang.LanguageID{language}, nil
+}
+
+func getBinDir() (string, error) {
+	var baseDir string
+
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return "", err
+	}
+
+	switch runtime.GOOS {
+	case "linux":
+		xdgCache := os.Getenv("XDG_CACHE_HOME")
+		if xdgCache != "" {
+			baseDir = xdgCache
+		} else {
+			baseDir = filepath.Join(homeDir, ".cache")
+		}
+	case "darwin":
+		baseDir = filepath.Join(homeDir, "Library", "Caches")
+	case "windows":
+		localAppData := os.Getenv("LocalAppData")
+		if localAppData != "" {
+			baseDir = localAppData
+		} else {
+			baseDir = filepath.Join(homeDir, "AppData", "Local")
+		}
+	default:
+		// fallback
+		baseDir = filepath.Join(homeDir, ".cache")
+	}
+
+	lspDir := filepath.Join(baseDir, "hide", "bin")
+
+	return lspDir, nil
 }
