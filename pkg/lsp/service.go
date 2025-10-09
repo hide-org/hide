@@ -22,6 +22,7 @@ type (
 
 var LspServerExecutables = map[LanguageId]Command{
 	Go:         NewCommand("gopls", []string{}),
+	Java:       NewCommand("jdtls", []string{}),
 	Python:     NewCommand("pyright-langserver", []string{"--stdio"}),
 	JavaScript: NewCommand("typescript-language-server", []string{"--stdio"}),
 	TypeScript: NewCommand("typescript-language-server", []string{"--stdio"}),

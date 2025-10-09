@@ -12,6 +12,7 @@ import (
 // For reference see https://github.com/go-enry/go-enry/blob/master/data/languageInfo.go
 const (
 	Go         = LanguageId("Go")
+	Java       = LanguageId("Java")
 	JavaScript = LanguageId("JavaScript")
 	Python     = LanguageId("Python")
 	TypeScript = LanguageId("TypeScript")

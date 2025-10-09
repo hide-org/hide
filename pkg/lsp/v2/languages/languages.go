@@ -6,6 +6,7 @@ type LanguageID = string
 // For reference see https://github.com/go-enry/go-enry/blob/master/data/languageInfo.go
 const (
 	Go         LanguageID = "Go"
+	Java       LanguageID = "Java"
 	JavaScript LanguageID = "JavaScript"
 	Python     LanguageID = "Python"
 	TypeScript LanguageID = "TypeScript"
@@ -15,5 +16,5 @@ const (
 )
 
 var Adapters = []Adapter{
-	new(gopls), new(tsserver),
+	new(gopls), new(tsserver), new(jdtls),
 }

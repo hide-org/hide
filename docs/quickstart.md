@@ -203,7 +203,7 @@ print(file)
 #129 |     )
 ```
 
-It turns out there was a typo in my patch but Hide noticed it and highlighted the line with the error. Like a normal IDE, Hide runs continuous diagnostics on the code using LSP servers and highlights errors. Currently, Hide provides diagnostics for Python, JavaScript, TypeScript, and Go, and we can add more languages if needed. Let us know in the GitHub Issues if you need support for other languages.
+It turns out there was a typo in my patch but Hide noticed it and highlighted the line with the error. Like a normal IDE, Hide runs continuous diagnostics on the code using LSP servers and highlights errors. Currently, Hide provides diagnostics for Python, Java, JavaScript, TypeScript, and Go, and we can add more languages if needed. Let us know in the GitHub Issues if you need support for other languages.
 
 !!! note
 

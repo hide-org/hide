@@ -25,7 +25,7 @@ type Repository struct {
 type CreateProjectRequest struct {
 	Repository   Repository           `json:"repository" validate:"required"`
 	DevContainer *devcontainer.Config `json:"devcontainer,omitempty"`
-	Languages    []lang.LanguageID    `json:"languages,omitempty" validate:"dive,oneof=Go JavaScript Python TypeScript"`
+	Languages    []lang.LanguageID    `json:"languages,omitempty" validate:"dive,oneof=Go Java JavaScript Python TypeScript"`
 }
 
 type Manager interface {

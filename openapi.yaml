@@ -412,7 +412,7 @@ components:
           type: array
           items:
             type: string
-            enum: [Go, JavaScript, Python, TypeScript]
+            enum: [Go, Java, JavaScript, Python, TypeScript]
         devcontainer:
           $ref: '#/components/schemas/DevContainerConfig'
 

@@ -28,7 +28,7 @@ const MaxDiagnosticsDelay = time.Second * 1
 type CreateProjectRequest struct {
 	Repository   model.Repository     `json:"repository" validate:"required"`
 	DevContainer *devcontainer.Config `json:"devcontainer,omitempty"`
-	Languages    []lsp.LanguageId     `json:"languages,omitempty" validate:"dive,oneof=Go JavaScript Python TypeScript"`
+	Languages    []lsp.LanguageId     `json:"languages,omitempty" validate:"dive,oneof=Go Java JavaScript Python TypeScript"`
 }
 
 type TaskResult struct {

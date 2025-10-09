@@ -71,6 +71,12 @@ To build Hide from source, follow these steps:
     npm install -g typescript-language-server
     ```
 
+    For Java, install the [Eclipse JDT Language Server](https://projects.eclipse.org/projects/eclipse.jdt.ls). Ensure the `jdtls` binary is available on your `PATH`. For example, using Homebrew:
+
+    ```bash
+    brew install jdtls
+    ```
+
     For Go, install the `gopls` package:
 
     ```bash
